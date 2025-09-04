@@ -96,7 +96,7 @@ JSON_PAYLOAD=$(jq -n \
 echo "Sending request to Copilot..." >&2
 
 # Execute curl and process streaming response
-curl -s -N -X POST \
+curl -fS -s -N -X POST \
   https://api.githubcopilot.com/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${COPILOT_SESSION_TOKEN}" \

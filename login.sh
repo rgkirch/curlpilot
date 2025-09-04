@@ -29,7 +29,7 @@ TOKEN_FILE="$CONFIG_DIR/token.txt"
 # Function to get Copilot session token using GitHub PAT
 get_copilot_session_token() {
   local github_pat="$1"
-  copilot_token_response=$(curl -s -X GET \
+  copilot_token_response=$(curl -fS -s -X GET \
     https://api.github.com/copilot_internal/v2/token \
     -H "Authorization: token $github_pat" \
     -H "Editor-Plugin-Version: gptel/*" \
@@ -66,14 +66,14 @@ if [[ -f "$GITHUB_PAT_FILE" ]]; then
 fi
 
 echo "--- Step 1: Get Device Code ---"
-response=$(curl -s -X POST \
+response=$(curl -fS -s -X POST \
   https://github.com/login/device/code \
   -H "Content-Type: application/json" \
   -H "editor-plugin-version: gptel/*" \
   -H "editor-version: emacs/29.1" \
-  -d '{
-    "client_id": "Iv1.b507a08c87ecfe98",
-    "scope": "read:user"
+  -d '{ \
+    "client_id": "Iv1.b507a08c87ecfe98", \
+    "scope": "read:user" \
   }')
 
 device_code=$(echo "$response" | sed -E -n 's/.*device_code=([^&]+).*/\1/p')
@@ -92,18 +92,18 @@ read -r
 echo "--- Step 2: Poll for Access Token ---"
 # Loop to poll for the access token
 while true; do
-  access_token_response=$(curl -s -X POST \
+  access_token_response=$(curl -fS -s -X POST \
     https://github.com/login/oauth/access_token \
     -H "Content-Type: application/json" \
     -H "editor-plugin-version: gptel/*" \
     -H "editor-version: emacs/29.1" \
-    -d '{
-      "client_id": "Iv1.b507a08c87ecfe98",
-      "device_code": "'"$device_code"'",
-      "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
-    }')
+    -d '{ \
+      "client_id": "Iv1.b507a08c87ecfe98", \
+      "device_code": "'"$device_code"'", \
+      "grant_type": "urn:ietf:params:oauth:grant-type:device_code" \
+    }') \
 
-  # If response is empty, assume authorization is pending and continue polling
+  # If response is empty, assume authorization is pending and continue polling \
   if [[ -z "$access_token_response" ]]; then
     echo "Authorization pending (empty response)... waiting $interval seconds." >&2
     sleep "$interval"
