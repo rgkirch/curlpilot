@@ -1,0 +1,127 @@
+#!/bin/bash
+set -euo pipefail
+
+# Get the directory where the script is located
+SCRIPT_DIR=$(dirname "$0")
+
+# Define file paths relative to the script's directory
+CONFIG_DIR="$HOME/.config/curlpilot"
+mkdir -p "$CONFIG_DIR"
+GITHUB_PAT_FILE="$CONFIG_DIR/github_pat.txt"
+TOKEN_FILE="$CONFIG_DIR/token.txt"
+
+# Function to get Copilot session token using GitHub PAT
+get_copilot_session_token() {
+  local github_pat="$1"
+  copilot_token_response=$(curl -s -X GET \
+    https://api.github.com/copilot_internal/v2/token \
+    -H "Authorization: token $github_pat" \
+    -H "Editor-Plugin-Version: gptel/*" \
+    -H "Editor-Version: emacs/29.1")
+
+  copilot_session_token=$(echo "$copilot_token_response" | jq -r '.token' || true)
+  expires_at=$(echo "$copilot_token_response" | jq -r '.expires_at' || true)
+
+  if [[ -n "$copilot_session_token" && -n "$expires_at" ]]; then
+    echo "COPILOT_SESSION_TOKEN='$copilot_session_token'" > "$TOKEN_FILE"
+    echo "EXPIRES_AT=$expires_at" >> "$TOKEN_FILE"
+
+    # --- MODIFICATION: Convert timestamp to human-readable date ---
+    human_readable_date=$(date -d "@$expires_at")
+    echo "Copilot Session Token obtained. Expires: $human_readable_date"
+    return 0 # Success
+  else
+    echo "Failed to get Copilot Session Token with provided GitHub PAT." >&2
+    echo "Response: $copilot_token_response" >&2 # Debugging output
+    return 1 # Failure
+  fi
+}
+
+# Try to use existing GitHub PAT
+if [[ -f "$GITHUB_PAT_FILE" ]]; then
+  GITHUB_PAT=$(cat "$GITHUB_PAT_FILE")
+  echo "Attempting to renew Copilot Session Token using saved GitHub PAT..."
+  if get_copilot_session_token "$GITHUB_PAT"; then
+    echo "Copilot Session Token renewed successfully."
+    exit 0
+  else
+    echo "Saved GitHub PAT failed to renew token. Proceeding with full login." >&2
+  fi
+fi
+
+echo "--- Step 1: Get Device Code ---"
+response=$(curl -s -X POST \
+  https://github.com/login/device/code \
+  -H "Content-Type: application/json" \
+  -H "editor-plugin-version: gptel/*" \
+  -H "editor-version: emacs/29.1" \
+  -d '{
+    "client_id": "Iv1.b507a08c87ecfe98",
+    "scope": "read:user"
+  }')
+
+device_code=$(echo "$response" | grep -oP 'device_code=\K[^&]+')
+user_code=$(echo "$response" | grep -oP 'user_code=\K[^&]+')
+verification_uri=$(echo "$response" | grep -oP 'verification_uri=\K[^&]+')
+interval=$(echo "$response" | grep -oP 'interval=\K[^&]+')
+
+# --- MODIFICATION: URL-decode the verification URI ---
+decoded_uri=$(printf '%b' "${verification_uri//%/\\x}")
+echo "Please go to this URL in your browser: $decoded_uri"
+
+echo "Enter this code: $user_code"
+echo "Press Enter after you have authorized the application in your browser."
+read -r
+
+echo "--- Step 2: Poll for Access Token ---"
+# Loop to poll for the access token
+while true; do
+  access_token_response=$(curl -s -X POST \
+    https://github.com/login/oauth/access_token \
+    -H "Content-Type: application/json" \
+    -H "editor-plugin-version: gptel/*" \
+    -H "editor-version: emacs/29.1" \
+    -d '{
+      "client_id": "Iv1.b507a08c87ecfe98",
+      "device_code": "'"$device_code"'",
+      "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
+    }')
+
+  # If response is empty, assume authorization is pending and continue polling
+  if [[ -z "$access_token_response" ]]; then
+    echo "Authorization pending (empty response)... waiting $interval seconds." >&2
+    sleep "$interval"
+    continue
+  fi
+
+  error=$(echo "$access_token_response" | grep -oP 'error=\K[^&]+' || true)
+
+  if [[ "$error" == "authorization_pending" ]]; then
+    echo "Authorization pending... waiting $interval seconds." >&2
+    sleep "$interval"
+  elif [[ "$error" == "slow_down" ]]; then
+    # Increase interval if server asks to slow down
+    interval=$((interval + 5))
+    echo "Slow down... increasing wait time to $interval seconds." >&2
+    sleep "$interval"
+  elif [[ "$error" == "access_denied" ]]; then
+    echo "Authorization denied. Exiting." >&2
+    exit 1
+  elif [[ "$error" == "expired_token" ]]; then
+    echo "Device code expired. Exiting." >&2
+    exit 1
+  else
+    github_pat=$(echo "$access_token_response" | grep -oP 'access_token=\K[^&]+')
+    echo "GitHub PAT obtained."
+    break
+  fi
+done
+
+# Save GitHub PAT for future renewals
+echo "$github_pat" > "$GITHUB_PAT_FILE"
+echo "GitHub PAT saved to $GITHUB_PAT_FILE"
+
+echo "--- Step 3: Get Copilot Session Token ---"
+get_copilot_session_token "$github_pat"
+
+echo "Login process complete."
