@@ -43,7 +43,7 @@ get_copilot_session_token() {
     echo "EXPIRES_AT=$expires_at" >> "$TOKEN_FILE"
 
     # --- MODIFICATION: Convert timestamp to human-readable date ---
-    human_readable_date=$(date -d "@$expires_at")
+    human_readable_date=$(date -r "$expires_at" +"%Y-%m-%d %H:%M:%S")
     echo "Copilot Session Token obtained. Expires: $human_readable_date"
     return 0 # Success
   else
