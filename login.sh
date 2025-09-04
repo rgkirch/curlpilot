@@ -76,10 +76,10 @@ response=$(curl -s -X POST \
     "scope": "read:user"
   }')
 
-device_code=$(echo "$response" | grep -oP 'device_code=\K[^&]+')
-user_code=$(echo "$response" | grep -oP 'user_code=\K[^&]+')
-verification_uri=$(echo "$response" | grep -oP 'verification_uri=\K[^&]+')
-interval=$(echo "$response" | grep -oP 'interval=\K[^&]+')
+device_code=$(echo "$response" | sed -E -n 's/.*device_code=([^&]+).*/\1/p')
+user_code=$(echo "$response" | sed -E -n 's/.*user_code=([^&]+).*/\1/p')
+verification_uri=$(echo "$response" | sed -E -n 's/.*verification_uri=([^&]+).*/\1/p')
+interval=$(echo "$response" | sed -E -n 's/.*interval=([^&]+).*/\1/p')
 
 # --- MODIFICATION: URL-decode the verification URI ---
 decoded_uri=$(printf '%b' "${verification_uri//%/\\x}")
@@ -110,7 +110,7 @@ while true; do
     continue
   fi
 
-  error=$(echo "$access_token_response" | grep -oP 'error=\K[^&]+' || true)
+  error=$(echo "$access_token_response" | sed -E -n 's/.*error=([^&]+).*/\1/p' || true)
 
   if [[ "$error" == "authorization_pending" ]]; then
     echo "Authorization pending... waiting $interval seconds." >&2
@@ -127,7 +127,7 @@ while true; do
     echo "Device code expired. Exiting." >&2
     exit 1
   else
-    github_pat=$(echo "$access_token_response" | grep -oP 'access_token=\K[^&]+')
+    github_pat=$(echo "$access_token_response" | sed -E -n 's/.*access_token=([^&]+).*/\1/p')
     echo "GitHub PAT obtained."
     break
   fi
