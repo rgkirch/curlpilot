@@ -1,0 +1,26 @@
+# curlpilot
+
+This directory contains scripts for interacting with the Copilot API.
+
+### `login.sh`
+
+This script handles authentication and login with the Copilot API. It should be run to ensure your session is authenticated before using other `curlpilot` scripts that require API access. Upon successful login, it saves the Personal Access Token (PAT) to `$HOME/.config/curlpilot/github_pat.txt` and the Copilot session token to `$HOME/.config/curlpilot/token.txt`.
+
+*   **Personal Access Token (PAT):** A PAT is an alternative to using your password for authentication to GitHub (or other services). It's a string of characters that grants specific permissions to your account.
+*   **Session Token:** A session token is a temporary credential that authenticates your current session with the Copilot API, allowing subsequent requests to be made without re-authenticating.
+
+### `chat.sh`
+
+This script is designed to send git diffs to Copilot for review. It takes a literal text message as an argument, which is then passed to Copilot. This message should be a plain, descriptive string.
+
+**Example usage:**
+
+```bash
+./chat.sh "Tell me one fun animal fact."
+```
+
+**Example Response:**
+
+```
+Sea otters hold hands while they sleep so they don’t drift apart from each other in the water!
+```
