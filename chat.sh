@@ -95,7 +95,6 @@ JSON_PAYLOAD=$(jq -n \
 
 echo "Sending request to Copilot..." >&2
 
-# Execute curl and process streaming response
 curl -fS -s -N -X POST \
   https://api.githubcopilot.com/chat/completions \
   -H "Content-Type: application/json" \
@@ -107,28 +106,7 @@ curl -fS -s -N -X POST \
   -H "Copilot-Integration-Id: vscode-chat" \
   -H "Editor-Plugin-Version: gptel/*" \
   -H "Editor-Version: emacs/29.1" \
-  -d "$JSON_PAYLOAD" | \
-# --- MODIFICATION 2: Parse streaming response robustly with jq ---
-while IFS= read -r line; do
-  # Check for the end-of-stream signal
-  if [[ "$line" == "data: [DONE]" ]]; then
-    break
-  fi
-
-  # Process only data lines
-  if [[ "$line" == "data: "* ]]; then
-    # Remove "data: " prefix
-    json_data="${line#data: }"
-
-    # Safely parse the content from the JSON chunk using jq.
-    # The filter '.choices[0].delta.content // ""' gets the content string.
-    # If the content field is missing or null, it defaults to an empty string.
-    content=$(echo "$json_data" | jq -r '.choices[0].delta.content // ""')
-
-    # Print the content without a trailing newline
-    printf "%s" "$content"
-  fi
-done
-
-# Add a final newline at the very end for clean terminal output
-echo
+  -d "$JSON_PAYLOAD" \
+| sed 's/^data: //' \
+| while read -r line; do echo "$line" | jq -e . >/dev/null 2>&1 && echo "$line"; done \
+| jq -j '.choices[0].delta.content? // empty'
