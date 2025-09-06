@@ -24,3 +24,4 @@ This script is designed to send git diffs to Copilot for review. It takes a lite
 ```
 Sea otters hold hands while they sleep so they don’t drift apart from each other in the water!
 ```
+

@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
-set -euox pipefail
+set -euo pipefail
 
 # Get the directory where the script is located
 SCRIPT_DIR=$(dirname "$0")
@@ -138,11 +138,11 @@ COMMON_CURL_ARGS=(
 if [ "$STREAM_ENABLED" = true ]; then
   curl "${COMMON_CURL_ARGS[@]}" \
   | sed 's/^data: //' \
-  | while read -r line; do echo "$line" | jq -e . >/dev/null 2>&1 && echo "$line"; done \
+  | while read -r line; do echo "$line" | jq . >/dev/null 2>&1 && echo "$line"; done \
   | jq -j '.choices[0].delta.content? // empty'
+  echo
 else
   curl "${COMMON_CURL_ARGS[@]}" \
   | jq -j '.choices[0].message.content // empty'
   echo
 fi
-
