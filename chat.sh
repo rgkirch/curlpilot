@@ -72,7 +72,7 @@ read_and_check_token() {
 
   source "$TOKEN_FILE" # Load COPILOT_SESSION_TOKEN and EXPIRES_AT
 
-  if [[ -z "${COPILOT_SESSION_TOKEN}" || -z "${EXPIRES_AT}" ]]; then
+  if [[ -z "${COPILOT_SESSION_TOKEN-}" || -z "${EXPIRES_AT-}" ]]; then
     echo "Error: Token file is incomplete or malformed. Please run $LOGIN_SCRIPT again." >&2
     exit 1
   fi
@@ -105,44 +105,45 @@ PROMPT=$(cat)
 # Generate UUID
 REQUEST_ID=$(uuidgen)
 
-# --- Build JSON payload safely with jq ---
-JSON_PAYLOAD=$(jq -n \
-  --arg prompt "$PROMPT" \
-  --argjson stream_enabled "${STREAM_ENABLED}" \
-  '{
-    "model": "gpt-4.1",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."}, 
-      {"role": "user", "content": $prompt}
-    ],
-    "stream": $stream_enabled
-  }')
-
 echo "Sending request to Copilot..." >&2
 
-COMMON_CURL_ARGS=(
-  -fS -s -N -X POST \
-  https://api.githubcopilot.com/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${COPILOT_SESSION_TOKEN}" \
-  -H "Openai-Intent: conversation-panel" \
-  -H "X-Request-Id: ${REQUEST_ID}" \
-  -H "Vscode-Sessionid: some-session-id" \
-  -H "Vscode-Machineid: some-machine-id" \
-  -H "Copilot-Integration-Id: vscode-chat" \
-  -H "Editor-Plugin-Version: gptel/*" \
-  -H "Editor-Version: emacs/29.1" \
-  -d "$JSON_PAYLOAD"
-)
-
+# Set the dynamic part of the jq filter based on the stream setting.
 if [ "$STREAM_ENABLED" = true ]; then
-  curl "${COMMON_CURL_ARGS[@]}" \
-  | sed 's/^data: //' \
-  | while read -r line; do echo "$line" | jq . >/dev/null 2>&1 && echo "$line"; done \
-  | jq -j '.choices[0].delta.content? // empty'
-  echo
+  JQ_FILTER_KEY="delta"
 else
-  curl "${COMMON_CURL_ARGS[@]}" \
-  | jq -j '.choices[0].message.content // empty'
-  echo
+  JQ_FILTER_KEY="message"
 fi
+
+# --- Unified Pipeline ---
+# This single pipeline builds the JSON payload, sends it to the API via curl,
+# and processes the streaming or non-streaming response in one continuous flow.
+echo "$PROMPT" |
+  jq -Rs \
+    --argjson stream_enabled "${STREAM_ENABLED}" \
+    '{
+      "model": "gpt-4.1",
+      "messages": [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": .}
+      ],
+      "stream": $stream_enabled
+    }' |
+  curl -fS -s -N -X POST \
+    https://api.githubcopilot.com/chat/completions \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${COPILOT_SESSION_TOKEN}" \
+    -H "Openai-Intent: conversation-panel" \
+    -H "X-Request-Id: ${REQUEST_ID}" \
+    -H "Vscode-Sessionid: some-session-id" \
+    -H "Vscode-Machineid: some-machine-id" \
+    -H "Copilot-Integration-Id: vscode-chat" \
+    -H "Editor-Plugin-Version: gptel/*" \
+    -H "Editor-Version: emacs/29.1" \
+    -d @- |
+  grep -v '^data: \[DONE\]$' |
+  sed 's/^data: //' |
+  jq -j -n --arg key "$JQ_FILTER_KEY" \
+    'inputs | try (.choices[0][$key].content? // empty)'
+
+echo
+
