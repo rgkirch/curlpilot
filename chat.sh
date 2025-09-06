@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
-set -euo pipefail
+set -euox pipefail
 
 # Get the directory where the script is located
 SCRIPT_DIR=$(dirname "$0")
@@ -24,6 +24,44 @@ SCRIPT_DIR=$(dirname "$0")
 CONFIG_DIR="$HOME/.config/curlpilot"
 TOKEN_FILE="$CONFIG_DIR/token.txt"
 LOGIN_SCRIPT="$SCRIPT_DIR/login.sh"
+
+# Default stream setting
+STREAM_ENABLED=true
+
+# Function to display usage information
+usage() {
+  echo "Usage: echo \"your prompt\" | $0 [--stream=true|false] [--help]"
+  echo ""
+  echo "Options:"
+  echo "  --stream=true|false  Enable or disable streaming responses. Default is true."
+  echo "  --help               Display this help message."
+  exit 0
+}
+
+# Parse arguments
+for arg in "$@"; do
+  case $arg in
+    --stream=true)
+      STREAM_ENABLED=true
+      shift # Remove argument from processing
+      ;;
+    --stream=false)
+      STREAM_ENABLED=false
+      shift # Remove argument from processing
+      ;;
+    --stream=*)
+      echo "Error: Invalid value for --stream. Use --stream=true or --stream=false." >&2
+      exit 1
+      ;;
+    --help)
+      usage
+      ;;
+    *)
+      # Unknown argument, keep it for later processing if any
+      ;;
+  esac
+done
+
 
 # Function to read token and check expiration
 read_and_check_token() {
@@ -56,46 +94,34 @@ read_and_check_token() {
 # Read and check token
 read_and_check_token
 
-# Get user prompt
-PROMPT_ARGS="$*" # Capture all arguments first
-PROMPT_PIPE=""
-
-if [[ -p /dev/stdin ]]; then
-  PROMPT_PIPE=$(cat)
+# Get user prompt from stdin
+if [ -t 0 ]; then
+    echo "Error: This script expects input via stdin. Example: echo \"your prompt\" | $0" >&2
+    exit 1
 fi
-
-# Combine arguments and piped input
-if [[ -n "$PROMPT_ARGS" && -n "$PROMPT_PIPE" ]]; then
-  PROMPT="${PROMPT_ARGS}\n${PROMPT_PIPE}"
-elif [[ -n "$PROMPT_ARGS" ]]; then
-  PROMPT="$PROMPT_ARGS"
-elif [[ -n "$PROMPT_PIPE" ]]; then
-  PROMPT="$PROMPT_PIPE"
-else
-  echo "Usage: $0 <your_prompt>"
-  echo "Or pipe input: echo \"Your prompt\" | $0"
-  exit 1
-fi
+PROMPT=$(cat)
 
 
 # Generate UUID
 REQUEST_ID=$(uuidgen)
 
-# --- MODIFICATION 1: Build JSON payload safely with jq ---
+# --- Build JSON payload safely with jq ---
 JSON_PAYLOAD=$(jq -n \
   --arg prompt "$PROMPT" \
+  --argjson stream_enabled "${STREAM_ENABLED}" \
   '{
     "model": "gpt-4.1",
     "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "system", "content": "You are a helpful assistant."}, 
       {"role": "user", "content": $prompt}
     ],
-    "stream": true
+    "stream": $stream_enabled
   }')
 
 echo "Sending request to Copilot..." >&2
 
-curl -fS -s -N -X POST \
+COMMON_CURL_ARGS=(
+  -fS -s -N -X POST \
   https://api.githubcopilot.com/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${COPILOT_SESSION_TOKEN}" \
@@ -106,7 +132,17 @@ curl -fS -s -N -X POST \
   -H "Copilot-Integration-Id: vscode-chat" \
   -H "Editor-Plugin-Version: gptel/*" \
   -H "Editor-Version: emacs/29.1" \
-  -d "$JSON_PAYLOAD" \
-| sed 's/^data: //' \
-| while read -r line; do echo "$line" | jq -e . >/dev/null 2>&1 && echo "$line"; done \
-| jq -j '.choices[0].delta.content? // empty'
+  -d "$JSON_PAYLOAD"
+)
+
+if [ "$STREAM_ENABLED" = true ]; then
+  curl "${COMMON_CURL_ARGS[@]}" \
+  | sed 's/^data: //' \
+  | while read -r line; do echo "$line" | jq -e . >/dev/null 2>&1 && echo "$line"; done \
+  | jq -j '.choices[0].delta.content? // empty'
+else
+  curl "${COMMON_CURL_ARGS[@]}" \
+  | jq -j '.choices[0].message.content // empty'
+  echo
+fi
+
