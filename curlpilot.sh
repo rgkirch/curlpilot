@@ -54,7 +54,7 @@ summarize_history() {
   FULL_HISTORY=$(cat "$HISTORY_FILE")
 
   # Craft a summarization prompt based on the configured level
-  case "$SUMMARIZATION_LEVEL" in
+  case "$(echo "$SUMMARIZATION_LEVEL" | tr '[:lower:]' '[:upper:]')" in
     CONCISE)
       SUMMARIZATION_PROMPT="${SUMMARIZATION_PROMPT_CONCISE}${FULL_HISTORY}"
       ;;

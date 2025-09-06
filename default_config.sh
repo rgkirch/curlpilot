@@ -20,10 +20,10 @@ HISTORY_FILE="$CONFIG_DIR/convo_history.txt"
 SUMMARIZATION_LEVEL="NORMAL"
 
 # Prompt for concise summarization
-SUMMARIZATION_PROMPT_CONCISE="The following is a conversation history. Summarize it very briefly, focusing only on the most critical facts and instructions. Omit all conversational filler and abstract details.\n\n"
+SUMMARIZATION_PROMPT_CONCISE="The following is a conversation history. Summarize it very briefly, focusing only on the most critical facts and instructions. Omit all conversational filler and abstract details."
 
 # Prompt for normal summarization
-SUMMARIZATION_PROMPT_NORMAL="The following is a conversation history. Please summarize it concisely, using more abstract language and omitting unimportant details, to serve as context for future conversation turns. Do not add any conversational filler, just the summarized history:\n\n"
+SUMMARIZATION_PROMPT_NORMAL="The following is a conversation history. Please summarize it concisely, using more abstract language and omitting unimportant details, to serve as context for future conversation turns. Do not add any conversational filler, just the summarized history:"
 
 # Prompt for detailed summarization
-SUMMARIZATION_PROMPT_DETAILED="The following is a conversation history. Summarize it, preserving all key instructions, facts, and examples, especially code or technical details. Be concise, omit unimportant or repetitive chatter, and do not add conversational filler.\n\n"
+SUMMARIZATION_PROMPT_DETAILED="The following is a conversation history. Preserve User/Assistant interaction but use simple language and remove superfluous language while still preserving all detail."
