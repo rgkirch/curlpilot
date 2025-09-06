@@ -44,7 +44,7 @@ get_copilot_session_token() {
 
     # --- MODIFICATION: Convert timestamp to human-readable date ---
     human_readable_date=$(date -r "$expires_at" +"%Y-%m-%d %H:%M:%S")
-    echo "Copilot Session Token obtained. Expires: $human_readable_date"
+    echo "Copilot Session Token obtained. Expires: $human_readable_date" >&2
     return 0 # Success
   else
     echo "Failed to get Copilot Session Token with provided GitHub PAT." >&2
@@ -56,16 +56,16 @@ get_copilot_session_token() {
 # Try to use existing GitHub PAT
 if [[ -f "$GITHUB_PAT_FILE" ]]; then
   GITHUB_PAT=$(cat "$GITHUB_PAT_FILE")
-  echo "Attempting to renew Copilot Session Token using saved GitHub PAT..."
+  echo "Attempting to renew Copilot Session Token using saved GitHub PAT..." >&2
   if get_copilot_session_token "$GITHUB_PAT"; then
-    echo "Copilot Session Token renewed successfully."
+    echo "Copilot Session Token renewed successfully." >&2
     exit 0
   else
     echo "Saved GitHub PAT failed to renew token. Proceeding with full login." >&2
   fi
 fi
 
-echo "--- Step 1: Get Device Code ---"
+echo "--- Step 1: Get Device Code ---"  >&2
 response=$(curl -fS -s -X POST \
   https://github.com/login/device/code \
   -H "Content-Type: application/json" \
@@ -89,7 +89,7 @@ echo "Enter this code: $user_code"
 echo "Press Enter after you have authorized the application in your browser."
 read -r
 
-echo "--- Step 2: Poll for Access Token ---"
+echo "--- Step 2: Poll for Access Token ---"  >&2
 # Loop to poll for the access token
 while true; do
   access_token_response=$(curl -fS -s -X POST \
@@ -128,16 +128,16 @@ while true; do
     exit 1
   else
     github_pat=$(echo "$access_token_response" | sed -E -n 's/.*access_token=([^&]+).*/\1/p')
-    echo "GitHub PAT obtained."
+    echo "GitHub PAT obtained." >&2
     break
   fi
 done
 
 # Save GitHub PAT for future renewals
 echo "$github_pat" > "$GITHUB_PAT_FILE"
-echo "GitHub PAT saved to $GITHUB_PAT_FILE"
+echo "GitHub PAT saved to $GITHUB_PAT_FILE" >&2
 
-echo "--- Step 3: Get Copilot Session Token ---"
+echo "--- Step 3: Get Copilot Session Token ---" >&2
 get_copilot_session_token "$github_pat"
 
-echo "Login process complete."
+echo "Login process complete." >&2
