@@ -25,3 +25,10 @@ This script is designed to send git diffs to Copilot for review. It takes a lite
 Sea otters hold hands while they sleep so they don’t drift apart from each other in the water!
 ```
 
+### Feature Ideas
+
+*   **Search previous user prompts:** Implement Ctrl+r functionality to search through previous user prompts. User prompts should be saved in a raw, unsummarized format.
+*   **Embedding model for conversation history paths:** Utilize an embedding model to generate folder paths for conversation history, enabling more intelligent organization.
+*   **Customizable prompts from file:** Allow users to define and customize prompts by reading them from a file located at `~/.config/curlpilot/`.
+*   **Easy tool integration:** Simplify tool integration by allowing any new script placed under `~/.config/curlpilot/tools/` to automatically function as a tool.
+
