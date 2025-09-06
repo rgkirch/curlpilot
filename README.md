@@ -27,6 +27,7 @@ Sea otters hold hands while they sleep so they don’t drift apart from each oth
 
 ### Feature Ideas
 
+*   **Portable conversations:** All conversation data is stored locally, allowing portability across systems by simply syncing the relevant files.
 *   **Search previous user prompts:** Implement Ctrl+r functionality to search through previous user prompts. User prompts should be saved in a raw, unsummarized format.
 *   **Embedding model for conversation history paths:** Utilize an embedding model to generate folder paths for conversation history, enabling more intelligent organization.
 *   **Customizable prompts from file:** Allow users to define and customize prompts by reading them from a file located at `~/.config/curlpilot/`.

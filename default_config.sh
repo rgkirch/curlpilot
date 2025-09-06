@@ -119,16 +119,17 @@ Your final output must be a single, valid JSON object with one key: `reconciled_
 
 ## Input for Reconciliation
 ```json
-{
-  "existing_directives": [
-    // Insert the existing JSON list here
-  ],
-  "newly_extracted_directives": [
-    // Insert the new JSON list here
-  ]
-}
 EOF
 )
+# {
+#   "existing_directives": [
+#     // Insert the existing JSON list here
+#   ],
+#   "newly_extracted_directives": [
+#     // Insert the new JSON list here
+#   ]
+# }
+# ```
 
 # persistent_persona_directives are the Constitution. They are the enduring, high-level laws that govern the assistant's behavior. Amending the Constitution is a deliberate process of replacing or adding articles (e.g., "Call me Admiral" replaces "Call me Captain"). The reconciliation prompt we built is perfect for this.
 # current_task_context is the Mission Briefing. It's a temporary, detailed set of instructions and data for a single, specific operation. As the mission evolves over several messages, you don't "reconcile" the old briefing with the new one; you accumulate information and update specific parameters within the current briefing.
@@ -136,20 +137,39 @@ EOF
 # if a user adds a new fact, you don't want to risk it being misinterpreted as a "conflict" with an old fact. You simply want to add it to the list of facts
 
 PROMPT_RECONCILE_CONTEXT=$(set <<'EOF'
-You are a state management AI. Your job is to maintain an accurate understanding of the user's current task by updating a "Task Context" object based on their latest message.
+You are a state management AI. Your purpose is to maintain a complete and accurate understanding of the user's current task by intelligently updating a "Task Context" object based on their latest message. You must account for "yak shaving," where new, prerequisite tasks emerge that must be completed before returning to the main goal.
 
 You will be given two inputs:
-1.  `existing_task_context`: The JSON object representing our understanding of the task before the latest message.
-2.  `new_user_message`: The user's most recent message.
+1.  `existing_task_context`: The JSON object representing our understanding of the task *before* the latest message.
+2.  `new_user_message`: The raw text of the user's most recent message.
 
-Your task is to analyze the `new_user_message` and produce a single, `updated_task_context` JSON object by following these rules:
+Your goal is to produce a single, `updated_task_context` JSON object. The final object must adhere to the following principles:
 
-1.  **Carry Over:** All information from the `existing_task_context` should be carried over unless explicitly changed.
-2.  **Accumulate Information:** If the new message provides additional facts or constraints, add them to the appropriate lists (`facts`, `constraints_and_requirements`).
-3.  **Apply Updates:** If the new message corrects or changes a piece of information already in the context (e.g., changes a budget, a name, or a requirement), the new information from the latest message is considered the correct version and must replace the old information.
-4.  **Maintain Structure:** The final output must be the complete, updated task context object, maintaining its original structure.
+## Guiding Principles for Context Updates
 
-**Inputs:**
+### 1. Overall Precedence 🥇
+The updated context must always reflect the most current information. If the `new_user_message` contradicts or replaces any existing information, the **new information is the single source of truth**.
+
+### 2. Principle of Cautious Completion and Clarity 🚦
+* **Error on the side of caution.** An objective should only be considered complete if the user's message is **clear and unambiguous** about its completion.
+* **Communicate Uncertainty.** If you are uncertain about whether the current objective is complete, **you must not remove it**. Instead, add a brief note explaining the ambiguity to the `processing_notes` list.
+
+### 3. Key-Specific Logic 🔑
+You must apply specific update logic based on the key within the JSON object:
+
+* **For `objectives` (a list of strings representing a task stack):**
+    * **The list is a stack:** Treat this list as a stack of goals. The objective at the front of the list (index 0) is the **most immediate task**.
+    * **Adding a Prerequisite (Yak Shaving):** If the new message introduces a sub-task that appears to be a **blocker, dependency, or necessary first step** for the current objective, add this new task to the **front** of the list.
+    * **Completing a Task:** If the user **unambiguously confirms** the completion of the current objective (at the front of the list), **remove it** to reveal the next task.
+
+* **For `facts` and `constraints_and_requirements` (lists of strings):**
+    * **Accumulate** new, non-conflicting items.
+    * **Update or Remove** existing items if the user provides a direct correction or cancellation.
+
+## Output Format
+Your final output must be a single, valid JSON object containing four top-level keys: `objectives`, `facts`, `constraints_and_requirements`, and `processing_notes` (which is a list of strings).
+
+## Inputs
 ```json
 {
   "existing_task_context": {
