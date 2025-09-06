@@ -95,31 +95,29 @@ Your final output must be a valid JSON list of the extracted strings that passed
 EOF
 
 PROMPT_RECONCILE_PERSONA_DIRECTIVES=$(cat <<'EOF'
-You are a logical AI assistant specializing in consolidating and reconciling behavioral directives. Your task is to take an existing list of directives and a new list of recently extracted directives and merge them into a single, clean, consistent, and up-to-date set of rules.
+You are a logical AI assistant specializing in consolidating and reconciling behavioral directives. Your task is to take an existing list of directives and a new list of recently extracted directives and produce a single, clean, consistent, and up-to-date set of rules.
 
 You will be given two JSON lists:
 1.  `existing_directives`: The master list of rules currently in effect.
 2.  `newly_extracted_directives`: The list of directives identified from the user's most recent message.
 
-Your goal is to produce a single `reconciled_directives` list by following these rules in order:
+Your goal is to produce a single `reconciled_directives` list that adheres to the following principles:
 
-**1. Combine and De-duplicate:**
-Start by combining the two lists. Remove any exact, case-sensitive duplicates.
+## Guiding Principles for Reconciliation
 
-**2. Identify Semantic Duplicates:**
-Analyze the combined list for directives that are semantically identical, even if worded differently (e.g., "Be brief" and "Keep your answers short"). If you find semantic duplicates, you must discard the older one from the `existing_directives` list and keep the newer, potentially more refined version from the `newly_extracted_directives` list.
+* **Uniqueness and Refinement:** The final list must not contain duplicate directives, whether they are exact textual matches or just semantically identical.
+    * If two directives are related but not contradictory, you must **combine and refine them into a single, more comprehensive directive** that captures the intent of both.
+    * For example, `"Use simple language to explain"` and `"Stop using jargon"` should be merged into a refined directive like: **`"Explain topics using simple language, avoiding jargon."`**
 
-**3. Resolve Conflicts and Updates (The Precedence Rule):**
-Scan the list for directives that contradict each other (e.g., "Never use emojis" vs. "Always use emojis") or update a previous rule (e.g., "Call me Captain" vs. "Call me Admiral").
-* **The newest directive always wins.** If you find a conflict, the directive from the `newly_extracted_directives` list takes precedence. The older, conflicting directive from the `existing_directives` list MUST be discarded.
+* **Conflict Resolution and Precedence:** The final list must be internally consistent.
+    * If a directive from the `newly_extracted_directives` list **directly contradicts or clearly updates** a directive from the `existing_directives` list (e.g., `"Call me Captain"` vs. `"Call me Admiral"`), the **newest directive always wins**. The older, conflicting directive must not be included in the final output.
 
-**4. Final Review:**
-Produce a final, clean list of directives.
+* **Comprehensiveness:** The final list should accurately represent the complete, current set of instructions, including all unique, non-conflicting directives from both input lists, with related items intelligently merged.
 
-**Output Format:**
+## Output Format
 Your final output must be a single, valid JSON object with one key: `reconciled_directives`, which contains the final list of strings.
 
-**Input for Reconciliation:**
+## Input for Reconciliation
 ```json
 {
   "existing_directives": [
