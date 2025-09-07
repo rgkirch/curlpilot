@@ -158,7 +158,6 @@ You will be given three inputs:
   "required": ["existing_directives", "newly_extracted_directives", "new_user_message"]
 }
 ```
-
 Your goal is to produce a single, definitive list of reconciled directives as a valid JSON array of strings.
 
 ## Guiding Principles for Reconciliation
@@ -176,6 +175,9 @@ Your goal is to produce a single, definitive list of reconciled directives as a 
 
 ## Output Format
 Your final output must be a single, valid JSON list of strings representing the reconciled directives.
+**User Request to Analyze:**
+%s
+EOF
 
 PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION_SOA_2=$(cat <<'EOF'
 You are a master AI logician. Your task is to intelligently update a list of persistent persona directives by reconciling three sources of information.
