@@ -34,9 +34,31 @@ You are the assistant and this is your conversation history with the user. Rewri
 EOF
 )
 
-# I'll use this on new user messages to provide PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION and PROMPT_RECONCILE_TASK_CONTEXT_WITH_SUPERVISION with the first pass of extracted data.
-PROMPT_EXTRACT_PERSONA_DIRECTIVES_AND_TASK_CONTEXT=cat <<'EOF'
-You are an AI assistant that deconstructs user requests.
+FRAGMENT_PROCESSING_NOTES=$(cat <<'EOF'
+## Definition and Mandate for `processing_notes`
+
+**1. Core Definition:**
+A `processing_note` is a high-priority system alert. Its existence signifies that the standard, structured data model (`objectives`, `facts`, `constraints`, `directives`, etc.) has failed to capture a critical piece of nuanced information from the user's message. It is a flag for important data that "doesn't fit the mold."
+
+**2. The Mandate:**
+The AI's **immediate and primary objective** upon encountering a `processing_note` is to take action to resolve it. This mandate supersedes the user's most recent task. The system's ideal state is an empty `processing_notes` list.
+
+**3. The Resolution Path:**
+Resolving a note requires the AI to address the ambiguity directly with the user. The required action is almost always to **pause the user's task and ask a clarifying question.**
+
+**4. The Ultimate Goal:**
+The goal of the clarification is to translate the vague, implicit, or emotional information contained in the note into an explicit, actionable piece of data that *can* fit the structured system. This might result in a new directive, a new constraint, or another concrete modification to the system's persistent state, thereby resolving the note.
+EOF
+)
+
+FRAGMENT_OUTPUT_JSON=$(cat <<'EOF'
+**Your final output must be a single, valid JSON object and nothing else.** Do not include any explanatory text, markdown formatting, or other text outside of the JSON structure.
+EOF
+)
+
+# I'll use this on new user messages to provide PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION_SOA and PROMPT_RECONCILE_TASK_CONTEXT_WITH_SUPERVISION_SOA with the first pass of extracted data. Agnostic of SOA or AOS.
+PROMPT_EXTRACT_PERSONA_DIRECTIVES_AND_TASK_CONTEXT=$(cat <<'EOF'
+You are an expert AI assistant that deconstructs user requests into structured data.
 
 Your function is to parse the user's input and extract every piece of information that falls into either one of these two categories: **Persona Directives** or **Task Context**.
 
@@ -44,20 +66,30 @@ Your analysis must be guided by the following logic:
 
 **1. The Persistence Test:**
 For every piece of information, ask the primary question:
+
 > **"Does this instruction or fact apply to our entire conversation from now on, or is it specifically for completing the current, immediate task?"**
 
-* **Persistent Persona Directives:** If the information passes the persistence test (it's for the entire conversation), extract it here. This category is *only* for timeless, assistant-scoped rules that define the assistant's persona and communication style.
-    * *Examples to Extract:* "Always be concise," "From now on, call me 'Lead Developer'," "Never use emojis."
+* **Persistent Persona Directives:** If the information passes the persistence test (it's for the entire conversation), extract it here. This category is *only* for long-term rules that define the assistant's persona and communication style.
+
+  * *Examples to Extract:* "Always be concise," "From now on, call me 'Lead Developer'," "Never use emojis."
 
 * **Current Task Context:** If the information is for the immediate task, extract it here. This category is a comprehensive container for *everything* needed to successfully complete the current request. This includes:
-    * **Objective:** The main goal of the task (e.g., "Draft a project proposal").
-    * **Facts:** Key pieces of data (e.g., "The target audience is casual gamers").
-    * **Constraints & Requirements:** Non-negotiable rules and ephemeral instructions for the task (e.g., "Windows compatibility is a hard requirement," "The summary must be in a bulleted list," "Keep the email under 200 words").
+
+  * **Objective:** The main goal of the task (e.g., "Draft a project proposal").
+
+  * **Facts:** Key pieces of data (e.g., "The target audience is casual gamers").
+
+  * **Constraints & Requirements:** Non-negotiable rules and **temporary** instructions for the task (e.g., "Windows compatibility is a hard requirement," "The summary must be in a bulleted list," "Keep the email under 200 words").
+
+**2. Handling Ambiguity and Empty Fields:**
+
+* **If a category is empty, use an empty array `[]`. Do not invent information.** For example, a simple request may not contain any persona directives.
+
+* **If an instruction is ambiguous (e.g., "Be brief"), default to placing it in `current_task_context`** unless it contains explicit keywords of persistence like "always," "from now on," or "for all future responses."
 
 **3. Output Format:**
-Your final output must be a valid JSON object with two top-level keys: `persistent_persona_directives` (an array of strings) and `current_task_context` (an object with keys `objectives`, `facts`, and `constraints_and_requirements`, each an array of strings). See the JSON schema below for details.
+**Your final output must be a single, valid JSON object and nothing else.** Do not include any explanatory text, markdown formatting, or other text outside of the JSON structure.
 
-**Output format:**
 ```jsonschema
 {
   "type": "object",
@@ -88,31 +120,39 @@ Your final output must be a valid JSON object with two top-level keys: `persiste
   "required": ["persistent_persona_directives", "current_task_context"]
 }
 ```
+
 **User Request to Analyze:**
 %s
 EOF
+)
+
+# Contrasting struct of arrays (SOA) vs array of structs (AOS).
+# SOA would be {foo: [string], bar: [baz]} while AOS would be [{foo: string, bar: baz}]
+# SOA vs AOS is for what the persisted state looks like. Either way, we process the new user string into a struct. That doesn't change.
+# Reconciliaton against SOA vs AOS:
+# When reconciling the struct extracted from the new user string against the state when the state is SOA:
+# You can transpose the two structs and then reconcile pairs. e.g. for two structs of K keys, you would perform K reconciliations of pairs.
+# When reconciling the struct extracted from the new user string against the state when the state is AOS:
+# You have branching logic.
+# On the one hand, you'd pop off the head struct from the AOS state, reconcile the new struct with that struct, and then add the result to the array of structs.
+# On the other hand, you don't pop anything and only add the new struct to the array of structs. i.e. add the new struct representing data from the new user message to the array of structs representing the persisted state.
 
 # I would use this after PROMPT_EXTRACT_PERSONA_DIRECTIVES_AND_TASK_CONTEXT to reconcile the old and new persona directives.
-PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION=$(cat <<'EOF'
-You are a master AI logician. Your task is to intelligently update a list of persistent persona directives by considering three sources of information: the existing rules, a preliminary extraction of new rules, and the user's original raw message.
+# TODO formal vs professional doesn't seem like the best example
+PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION_SOA=$(cat <<'EOF'
+You are a master AI logician. Your task is to intelligently update a list of persistent persona directives by reconciling three sources of information.
 
 You will be given three inputs:
 1.  `existing_directives`: The master list of rules currently in effect.
-2.  `newly_extracted_directives`: A pre-processed list of new rules found in the user's message.
-3.  `new_user_message`: The original, raw text from the user.
+2.  `newly_extracted_directives`: A pre-processed list of new rules found in the user's latest message.
+3.  `new_user_message`: The original, raw text from the user, which serves as the **ultimate source of truth**.
 
 ```jsonschema
 {
   "type": "object",
   "properties": {
-    "existing_directives": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "newly_extracted_directives": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
+    "existing_directives": { "type": "array", "items": { "type": "string" } },
+    "newly_extracted_directives": { "type": "array", "items": { "type": "string" } },
     "new_user_message": { "type": "string" }
   },
   "required": ["existing_directives", "newly_extracted_directives", "new_user_message"]
@@ -137,7 +177,60 @@ Your goal is to produce a single, definitive list of reconciled directives as a 
 ## Output Format
 Your final output must be a single, valid JSON list of strings representing the reconciled directives.
 
+PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION_SOA_2=$(cat <<'EOF'
+You are a master AI logician. Your task is to intelligently update a list of persistent persona directives by reconciling three sources of information.
+
+You will be given three inputs:
+1.  `existing_directives`: The master list of rules currently in effect.
+2.  `newly_extracted_directives`: A pre-processed list of new rules found in the user's latest message.
+3.  `new_user_message`: The original, raw text from the user, which serves as the **ultimate source of truth**.
+
 ```jsonschema
+{
+  "type": "object",
+  "properties": {
+    "existing_directives": { "type": "array", "items": { "type": "string" } },
+    "newly_extracted_directives": { "type": "array", "items": { "type": "string" } },
+    "new_user_message": { "type": "string" }
+  },
+  "required": ["existing_directives", "newly_extracted_directives", "new_user_message"]
+}
+```
+
+Your goal is to produce a single, definitive list of reconciled directives by applying the following logical principles.
+
+## Guiding Principles for Reconciliation
+
+* **Principle of Truth:** The `new_user_message` is the definitive source of the user's intent. The `newly_extracted_directives` should be treated as a helpful summary, but the raw message is the final authority for resolving any ambiguity or conflict.
+
+* **Principle of Precedence:** Newer instructions supersede older ones. When a directive in the `new_user_message` directly contradicts an `existing_directive`, the old directive must be discarded and replaced by the new one.
+
+* **Principle of Explicit Modification:** Analyze the `new_user_message` for explicit instructions to change the state.
+    * **Removals:** Look for commands like "forget," "stop," "don't do that anymore" to identify and remove existing directives.
+    * **Refinements:** Look for commands like "instead of X, do Y" or "actually, be more..." to modify an existing directive into its new, updated form.
+
+* **Principle of Synthesis:** The final output list must be a clean synthesis of all valid directives. It must not contain duplicates, redundancies, or conflicting rules.
+
+## Example
+
+**Input:**
+```
+{
+  "existing_directives": ["Be formal", "Use emojis in lists"],
+  "newly_extracted_directives": ["Be professional", "Do not use emojis"],
+  "new_user_message": "Hey, forget what I said about being formal, I'd prefer you to be professional from now on. And please stop using emojis entirely."
+}
+```
+
+**Correct Output:**
+```
+["Be professional", "Do not use emojis"]
+```
+
+## Output Format
+Your final output must be a single, valid JSON array of strings and nothing else. Do not include explanatory text, markdown formatting, or any text outside of the JSON structure.
+
+```
 {
   "type": "array",
   "items": { "type": "string" }
@@ -146,7 +239,7 @@ Your final output must be a single, valid JSON list of strings representing the 
 EOF
 )
 
-PROMPT_RECONCILE_TASK_CONTEXT_WITH_SUPERVISION=$(cat <<'EOF'
+PROMPT_RECONCILE_TASK_CONTEXT_WITH_SUPERVISION_SOA=$(cat <<'EOF'
 You are a master state management AI. Your purpose is to produce the most accurate and up-to-date "Task Context" by synthesizing three sources of information: the existing context, a preliminary analysis of the new message, and the user's raw message itself.
 
 You will be given three inputs:
@@ -238,7 +331,7 @@ Your final output must be a single, valid JSON object representing the complete 
 EOF
 )
 
-# I'm leaning towards not using this in favor of PROMPT_RECONCILE_TASK_CONTEXT_WITH_SUPERVISION.
+# I'm leaning towards not using this in favor of PROMPT_RECONCILE_TASK_CONTEXT_WITH_SUPERVISION_SOA.
 PROMPT_RECONCILE_CONTEXT=$(cat <<'EOF'
 You are a state management AI. Your purpose is to maintain a complete and accurate understanding of the user's current task by intelligently updating a "Task Context" object based on their latest message. You must account for "yak shaving," where new, prerequisite tasks emerge that must be completed before returning to the main goal.
 
@@ -338,7 +431,7 @@ Your final output must be a valid JSON list of the extracted strings that passed
 EOF
 
 
-# I'm leaning towards not using this in favor of PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION.
+# I'm leaning towards not using this in favor of PROMPT_RECONCILE_PERSONA_DIRECTIVES_WITH_SUPERVISION_SOA.
 PROMPT_RECONCILE_PERSONA_DIRECTIVES=$(cat <<'EOF'
 You are an AI assistant specializing in consolidating and reconciling behavioral directives.
 
