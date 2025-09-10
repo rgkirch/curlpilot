@@ -17,6 +17,12 @@
 
 set -euo pipefail
 
+# --- Argument Parsing ---
+FORCE_REFRESH=false
+if [[ "${1-}" == "--refresh-session-token" ]]; then
+  FORCE_REFRESH=true
+fi
+
 # Get the directory where the script is located
 SCRIPT_DIR=$(dirname "$0")
 
@@ -25,6 +31,27 @@ CONFIG_DIR="$HOME/.config/curlpilot"
 mkdir -p "$CONFIG_DIR"
 GITHUB_PAT_FILE="$CONFIG_DIR/github_pat.txt"
 TOKEN_FILE="$CONFIG_DIR/token.txt"
+
+# --- Token Check ---
+if [[ "$FORCE_REFRESH" = false && -f "$TOKEN_FILE" ]]; then
+  # Source the file to load EXPIRES_AT
+  source "$TOKEN_FILE"
+  # Check if EXPIRES_AT is set and valid
+  if [[ -n "${EXPIRES_AT-}" ]]; then
+    current_time=$(date +%s)
+    # Check if token is not expired (with a 60-second buffer)
+    if (( current_time < (EXPIRES_AT - 60) )); then
+      echo "Copilot token is still valid." >&2
+      # Ensure variables are loaded for the calling shell
+      source "$TOKEN_FILE"
+      return 0
+    else
+      echo "Copilot token has expired. Refreshing..." >&2
+    fi
+  fi
+fi
+
+# --- Token Renewal/Acquisition Logic ---
 
 # Function to get Copilot session token using GitHub PAT
 get_copilot_session_token() {
@@ -35,15 +62,14 @@ get_copilot_session_token() {
     -H "Editor-Plugin-Version: gptel/*" \
     -H "Editor-Version: emacs/29.1")
 
-  copilot_session_token=$(echo "$copilot_token_response" | jq -r '.token' || true)
-  expires_at=$(echo "$copilot_token_response" | jq -r '.expires_at' || true)
+  local copilot_session_token=$(echo "$copilot_token_response" | jq -r '.token' || true)
+  local expires_at=$(echo "$copilot_token_response" | jq -r '.expires_at' || true)
 
   if [[ -n "$copilot_session_token" && -n "$expires_at" ]]; then
     echo "COPILOT_SESSION_TOKEN='$copilot_session_token'" > "$TOKEN_FILE"
     echo "EXPIRES_AT=$expires_at" >> "$TOKEN_FILE"
 
-    # --- MODIFICATION: Convert timestamp to human-readable date ---
-    human_readable_date=$(date -r "$expires_at" +"%Y-%m-%d %H:%M:%S")
+    human_readable_date=$(date -d @"$expires_at" +"%Y-%m-%d %H:%M:%S")
     echo "Copilot Session Token obtained. Expires: $human_readable_date" >&2
     return 0 # Success
   else
@@ -59,7 +85,9 @@ if [[ -f "$GITHUB_PAT_FILE" ]]; then
   echo "Attempting to renew Copilot Session Token using saved GitHub PAT..." >&2
   if get_copilot_session_token "$GITHUB_PAT"; then
     echo "Copilot Session Token renewed successfully." >&2
-    exit 0
+    # Source the file to load the variables into the parent shell
+    source "$TOKEN_FILE"
+    return 0
   else
     echo "Saved GitHub PAT failed to renew token. Proceeding with full login." >&2
   fi
@@ -141,3 +169,6 @@ echo "--- Step 3: Get Copilot Session Token ---" >&2
 get_copilot_session_token "$github_pat"
 
 echo "Login process complete." >&2
+
+# Source the file one last time to ensure variables are loaded
+source "$TOKEN_FILE"

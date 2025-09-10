@@ -1,0 +1,22 @@
+[
+  {
+    "name": "jq",
+    "type": "executable"
+  },
+  {
+    "name": "uuidgen",
+    "type": "executable"
+  },
+  {
+    "name": "curl",
+    "type": "executable"
+  },
+  {
+    "name": "sed",
+    "type": "executable"
+  },
+  {
+    "name": "install_openapi_spec.sh",
+    "type": "script"
+  }
+]

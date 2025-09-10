@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/mock_copilot_input.schema.json",
+  "title": "Mock Copilot Request Input",
+  "description": "Defines the optional parameters accepted by the mock response generator script.",
+  "type": "object",
+  "properties": {
+    "message_content": {
+      "description": "The desired content for the mock response message. Defaults to a standard placeholder if omitted.",
+      "type": "string"
+    },
+    "completion_tokens": {
+      "description": "A specific number of completion tokens to use. If omitted, this is calculated based on the message_content length.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "prompt_tokens": {
+      "description": "A specific number of prompt tokens to use. Defaults to 75 if omitted.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

@@ -19,7 +19,8 @@ HISTORY_FILE="$CONFIG_DIR/convo_history.txt"
 # Options: CONCISE, NORMAL, DETAILED
 SUMMARIZATION_LEVEL="NORMAL"
 
-source "./prompts/prompts.sh"
+# Use dirname to ensure sourcing works regardless of current directory
+source "$(dirname "${BASH_SOURCE[0]}")/prompts/prompts.sh"
 
 # Prompt for concise summarization
 SUMMARIZATION_PROMPT_CONCISE=$(cat <<'EOF'

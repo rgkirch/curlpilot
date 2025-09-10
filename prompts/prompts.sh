@@ -30,9 +30,8 @@ FRAGMENT_OUTPUT_JSON=$(cat <<'EOF'
 **Your final output must be a single, valid JSON object and nothing else.** Do not include any explanatory text, markdown formatting, or other text outside of the JSON structure.
 EOF
 )
-
-# Use this to extract persona directives and task content from a user message.
-source "./extract_persona_directives_and_task_context.sh"
+# Use dirname to ensure sourcing works regardless of current directory
+source "$(dirname "${BASH_SOURCE[0]}")/extract_persona_directives_and_task_context.sh"
 # I would use this after PROMPT_EXTRACT_PERSONA_DIRECTIVES_AND_TASK_CONTEXT to reconcile the old and new persona directives.
-source "./reconcile_persona_directives.sh"
-source "./soa/reconcile_task_context.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/reconcile_persona_directives.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/reconcile_task_context.sh"
