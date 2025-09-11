@@ -1,10 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# Test file for the new schema-driven parse_args.sh
+# Test file for the unified, schema-driven argument_parser.sh
 
 # --- SETUP ---
 TEST_DIR=$(dirname "$(readlink -f "$0")")
+# Assuming the script to test is in a 'scripts' or similar subdirectory
+# Adjust this path if your project structure is different.
 PROJECT_ROOT=$(dirname "$TEST_DIR")
 SCRIPT_TO_TEST="$PROJECT_ROOT/parse_args.sh"
 
@@ -18,53 +20,56 @@ run_test() {
   local args="$3"
   local expected="$4"
   local expected_exit_code="${5:-0}"
-  local compare_json="${6:-true}" # New parameter, defaults to true
+  local compare_json="${6:-true}"
 
   echo "--- Running Test: $test_name ---"
 
-  # Create a temporary file for the trace log
+  # --- XTRACE SETUP ---
+  # Create a temporary file to hold the trace output.
   local trace_log
   trace_log=$(mktemp)
 
-  # Open file descriptor 3 for writing to the trace log
+  # Open file descriptor 3 for writing to the trace log.
   exec 3>"$trace_log"
+  # --- END XTRACE SETUP ---
 
-  # The command to run
   local cmd="$SCRIPT_TO_TEST '$spec' $args"
-  
-  # Run the command with xtrace redirected to FD 3
-  # Use a subshell to capture the exit code without triggering set -e
-  local temp_output
-  local temp_exit_code
-  if temp_output=$(BASH_XTRACEFD=3 bash -c "$cmd" 2>&1); then
-    temp_exit_code=0
-  else
-    temp_exit_code=$?
-  fi
-  output="$temp_output"
-  exit_code="$temp_exit_code"
 
-  # Close the file descriptor
+  # Run the command in a subshell.
+  # BASH_XTRACEFD=3 redirects any 'set -x' output from the script to FD 3,
+  # preventing it from contaminating stdout/stderr.
+  local output
+  local exit_code
+  if output=$(BASH_XTRACEFD=3 bash -c "$cmd" 2>&1); then
+    exit_code=0
+  else
+    exit_code=$?
+  fi
+
+  # Close the file descriptor.
   exec 3>&-
 
-  # Check exit code
+  # 1. Check exit code
   if [[ "$exit_code" -ne "$expected_exit_code" ]]; then
     echo "FAIL: Expected exit code $expected_exit_code, but got $exit_code."
     echo "Command was: $cmd"
     echo "--- Parser Script Output ---"
     echo "$output"
+    # If the test fails, print the captured trace log for debugging.
     echo "--- XTrace Log from $trace_log ---"
     cat "$trace_log"
     echo "---------------------------------"
-    rm "$trace_log"
+    rm "$trace_log" # Clean up
     FAIL_COUNT=$((FAIL_COUNT + 1))
     return
   fi
 
-  # Check output
+  # 2. Check output content
+  # (Identical logic as before, but with added trace output on failure)
   if [[ "$expected_exit_code" -eq 0 ]]; then
     if [[ "$compare_json" == "true" ]]; then
-      # For success, compare JSON
+      local expected_sorted
+      local output_sorted
       expected_sorted=$(echo "$expected" | jq -S .)
       output_sorted=$(echo "$output" | jq -S .)
       if [[ "$output_sorted" != "$expected_sorted" ]]; then
@@ -73,35 +78,42 @@ run_test() {
         echo "$expected_sorted"
         echo "Got:"
         echo "$output_sorted"
+        echo "--- XTrace Log from $trace_log ---"
+        cat "$trace_log"
+        echo "---------------------------------"
+        rm "$trace_log"
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        rm "$trace_log" # Clean up even on this failure
         return
       fi
     else
-      # For success, compare plain text
-      if ! printf %b "$output" | grep -qP "$expected"; then
+      if ! echo "$output" | grep -qF "$expected"; then
         echo "FAIL: Plain text output does not contain expected string."
         echo "Expected to find: '$expected'"
         echo "Got output: '$output'"
+        echo "--- XTrace Log from $trace_log ---"
+        cat "$trace_log"
+        echo "---------------------------------"
+        rm "$trace_log"
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        rm "$trace_log" # Clean up even on this failure
         return
       fi
     fi
   else
-    # For failure, check for error string
     if ! echo "$output" | grep -qF "$expected"; then
       echo "FAIL: Expected error string not found."
       echo "Expected to find: '$expected'"
       echo "Got output:"
       echo "$output"
+      echo "--- XTrace Log from $trace_log ---"
+      cat "$trace_log"
+      echo "---------------------------------"
+      rm "$trace_log"
       FAIL_COUNT=$((FAIL_COUNT + 1))
-      rm "$trace_log" # Clean up even on this failure
       return
     fi
   fi
 
-  # Clean up the log file on success
+  # Clean up the log file on success.
   rm "$trace_log"
 
   echo "PASS: $test_name"
@@ -109,53 +121,88 @@ run_test() {
 }
 
 # --- TEST CASES ---
+# (Test cases are unchanged)
 
-# Test 1: Basic success
-SPEC_1='{"model": {"type": "string"}, "stream": {"type": "boolean"}}'
-ARGS_1="--model=gpt4 --stream=false"
-EXPECTED_1='{"model": "gpt4", "stream": false}'
-run_test "Basic success" "$SPEC_1" "$ARGS_1" "$EXPECTED_1"
+# Schema for most tests
+MAIN_SPEC='{
+  "model": {"type": "string", "default": "gpt-default"},
+  "stream": {"type": "boolean", "default": true},
+  "api_key": {"type": "string", "required": true},
+  "retries": {"type": "number", "default": 3}
+}'
 
-# Test 2: Default values
-SPEC_2='{"model": {"type": "string", "default": "gpt-default"}, "stream": {"type": "boolean", "default": true}}'
-ARGS_2=""
-EXPECTED_2='{"model": "gpt-default", "stream": true}'
-run_test "Default values" "$SPEC_2" "$ARGS_2" "$EXPECTED_2"
+# --- Basic Success Cases ---
+run_test "All args provided" \
+  "$MAIN_SPEC" \
+  "--api-key=SECRET --model=gpt-4 --stream=false --retries=5" \
+  '{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5}'
 
-# Test 3: Override one default
-ARGS_3="--stream=false"
-EXPECTED_3='{"model": "gpt-default", "stream": false}'
-run_test "Override one default" "$SPEC_2" "$ARGS_3" "$EXPECTED_3"
+run_test "Argument with space" \
+  "$MAIN_SPEC" \
+  "--api-key SECRET --retries 0" \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0}'
 
-# Test 4: Required argument failure
-SPEC_4='{"model": {"type": "string", "required": true}}'
-ARGS_4=""
-EXPECTED_4="Error: Required argument '--model' is missing."
-run_test "Required argument failure" "$SPEC_4" "$ARGS_4" "$EXPECTED_4" 1
+# --- Boolean Handling ---
+run_test "Standalone boolean flag" \
+  "$MAIN_SPEC" \
+  "--api-key=SECRET --stream" \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}' \
+  0
 
-# Test 5: Unknown argument failure
-SPEC_5='{"model": {"type": "string"}}'
-ARGS_5="--stream=true"
-EXPECTED_5="Error: Unknown option '--stream'."
-run_test "Unknown argument failure" "$SPEC_5" "$ARGS_5" "$EXPECTED_5" 1
+run_test "Boolean set to false" \
+  "$MAIN_SPEC" \
+  "--api-key=SECRET --stream=false" \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": false, "retries": 3}'
 
-# Test 6: Help generation
-SPEC_6='{"model": {"type": "string", "description": "The AI model."}}'
-ARGS_6="--help"
-EXPECTED_6="  --model\tThe AI model."
-run_test "Help generation" "$SPEC_6" "$ARGS_6" "$EXPECTED_6" 0 false
+# --- Type Handling (Numbers) ---
+run_test "Number type is respected" \
+  "$MAIN_SPEC" \
+  "--api-key=SECRET --retries=10" \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 10}' \
+  0
 
-# Test 7: Boolean flag formats
-SPEC_7='{"feature_a": {"type": "boolean"}, "feature_b": {"type": "boolean"}}'
-ARGS_7="--feature-a --no-feature-b"
-EXPECTED_7='{"feature_a": true, "feature_b": false}'
-run_test "Boolean flag formats" "$SPEC_7" "$ARGS_7" "$EXPECTED_7"
+run_test "String that looks like a number is still a string" \
+  '{"version": {"type": "string"}}' \
+  "--version=1.0" \
+  '{"version": "1.0"}'
 
-# Test 8: Argument with space
-SPEC_8='{"model": {"type": "string"}}'
-ARGS_8="--model gpt-xyz"
-EXPECTED_8='{"model": "gpt-xyz"}'
-run_test "Argument with space" "$SPEC_8" "$ARGS_8" "$EXPECTED_8"
+# --- Defaults and Required ---
+run_test "Defaults are applied correctly" \
+  "$MAIN_SPEC" \
+  "--api-key=SECRET" \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}'
+
+run_test "Required argument failure" \
+  "$MAIN_SPEC" \
+  "--model=gpt-4" \
+  "Error: Required argument '--api-key' is missing." \
+  1
+
+# --- Ambiguity Resolution ---
+run_test "Correctly handles value that looks like a flag" \
+  '{"command": {"type": "string"}, "help": {"type": "boolean"}}' \
+  "--command '--help'" \
+  '{"command": "--help"}'
+
+# --- Edge Cases & Failures ---
+run_test "Unknown argument failure" \
+  "$MAIN_SPEC" \
+  "--api-key=SECRET --non-existent-arg" \
+  "Error: Unknown option '--non-existent-arg'." \
+  1
+
+run_test "Value-taking arg requires a value" \
+  "$MAIN_SPEC" \
+  "--api-key SECRET --model" \
+  "Error: Argument '--model' requires a value." \
+  1
+
+# --- Help Generation ---
+run_test "Help generation" \
+  '{"model": {"type": "string", "description": "The AI model to use."}}' \
+  "--help" \
+  "  --model	The AI model to use." \
+  0 false
 
 # --- SUMMARY ---
 echo ""

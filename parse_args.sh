@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 
 #
@@ -6,9 +7,9 @@ set -euo pipefail
 #
 # Usage: ./argument_parser.sh <spec_json> [raw_args...]
 #
-# This script uses the schema to intelligently parse arguments, correctly
-# distinguishing between boolean flags and options that require a value.
-# It handles defaults, required checks, and help text generation.
+# This script uses a more declarative, SSA-like (Single Static Assignment) style
+# to reduce bugs related to mutable state. Data is transformed from one readonly
+# variable to the next.
 #
 
 # --- UTILITY FUNCTIONS ---
@@ -29,109 +30,111 @@ kebab_to_snake() {
   echo "$1" | sed 's/-/_/g'
 }
 
+# --- 1. INITIALIZATION & SCHEMA VALIDATION ---
 
-# --- MAIN LOGIC ---
-
-# 1. Input validation
+# fail if didn't pass an arg because spec is required as first arg
 [[ "$#" -lt 1 ]] && abort "Argument specification JSON is required."
-ARG_SPEC_JSON="$1"
-shift
+readonly USER_SPEC_JSON="$1"
+shift # Consume the spec from the argument list
 
-# Check if the spec is valid JSON
-echo "$ARG_SPEC_JSON" | jq -e . >/dev/null || abort "Argument specification is not valid JSON."
-
-
-# 2. Help Generation
-for arg in "$@"; do
-  if [[ "$arg" == "--help" ]]; then
-    echo "Usage: [options]"
-    echo ""
-    echo "Options:"
-    echo "$ARG_SPEC_JSON" | jq -r 'keys[] as $key | "  --\( ($key | gsub("_"; "-")) )\t\(.[$key].description // "")"'
-    exit 0
-  fi
-done
+# fail if first arg, i.e. the spec, isn't json
+echo "$USER_SPEC_JSON" | jq -e . >/dev/null || abort "Argument specification is not valid JSON."
 
 
-# 3. Parsing Raw Arguments (with Schema Context)
+# fail if "help" exists in user provided spec
+if [[ $(echo "$USER_SPEC_JSON" | jq 'has("help")') == "true" ]]; then
+  abort "The argument key 'help' is reserved and cannot be defined in the schema."
+fi
+
+# add "help" option to spec
+readonly ARG_SPEC_JSON=$(echo "$USER_SPEC_JSON" | jq '. + {"help": {"type": "boolean", "description": "Show this help message and exit."}}')
+
+
+# --- 2. RAW ARGUMENT PARSING LOOP ---
+
 RAW_ARGS_JSON="{}"
+
+# while there are remaining args not yet consumed
 while [[ "$#" -gt 0 ]]; do
   ARG="$1"
   shift
 
-  [[ "$ARG" != --* ]] && abort "Invalid argument format: $ARG. Must start with --."
+  [[ "$ARG" != --* ]] && abort "Invalid argument format: $ARG."
 
-  ARG_NAME_KEBAB="${ARG#--}"
-  VALUE=""
+  # These are temporary, mutable variables for the loop iteration
+  arg_name_kebab="${ARG#--}"
+  value=""
 
-  # Handle --key=value format
-  if [[ "$ARG_NAME_KEBAB" == *"="* ]]; then
-    VALUE="${ARG_NAME_KEBAB#*=}"
-    ARG_NAME_KEBAB="${ARG_NAME_KEBAB%%=*}"
+  if [[ "$arg_name_kebab" == *"="* ]]; then
+    # These helpers are now mutable and scoped within the loop
+    final_value="${ARG#*=}"
+    final_key_kebab="${arg_name_kebab%%=*}"
+    value="$final_value"
+    arg_name_kebab="$final_key_kebab"
   fi
 
-  ARG_NAME_SNAKE=$(kebab_to_snake "$ARG_NAME_KEBAB")
+  arg_name_snake=$(kebab_to_snake "$arg_name_kebab")
+  arg_type=$(echo "$ARG_SPEC_JSON" | jq -r --arg key "$arg_name_snake" '.[$key].type // empty')
 
-  # --- CONTEXT-AWARE PARSING ---
-  IS_IN_SPEC=$(echo "$ARG_SPEC_JSON" | jq --arg key "$ARG_NAME_SNAKE" 'has($key)')
-  [[ "$IS_IN_SPEC" == "false" ]] && abort "Unknown option '--$ARG_NAME_KEBAB'."
+  [[ -z "$arg_type" ]] && abort "Unknown option '--$arg_name_kebab'."
 
-  ARG_TYPE=$(echo "$ARG_SPEC_JSON" | jq -r --arg key "$ARG_NAME_SNAKE" '.[$key].type')
-
-  # If the arg takes a value AND its value is still empty, consume the next token.
-  if [[ "$ARG_TYPE" != "boolean" && -z "$VALUE" ]]; then
-    [[ "$#" -eq 0 ]] && abort "Argument '--$ARG_NAME_KEBAB' requires a value."
-    VALUE="$1"
-    shift
+  if [[ -z "$value" ]]; then
+    if [[ "$arg_type" == "boolean" ]]; then
+      value="true"
+    else
+      [[ "$#" -eq 0 ]] && abort "Argument '--$arg_name_kebab' requires a value."
+      value="$1"
+      shift
+    fi
   fi
 
-  # If VALUE is *still* empty, it must be a standalone boolean flag.
-  if [[ -z "$VALUE" ]]; then
-    VALUE="true"
-  fi
-
-  # Use the schema to determine how to process the value
-  case "$ARG_TYPE" in
-    boolean|number)
-      RAW_ARGS_JSON=$(echo "$RAW_ARGS_JSON" | jq --arg key "$ARG_NAME_SNAKE" --argjson val "$VALUE" '.[$key] = $val')
+  case "$arg_type" in
+    boolean|number|json)
+      RAW_ARGS_JSON=$(echo "$RAW_ARGS_JSON" | jq --arg key "$arg_name_snake" --argjson val "$value" '.[$key] = $val')
       ;;
     string|path)
-      RAW_ARGS_JSON=$(echo "$RAW_ARGS_JSON" | jq --arg key "$ARG_NAME_SNAKE" --arg val "$VALUE" '.[$key] = $val')
+      RAW_ARGS_JSON=$(echo "$RAW_ARGS_JSON" | jq --arg key "$arg_name_snake" --arg val "$value" '.[$key] = $val')
       ;;
     *)
-      abort "Unsupported type '$ARG_TYPE' in schema for key '$ARG_NAME_SNAKE'."
+      abort "Unsupported type '$arg_type' in schema for key '$arg_name_snake'."
       ;;
   esac
 done
 
+readonly RAW_ARGS_JSON
 
-# 4. Final Validation, Defaults, and Required Checks
-FINAL_JSON="{}"
-SPEC_KEYS=$(echo "$ARG_SPEC_JSON" | jq -r 'keys[]')
 
+# --- 3. POST-PARSING ACTIONS (HELP) ---
+
+if echo "$RAW_ARGS_JSON" | jq -e '.help == true' > /dev/null; then
+  echo "Usage: [options]"
+  echo ""
+  echo "Options:"
+  echo "$ARG_SPEC_JSON" | jq -r 'keys[] as $key | "  --\( ($key | gsub("_"; "-")) )\t\(.[$key].description // "")"'
+  exit 0
+fi
+
+
+# --- 4. APPLY DEFAULTS & CHECK REQUIRED ---
+
+readonly DEFAULTS_JSON=$(echo "$ARG_SPEC_JSON" | jq '
+  with_entries(select(.value.default != null)) |
+  with_entries(.value = .value.default)
+')
+
+readonly FINAL_JSON=$(jq -s '.[0] + .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
+
+readonly SPEC_KEYS=$(echo "$ARG_SPEC_JSON" | jq -r 'keys[]')
 for key in $SPEC_KEYS; do
-  # Check if user provided the arg
-  if [[ $(echo "$RAW_ARGS_JSON" | jq --arg key "$key" 'has($key)') == "true" ]]; then
-    # PROBLEM: This pulls the value out of JSON, potentially into a badly quoted
-    # shell variable.
-    VALUE=$(echo "$RAW_ARGS_JSON" | jq --arg key "$key" '.[$key]')
-    # FATAL FLAW: Re-inserting the value with --argjson fails if the shell
-    # variable VALUE contains single quotes, like in your '--help' test case.
-    FINAL_JSON=$(echo "$FINAL_JSON" | jq --arg key "$key" --argjson val "$VALUE" '.[$key] = $val')
-  else
-    # This part used the less efficient jq calls you pointed out.
-    IS_REQUIRED=$(echo "$ARG_SPEC_JSON" | jq -r --arg key "$key" '.[$key].required // false')
-    DEFAULT_VALUE=$(echo "$ARG_SPEC_JSON" | jq --arg key "$key" '.[$key].default')
-
-    if [[ "$IS_REQUIRED" == "true" ]]; then
+  is_required=$(echo "$ARG_SPEC_JSON" | jq -r --arg key "$key" '.[$key].required // false')
+  if [[ "$is_required" == "true" ]]; then
+    if [[ $(echo "$FINAL_JSON" | jq --arg key "$key" 'has($key)') == "false" ]]; then
       abort "Required argument '--$(snake_to_kebab "$key")' is missing."
-    fi
-
-    if [[ "$DEFAULT_VALUE" != "null" ]]; then
-      FINAL_JSON=$(echo "$FINAL_JSON" | jq --arg key "$key" --argjson val "$DEFAULT_VALUE" '.[$key] = $val')
     fi
   fi
 done
 
-# --- OUTPUT ---
-echo "$FINAL_JSON"
+
+# --- 5. FINAL OUTPUT ---
+
+echo "$FINAL_JSON" | jq 'del(.help)'
