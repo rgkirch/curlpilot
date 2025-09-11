@@ -1,10 +1,12 @@
 #!/bin/bash
 
+set -euo pipefail
+
+# curlpilot/scripts/install_openapi_spec.sh
+
 # This script downloads the official OpenAI OpenAPI specification and replaces a
 # number that is too large for standard 64-bit integer parsers (like yq's).
 # This prevents parsing errors during validation or schema extraction.
-
-set -euo pipefail # Exit immediately if a command exits with a non-zero status.
 
 # --- Configuration ---
 # The official raw URL for the OpenAPI specification

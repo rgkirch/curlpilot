@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# curlpilot/curlpilot.sh
+
 # Main script for curlpilot, using a branching conversation model.
 
 # --- Configuration ---

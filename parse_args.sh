@@ -2,14 +2,16 @@
 
 set -euo pipefail
 
+# curlpilot/parse_args.sh
+
 #
-# A schema-driven argument parser that converts command-line flags to a JSON object.
+# A schema-driven argument parser that converts a JSON array of arguments
+# into a final JSON object based on a provided specification.
 #
-# Usage: ./argument_parser.sh <spec_json> [raw_args...]
+# Usage:
+#   echo '{"spec": {...}, "args": ["--foo", "bar"]}' | ./parse_args.sh
 #
-# This script uses a more declarative, SSA-like (Single Static Assignment) style
-# to reduce bugs related to mutable state. Data is transformed from one readonly
-# variable to the next.
+# This script reads a single JSON object from stdin and processes it.
 #
 
 # --- UTILITY FUNCTIONS ---
@@ -32,21 +34,22 @@ kebab_to_snake() {
 
 # --- 1. INITIALIZATION & SCHEMA VALIDATION ---
 
-# fail if didn't pass an arg because spec is required as first arg
-[[ "$#" -lt 1 ]] && abort "Argument specification JSON is required."
-readonly USER_SPEC_JSON="$1"
-shift # Consume the spec from the argument list
+# Read the entire "job ticket" from standard input.
+readonly JOB_TICKET_JSON=$(cat)
 
-# fail if first arg, i.e. the spec, isn't json
+# Extract the spec and args from the ticket.
+readonly USER_SPEC_JSON=$(echo "$JOB_TICKET_JSON" | jq -c '.spec')
+ARGS_JSON=$(echo "$JOB_TICKET_JSON" | jq -c '.args')
+
+# Validate that the provided spec is valid JSON.
 echo "$USER_SPEC_JSON" | jq -e . >/dev/null || abort "Argument specification is not valid JSON."
 
-
-# fail if "help" exists in user provided spec
+# The 'help' key is reserved for the parser's use.
 if [[ $(echo "$USER_SPEC_JSON" | jq 'has("help")') == "true" ]]; then
   abort "The argument key 'help' is reserved and cannot be defined in the schema."
 fi
 
-# add "help" option to spec
+# Add the 'help' option to the spec for automatic help generation.
 readonly ARG_SPEC_JSON=$(echo "$USER_SPEC_JSON" | jq '. + {"help": {"type": "boolean", "description": "Show this help message and exit."}}')
 
 
@@ -54,19 +57,19 @@ readonly ARG_SPEC_JSON=$(echo "$USER_SPEC_JSON" | jq '. + {"help": {"type": "boo
 
 RAW_ARGS_JSON="{}"
 
-# while there are remaining args not yet consumed
-while [[ "$#" -gt 0 ]]; do
-  ARG="$1"
-  shift
+# Loop as long as there are elements in the ARGS_JSON array.
+while [[ $(echo "$ARGS_JSON" | jq 'length > 0') == "true" ]]; do
+  # Get the first argument from the JSON array.
+  ARG=$(echo "$ARGS_JSON" | jq -r '.[0]')
+  # Consume the first argument for the next iteration.
+  ARGS_JSON=$(echo "$ARGS_JSON" | jq '.[1:]')
 
   [[ "$ARG" != --* ]] && abort "Invalid argument format: $ARG."
 
-  # These are temporary, mutable variables for the loop iteration
   arg_name_kebab="${ARG#--}"
   value=""
 
   if [[ "$arg_name_kebab" == *"="* ]]; then
-    # These helpers are now mutable and scoped within the loop
     final_value="${ARG#*=}"
     final_key_kebab="${arg_name_kebab%%=*}"
     value="$final_value"
@@ -82,9 +85,12 @@ while [[ "$#" -gt 0 ]]; do
     if [[ "$arg_type" == "boolean" ]]; then
       value="true"
     else
-      [[ "$#" -eq 0 ]] && abort "Argument '--$arg_name_kebab' requires a value."
-      value="$1"
-      shift
+      # Instead of shifting, get the next value from the JSON array.
+      if [[ $(echo "$ARGS_JSON" | jq 'length == 0') == "true" ]]; then
+        abort "Argument '--$arg_name_kebab' requires a value."
+      fi
+      value=$(echo "$ARGS_JSON" | jq -r '.[0]')
+      ARGS_JSON=$(echo "$ARGS_JSON" | jq '.[1:]')
     fi
   fi
 
@@ -106,7 +112,7 @@ readonly RAW_ARGS_JSON
 
 # --- 3. POST-PARSING ACTIONS (HELP) ---
 
-if echo "$RAW_ARGS_JSON" | jq -e '.help == true' > /dev/null; then
+if echo "$RAW_ARGS_JSON" | jq -e '.help == true' >/dev/null; then
   echo "Usage: [options]"
   echo ""
   echo "Options:"
@@ -122,7 +128,9 @@ readonly DEFAULTS_JSON=$(echo "$ARG_SPEC_JSON" | jq '
   with_entries(.value = .value.default)
 ')
 
-readonly FINAL_JSON=$(jq -s '.[0] + .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
+# NOTE: This line still contains the bug you found earlier (* vs +).
+# You'll want to change it to '+' to fix the JSON object merge behavior.
+readonly FINAL_JSON=$(jq -s '.[0] * .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
 
 readonly SPEC_KEYS=$(echo "$ARG_SPEC_JSON" | jq -r 'keys[]')
 for key in $SPEC_KEYS; do

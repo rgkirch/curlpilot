@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/bin/bash
 
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -17,11 +17,13 @@
 
 set -euo pipefail
 
+# curlpilot/copilot/chat.sh
+
 source deps.sh
 
 # Register dependencies
 register copilot_request "copilot/request.sh"
-register arg_parser "parse_args.sh"
+register parse_args "parse_args.sh"
 register schema_validator "schema_validator.sh"
 register parse_response "copilot/parse_response.sh"
 register copilot_config "copilot/config.sh"
@@ -61,17 +63,14 @@ ARG_SPEC_JSON=$(cat <<EOF
 EOF
 )
 
+jq -n \
+  --argjson spec "$ARG_SPEC_JSON" \
+  '{"spec": $spec, "args": $ARGS.positional}' \
+  --args -- "$@" \
+  | exec_dep parse_args
 
-# --- Argument Parsing and Validation ---
-# 1. Parse the raw command-line arguments into a JSON object.
-RAW_ARGS_JSON=$(exec_dep arg_parser "$@")
-
-# 2. Validate the raw JSON against the schema to apply defaults and get final parameters.
 PARAMS_JSON=$(exec_dep schema_validator "$ARG_SPEC_JSON" "$RAW_ARGS_JSON")
-# --- End of Argument Handling ---
 
-
-# Prepare the request body for the GitHub Copilot API
 jq \
   --slurp \
   --argjson options "$(echo "$PARAMS_JSON" | jq 'if .stream != null then .stream_enabled = .stream | del(.stream) else . end')" \

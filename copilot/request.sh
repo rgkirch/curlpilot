@@ -1,6 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -euo pipefail
+
+# curlpilot/copilot/request.sh
 
 source deps.sh
 register auth "copilot/auth.sh"

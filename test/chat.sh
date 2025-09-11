@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# curlpilot/test/chat.sh
+
 # Mock chat.sh for testing purposes.
 # It records the payload it receives and returns a canned response.
 

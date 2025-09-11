@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# curlpilot/test/arg_parser_test.sh
+
 # Test file for the new parse_args.sh
 
 # --- SETUP ---

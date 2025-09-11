@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -euo pipefail
+
+# curlpilot/scripts/diff_n_optimizer.sh
+
 # Default values
 TARGET_LINES_VAL=""
 TARGET_TOKENS_VAL=""

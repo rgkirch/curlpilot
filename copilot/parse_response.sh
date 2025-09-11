@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/bin/bash
 
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -16,6 +16,8 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
 set -euo pipefail
+
+# curlpilot/copilot/parse_response.sh
 
 # Use read to split the stream on the null delimiter
 IFS= read -r -d $'' response_body

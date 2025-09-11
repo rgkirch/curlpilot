@@ -1,6 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -euo pipefail
+
+# curlpilot/deps.sh
 
 SCRIPT_REGISTRY_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 if ! declare -p SCRIPT_REGISTRY > /dev/null 2>&1; then
@@ -11,6 +13,12 @@ register() {
   local key="$1"
   local original_path="$2"
   local final_path="$original_path"
+
+  # If the key already exists in the registry, do nothing.
+  # This gives mocks priority.
+  if [[ -v SCRIPT_REGISTRY["$key"] ]]; then
+    return 0
+  fi
 
   # Sanitize the path to create the override variable name.
   # Uppercase, convert / to __, and . to _
@@ -64,4 +72,10 @@ source_dep() {
   # 2. Source the script, passing along all the *remaining* arguments.
   #    "$@" expands to all remaining positional parameters, properly quoted.
   source "$path" "$@"
+}
+
+get_script_registry() {
+  # This function provides a clean way to export the entire
+  # dependency map without exposing the internal variable name.
+  declare -p SCRIPT_REGISTRY
 }

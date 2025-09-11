@@ -1,23 +1,32 @@
 #!/bin/bash
-# To enable debug tracing for tests, uncomment the line below
+
 set -euo pipefail
+
+# curlpilot/test/parse_args_test.sh
+
+# --- SETUP ---
+source "$(dirname "$0")/../deps.sh"
+register "parse_args" "parse_args.sh"
 
 # Test file for the unified, schema-driven argument_parser.sh
 
 # Simple testing framework
 PASS_COUNT=0
 FAIL_COUNT=0
-
 run_test() {
-  local deps_path="../deps.sh"
   local test_name="$1"
   local spec="$2"
-  local quoted_spec
-  quoted_spec=$(printf "%q" "$spec")
-  local args="$3"
-  local expected="$4"
-  local expected_exit_code="${5:-0}"
-  local compare_json="${6:-true}"
+  shift 2
+  local -a args_array=("$@")
+
+  # Pop the last three elements for expected values.
+  local compare_json="${args_array[${#args_array[@]}-1]}"
+  unset 'args_array[${#args_array[@]}-1]'
+  local expected_exit_code="${args_array[${#args_array[@]}-1]}"
+  unset 'args_array[${#args_array[@]}-1]'
+  local expected="${args_array[${#args_array[@]}-1]}"
+  unset 'args_array[${#args_array[@]}-1]'
+
 
   echo "--- Running Test: $test_name ---"
 
@@ -25,14 +34,14 @@ run_test() {
   trace_log=$(mktemp)
   exec 3>"$trace_log"
 
-  local cmd="set -x; source $deps_path; register parse_args parse_args.sh; source_dep parse_args $quoted_spec $args"
+  local script_to_test="${SCRIPT_REGISTRY[parse_args]}"
 
+  local job_ticket
+  job_ticket=$(jq -n --argjson spec "$spec" -- '{"spec": $spec, "args": $ARGS.positional}' --args -- "${args_array[@]}")
 
   local output
   local exit_code
-  # The BASH_XTRACEFD environment variable will now be respected
-  # by the sourced script's commands.
-  if output=$(BASH_XTRACEFD=3 bash -c "$cmd" 2>&1); then
+  if output=$(echo "$job_ticket" | BASH_XTRACEFD=3 bash -x "$script_to_test" 2>&1); then
     exit_code=0
   else
     exit_code=$?
@@ -41,8 +50,11 @@ run_test() {
   exec 3>&-
 
   if [[ "$exit_code" -ne "$expected_exit_code" ]]; then
+    # In case of failure, reconstruct the full command for better error reporting
+    local cmd_for_display
+    printf -v cmd_for_display "%q " "${args_array[@]}"
     echo "FAIL: Expected exit code $expected_exit_code, but got $exit_code."
-    echo "Command was: $cmd"
+    echo "Arguments were: $cmd_for_display"
     echo "--- Parser Script Output ---"
     echo "$output"
     echo "--- XTrace Log from $trace_log ---"
@@ -114,87 +126,101 @@ MAIN_SPEC='{
   "retries": {"type": "number", "default": 3}
 }'
 
+# --- NOTE THE CHANGED SYNTAX FOR CALLING run_test ---
+# --- Command-line arguments are now passed without surrounding quotes. ---
+
 run_test "All args provided" \
   "$MAIN_SPEC" \
-  "--api-key=SECRET --model=gpt-4 --stream=false --retries=5" \
-  '{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5}'
+  --api-key=SECRET --model=gpt-4 --stream=false --retries=5 \
+  '{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5}' \
+  0 true
 
 run_test "Argument with space" \
   "$MAIN_SPEC" \
-  "--api-key SECRET --retries 0" \
-  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0}'
+  --api-key SECRET --retries 0 \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0}' \
+  0 true
 
 run_test "Handles key=value parsing without order-of-operations bug" \
   '{"api_key": {"type": "string", "required": true}}' \
-  "--api-key=SECRET_VALUE" \
-  '{"api_key": "SECRET_VALUE"}'
+  --api-key=SECRET_VALUE \
+  '{"api_key": "SECRET_VALUE"}' \
+  0 true
 
 run_test "Handles values containing an equals sign" \
   '{"connection_string": {"type": "string"}}' \
-  '--connection-string="user=admin;pass=123"' \
-  '{"connection_string": "user=admin;pass=123"}'
+  --connection-string="user=admin;pass=123" \
+  '{"connection_string": "user=admin;pass=123"}' \
+  0 true
 
 run_test "Standalone boolean flag" \
   "$MAIN_SPEC" \
-  "--api-key=SECRET --stream" \
-  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}'
+  --api-key=SECRET --stream \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}' \
+  0 true
 
 run_test "Boolean set to false" \
   "$MAIN_SPEC" \
-  "--api-key=SECRET --stream=false" \
-  '{"api_key": "SECRET", "model": "gpt-default", "stream": false, "retries": 3}'
+  --api-key=SECRET --stream=false \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": false, "retries": 3}' \
+  0 true
 
 run_test "Number type is respected" \
   "$MAIN_SPEC" \
-  "--api-key=SECRET --retries=10" \
-  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 10}'
+  --api-key=SECRET --retries=10 \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 10}' \
+  0 true
 
 run_test "String that looks like a number is still a string" \
   '{"version": {"type": "string"}}' \
-  "--version=1.0" \
-  '{"version": "1.0"}'
+  --version=1.0 \
+  '{"version": "1.0"}' \
+  0 true
 
 run_test "Defaults are applied correctly" \
   "$MAIN_SPEC" \
-  "--api-key=SECRET" \
-  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}'
+  --api-key=SECRET \
+  '{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}' \
+  0 true
 
 run_test "Default value can be the string 'null'" \
   '{"nullable_arg": {"type": "string", "default": "null"}}' \
-  "" \
-  '{"nullable_arg": "null"}'
+  '{"nullable_arg": "null"}' \
+  0 true
 
 run_test "Default does not override passed value" \
   '{"config": {"type": "json", "default": {"theme": "dark", "user": "guest"}}}' \
-  '--config="{\"user\":\"admin\"}"' \
-  '{"config": {"user":"admin"}}'
+  --config='{"user":"admin"}' \
+  '{"config": {"user":"admin"}}' \
+  0 true
 
 run_test "Required argument failure" \
   "$MAIN_SPEC" \
-  "--model=gpt-4" \
+  --model=gpt-4 \
   "Error: Required argument '--api-key' is missing." \
-  1
+  1 true
 
 run_test "Correctly handles value that looks like a flag" \
   '{"command": {"type": "string"}, "version": {"type": "boolean"}}' \
-  "--command '--version'" \
-  '{"command": "--version"}'
+  --command '--version' \
+  '{"command": "--version"}' \
+  0 true
 
 run_test "Unknown argument failure" \
   "$MAIN_SPEC" \
-  "--api-key=SECRET --non-existent-arg" \
+  --api-key=SECRET --non-existent-arg \
   "Error: Unknown option '--non-existent-arg'." \
-  1
+  1 true
 
 run_test "Value-taking arg requires a value" \
   "$MAIN_SPEC" \
-  "--api-key SECRET --model" \
+  --api-key SECRET --model \
   "Error: Argument '--model' requires a value." \
-  1
+  1 true
 
 run_test "Help generation" \
   "$MAIN_SPEC" \
-  "--help" \
+  --help \
   "  --help	Show this help message and exit." \
   0 false
 

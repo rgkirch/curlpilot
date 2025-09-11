@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/bin/bash
 
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -16,6 +16,8 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
 set -euo pipefail
+
+# curlpilot/login.sh
 
 # --- Argument Parsing ---
 FORCE_REFRESH=false

@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# curlpilot/test/mock/server/copilot/completion_response.sh
+
 # This script generates a mock Copilot API response in JSON format.
 # All logic, including static JSON objects, is defined inside the jq recipe.
 # Usage: echo '{"message_content": "..."}' | ./completion_response.sh

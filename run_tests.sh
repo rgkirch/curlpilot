@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# curlpilot/run_tests.sh
+
 TEST_DIR="$(dirname "${BASH_SOURCE[0]}")/test"
 PASSED_TESTS=0
 FAILED_TESTS=0

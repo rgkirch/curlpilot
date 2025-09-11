@@ -1,6 +1,8 @@
-#!/bin/env bash
+#!/bin/bash
 
 set -euo pipefail
+
+# curlpilot/test/chat_test_non_streaming.sh
 
 # Get the directory of the test script
 TEST_DIR=$(dirname "$(readlink -f "$0")")

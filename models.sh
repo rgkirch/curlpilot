@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -16,6 +16,8 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
 set -euo pipefail
+
+# curlpilot/models.sh
 
 bash "$(dirname "$0")/login.sh"
 

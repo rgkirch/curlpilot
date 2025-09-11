@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# curlpilot/schema_validator.sh
+
 #
 # Validates a JSON object against a schema, applying defaults and checking requirements.
 #

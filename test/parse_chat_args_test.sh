@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# curlpilot/test/parse_chat_args_test.sh
+
 # Test file for the unified, schema-driven argument_parser.sh
 
 # --- SETUP ---

@@ -1,5 +1,7 @@
-#!/usr/bin/env bash
-set -euox pipefail
+#!/bin/bash
+set -euo pipefail
+
+# curlpilot/scripts/review.sh
 
 PEER_MD_CONTENT=$(cat PEER.md 2>/dev/null || true)
 OPTIMAL_N=$(scripts/diff_n_optimizer.sh --target-tokens=2000 2>/dev/null || echo 10)

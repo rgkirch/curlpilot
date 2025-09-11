@@ -1,3 +1,9 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# curlpilot/default_config.sh
+
 # User-configurable settings for curlpilot.sh
 
 # Color for summarization messages (ANSI escape codes)
