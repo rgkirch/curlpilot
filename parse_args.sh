@@ -128,9 +128,7 @@ readonly DEFAULTS_JSON=$(echo "$ARG_SPEC_JSON" | jq '
   with_entries(.value = .value.default)
 ')
 
-# NOTE: This line still contains the bug you found earlier (* vs +).
-# You'll want to change it to '+' to fix the JSON object merge behavior.
-readonly FINAL_JSON=$(jq -s '.[0] * .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
+readonly FINAL_JSON=$(jq -s '.[0] + .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
 
 readonly SPEC_KEYS=$(echo "$ARG_SPEC_JSON" | jq -r 'keys[]')
 for key in $SPEC_KEYS; do

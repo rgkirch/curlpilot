@@ -37,7 +37,12 @@ run_test() {
   local script_to_test="${SCRIPT_REGISTRY[parse_args]}"
 
   local job_ticket
-  job_ticket=$(jq -n --argjson spec "$spec" -- '{"spec": $spec, "args": $ARGS.positional}' --args -- "${args_array[@]}")
+
+  job_ticket=$(jq -n \
+    --argjson spec "$spec" \
+    '{"spec": $spec, "args": $ARGS.positional}' \
+    --args -- "${args_array[@]}" \
+  )
 
   local output
   local exit_code
