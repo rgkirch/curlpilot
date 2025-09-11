@@ -45,10 +45,10 @@ exec_dep() {
   shift
   "$path" "$@"
 }
-
 source_dep() {
   local key="$1"
   local path="${SCRIPT_REGISTRY[$key]}"
+
   if [[ -z "$path" ]]; then
     echo "Error: No script registered for key '$key'" >&2
     return 1
@@ -57,5 +57,11 @@ source_dep() {
     echo "Error: Script file '$path' does not exist." >&2
     return 1
   fi
-  source "$path"
+
+  # 1. Remove the 'key' argument from the list of positional parameters.
+  shift
+
+  # 2. Source the script, passing along all the *remaining* arguments.
+  #    "$@" expands to all remaining positional parameters, properly quoted.
+  source "$path" "$@"
 }

@@ -4,18 +4,16 @@ set -euo pipefail
 
 # Test file for the unified, schema-driven argument_parser.sh
 
-# --- SETUP ---
-TEST_DIR=$(dirname "$(readlink -f "$0")")
-PROJECT_ROOT=$(dirname "$TEST_DIR")
-SCRIPT_TO_TEST="$PROJECT_ROOT/parse_args.sh"
-
 # Simple testing framework
 PASS_COUNT=0
 FAIL_COUNT=0
 
 run_test() {
+  local deps_path="../deps.sh"
   local test_name="$1"
   local spec="$2"
+  local quoted_spec
+  quoted_spec=$(printf "%q" "$spec")
   local args="$3"
   local expected="$4"
   local expected_exit_code="${5:-0}"
@@ -27,10 +25,13 @@ run_test() {
   trace_log=$(mktemp)
   exec 3>"$trace_log"
 
-  local cmd="set -x; $SCRIPT_TO_TEST '$spec' $args"
+  local cmd="set -x; source $deps_path; register parse_args parse_args.sh; source_dep parse_args $quoted_spec $args"
+
 
   local output
   local exit_code
+  # The BASH_XTRACEFD environment variable will now be respected
+  # by the sourced script's commands.
   if output=$(BASH_XTRACEFD=3 bash -c "$cmd" 2>&1); then
     exit_code=0
   else
