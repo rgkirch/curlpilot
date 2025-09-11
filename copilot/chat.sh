@@ -18,76 +18,65 @@
 set -euo pipefail
 
 source deps.sh
-register copilot_request "copilot/make_request.sh"
-register parse_args "copilot/parse_chat_args.sh"
 
-# --- Modified Pipeline with Error Handling ---
+# Register dependencies
+register copilot_request "copilot/request.sh"
+register arg_parser "parse_args.sh"
+register schema_validator "schema_validator.sh"
+register parse_response "copilot/parse_response.sh"
+register copilot_config "copilot/config.sh"
+source_dep copilot_config
+register config "config.sh"
+source_dep config
 
-# This command captures both the response body and the HTTP status code.
-# The status code is appended to the output on a new line, thanks to -w "\n%{http_code}".
-# The -f flag is removed to ensure we receive the body even on error.
-#
-# The -s flag in jq stands for --slurp. It changes how jq reads its input.
-# Instead of processing each JSON object from the input stream one at a time,
-# the -s flag tells jq to read the entire stream of objects into a single large
-# array. It then runs your filter just once on that complete array.
-#
-# echo '{"role": "user", "content": "hi"}' | ./copilot/chat.sh
-# Sending request to Copilot...
-# Hello! How can I help you today? 😊
-
-OPTIONS="$(exec_dep parse_args "$@")"
-
-REQUEST="$(jq '{
-  model,
-  "stream": .stream_enabled
-}' <<<"$OPTIONS")"
-
-REQUEST="$(jq \
-  --slurp \
-  --argjson request "$REQUEST" \
-  '$request + {"messages": .}')"
-
-STREAM_ENABLED="$(jq '.stream_enabled' <<<"$OPTIONS")"
-
-# Pipe the request to the subshell for processing
-exec_dep copilot_request <<<"$REQUEST" | {
-  set -euo pipefail
-
-  # Use read to split the stream on the null delimiter
-  IFS= read -r -d $'\0' response_body
-  read -r status_json_part || [[ -n "$response_body" ]]
-
-  # Extract values from the status JSON
-  http_code=$(echo "$status_json_part" | jq -r '.http_code')
-  exitcode=$(echo "$status_json_part" | jq -r '.exitcode')
-
-  # Check for curl errors
-  if [[ "$exitcode" -ne 0 ]]; then
-      errormsg=$(echo "$status_json_part" | jq -r '.errormsg')
-      echo "Error: curl command failed with exit code ${exitcode}. Message: ${errormsg}" >&2
-      exit 1
-  fi
-
-  # Check for HTTP errors
-  if [[ "$http_code" -ge 400 ]]; then
-    echo "Error: Request failed with HTTP status ${http_code}" >&2
-    echo "Server response:" >&2
-    # Pretty-print the JSON error message if possible, otherwise print as is
-    if echo "$response_body" | jq . >/dev/null 2>&1; then
-        echo "$response_body" | jq . >&2
-    else
-        echo "$response_body" >&2
-    fi
-    exit 1
-  fi
-
-  # If the request was successful, process the response body.
-  # The unified jq filter handles both streaming and non-streaming responses.
-  echo "$response_body" | \
-    grep -v '^data: \[DONE\]$' | \
-    sed 's/^data: //' | \
-    jq -j -n 'inputs | .choices[0] | .delta.content // .message.content'
+# Define the argument specification for this script, using defaults from config.
+ARG_SPEC_JSON=$(cat <<EOF
+{
+  "model": {
+    "type": "string",
+    "description": "Specify the AI model to use.",
+    "default": "$MODEL"
+  },
+  "api_endpoint": {
+    "type": "string",
+    "description": "Specify the API endpoint for the chat service.",
+    "default": "$API_ENDPOINT"
+  },
+  "stream": {
+    "type": "boolean",
+    "description": "Enable or disable streaming responses.",
+    "default": $STREAM_ENABLED
+  },
+  "config_dir": {
+    "type": "path",
+    "description": "Set the configuration directory.",
+    "default": "$CONFIG_DIR"
+  },
+  "token_file": {
+    "type": "path",
+    "description": "Set the token file path.",
+    "default": "$TOKEN_FILE"
+  }
 }
+EOF
+)
+
+
+# --- Argument Parsing and Validation ---
+# 1. Parse the raw command-line arguments into a JSON object.
+RAW_ARGS_JSON=$(exec_dep arg_parser "$@")
+
+# 2. Validate the raw JSON against the schema to apply defaults and get final parameters.
+PARAMS_JSON=$(exec_dep schema_validator "$ARG_SPEC_JSON" "$RAW_ARGS_JSON")
+# --- End of Argument Handling ---
+
+
+# Prepare the request body for the GitHub Copilot API
+jq \
+  --slurp \
+  --argjson options "$(echo "$PARAMS_JSON" | jq 'if .stream != null then .stream_enabled = .stream | del(.stream) else . end')" \
+  '($options | {model, stream_enabled}) + {messages: .}' \
+| exec_dep copilot_request \
+| exec_dep parse_response
 
 echo

@@ -11,7 +11,7 @@ TEST_DIR=$(dirname "$(readlink -f "$0")")
 MOCK_REQUEST_SCRIPT="$TEST_DIR/mock/server/copilot/completion_response.sh"
 
 # Set the environment variable to override the dependency
-export CPO_COPILOT__MAKE_REQUEST_SH="$MOCK_REQUEST_SCRIPT"
+export CPO_COPILOT__REQUEST_SH="$MOCK_REQUEST_SCRIPT"
 
 # Define the absolute path to the chat.sh script
 CHAT_SH_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/copilot/chat.sh"

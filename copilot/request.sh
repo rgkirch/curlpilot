@@ -4,10 +4,8 @@ set -euo pipefail
 
 source deps.sh
 register auth "copilot/auth.sh"
-register parse_args "copilot/parse_chat_args.sh"
-source_dep auth
-
-read_and_check_token
+register parse_args "parse_args.sh"
+exec_dep auth
 
 curl -sS -N -X POST \
   "$API_ENDPOINT" \
