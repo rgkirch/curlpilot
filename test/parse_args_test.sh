@@ -4,7 +4,6 @@ set -euo pipefail
 
 # curlpilot/test/parse_args_test.sh
 
-# --- SETUP ---
 source "$(dirname "$0")/../deps.sh"
 register "parse_args" "parse_args.sh"
 
@@ -46,7 +45,8 @@ run_test() {
 
   local output
   local exit_code
-  if output=$(echo "$job_ticket" | BASH_XTRACEFD=3 bash -x "$script_to_test" 2>&1); then
+  # UPDATED: Pass job_ticket as a command-line argument instead of via stdin.
+  if output=$(BASH_XTRACEFD=3 bash -x "$script_to_test" "$job_ticket" 2>&1); then
     exit_code=0
   else
     exit_code=$?
@@ -228,6 +228,70 @@ run_test "Help generation" \
   --help \
   "  --help	Show this help message and exit." \
   0 false
+
+# --- Special Case Tests ---
+# A simplified test runner for cases that don't fit the standard model,
+# like providing a job ticket that doesn't have a 'spec' or 'args' key.
+run_special_test() {
+  local test_name="$1"
+  local job_ticket="$2"
+  local expected_output="$3"
+  local expected_exit_code="$4"
+
+  echo "--- Running Test: $test_name ---"
+  local script_to_test="${SCRIPT_REGISTRY[parse_args]}"
+  local output
+  local exit_code=0
+
+  # Create a temp file to discard the xtrace logs.
+  local trace_log
+  trace_log=$(mktemp)
+
+  # Redirect File Descriptor 3 to the temp file.
+  exec 3>"$trace_log"
+
+  # Run the script, sending xtrace output to FD 3 (via BASH_XTRACEFD).
+  # The script's normal stdout and stderr are captured in the 'output' variable.
+  if ! output=$(BASH_XTRACEFD=3 "$script_to_test" "$job_ticket" 2>&1); then
+      exit_code=$?
+  fi
+
+  # Close FD 3 and clean up the now-unneeded log file.
+  exec 3>&-
+  rm "$trace_log"
+
+  if [[ "$exit_code" -ne "$expected_exit_code" ]]; then
+      echo "FAIL: Expected exit code $expected_exit_code, but got $exit_code."
+      echo "--- Script Output ---"
+      echo "$output"
+      echo "-----------------------"
+      FAIL_COUNT=$((FAIL_COUNT + 1))
+      return
+  fi
+
+  local expected_sorted
+  local output_sorted
+  expected_sorted=$(echo "$expected_output" | jq -S .)
+  output_sorted=$(echo "$output" | jq -S .)
+
+  if [[ "$output_sorted" != "$expected_sorted" ]]; then
+      echo "FAIL: JSON output does not match expected."
+      echo "Expected:"
+      echo "$expected_sorted"
+      echo "Got:"
+      echo "$output_sorted"
+      FAIL_COUNT=$((FAIL_COUNT + 1))
+  else
+      echo "PASS: $test_name"
+      PASS_COUNT=$((PASS_COUNT + 1))
+  fi
+}
+
+run_special_test \
+  "Handles empty JSON object '{}' as input" \
+  '{}' \
+  '{}' \
+  0
 
 # --- SUMMARY ---
 echo ""

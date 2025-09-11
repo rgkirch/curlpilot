@@ -1,10 +1,10 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euox pipefail
 
 # curlpilot/copilot/auth.sh
 
-source deps.sh
+source "$(dirname "$0")/../deps.sh"
 
 LOGIN_SCRIPT="login.sh"
 
@@ -15,7 +15,6 @@ register parse_args "parse_args.sh"
 # We execute parse_args to validate that no arguments were passed.
 # The output is ignored, but the script will exit if unknown args are found.
 exec_dep parse_args "$ARG_SPEC_JSON" "$@"
-
 
 register login $LOGIN_SCRIPT
 source_dep login

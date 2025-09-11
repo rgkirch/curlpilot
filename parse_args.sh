@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euox pipefail
 
 # curlpilot/parse_args.sh
 
@@ -9,9 +9,9 @@ set -euo pipefail
 # into a final JSON object based on a provided specification.
 #
 # Usage:
-#   echo '{"spec": {...}, "args": ["--foo", "bar"]}' | ./parse_args.sh
+#   ./parse_args.sh '{"spec": {...}, "args": ["--foo", "bar"]}'
 #
-# This script reads a single JSON object from stdin and processes it.
+# This script reads a single JSON object from the first command-line argument.
 #
 
 # --- UTILITY FUNCTIONS ---
@@ -34,15 +34,19 @@ kebab_to_snake() {
 
 # --- 1. INITIALIZATION & SCHEMA VALIDATION ---
 
-# Read the entire "job ticket" from standard input.
-readonly JOB_TICKET_JSON=$(cat)
+# Check if the job ticket argument is provided.
+if [[ -z "${1-}" ]]; then
+    abort "Usage: $0 JOB_TICKET_JSON"
+fi
+
+# Read the entire "job ticket" from the first command-line argument.
+readonly JOB_TICKET_JSON="$1"
 
 # Extract the spec and args from the ticket.
-readonly USER_SPEC_JSON=$(echo "$JOB_TICKET_JSON" | jq -c '.spec')
-ARGS_JSON=$(echo "$JOB_TICKET_JSON" | jq -c '.args')
-
-# Validate that the provided spec is valid JSON.
-echo "$USER_SPEC_JSON" | jq -e . >/dev/null || abort "Argument specification is not valid JSON."
+# If .spec is not a valid object, default to an empty object.
+readonly USER_SPEC_JSON=$(echo "$JOB_TICKET_JSON" | jq -c 'if (.spec | type) == "object" then .spec else {} end')
+# If .args is not a valid array, default to an empty array.
+ARGS_JSON=$(echo "$JOB_TICKET_JSON" | jq -c 'if (.args | type) == "array" then .args else [] end')
 
 # The 'help' key is reserved for the parser's use.
 if [[ $(echo "$USER_SPEC_JSON" | jq 'has("help")') == "true" ]]; then
