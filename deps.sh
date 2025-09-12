@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 # curlpilot/deps.sh
@@ -14,24 +13,18 @@ register() {
   local original_path="$2"
   local final_path="$original_path"
 
-  # If the key already exists in the registry, do nothing.
-  # This gives mocks priority.
   if [[ -v SCRIPT_REGISTRY["$key"] ]]; then
     return 0
   fi
 
-  # Sanitize the path to create the override variable name.
-  # Uppercase, convert / to __, and . to _
-  local sanitized_path=$(echo "$original_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
+  local sanitized_path
+  sanitized_path=$(echo "$original_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
   local override_var_name="CPO_$sanitized_path"
 
-  # Check if the override environment variable is set and not empty
-  # using indirect expansion.
   if [[ -n "${!override_var_name-}" ]]; then
     final_path="${!override_var_name}"
   fi
 
-  # Register the final path (either original or override)
   if [[ "$final_path" = /* ]]; then
     SCRIPT_REGISTRY["$key"]="$final_path"
   else
@@ -41,17 +34,63 @@ register() {
 
 exec_dep() {
   local key="$1"
-  local path="${SCRIPT_REGISTRY[$key]}"
-  if [[ -z "$path" ]]; then
+  local script_path="${SCRIPT_REGISTRY[$key]}"
+
+  if [[ -z "$script_path" ]]; then
     echo "Error: No script registered for key '$key'" >&2
     return 1
   fi
-  if [[ ! -x "$path" ]]; then
-    echo "Error: Script file '$path' is not executable or does not exist." >&2
+  if [[ ! -x "$script_path" ]]; then
+    echo "Error: Script file '$script_path' is not executable or does not exist." >&2
     return 1
   fi
   shift
-  "$path" "$@"
+
+  # Determine the potential path for the output schema based on convention.
+  # e.g., for "config.sh", it looks for "config.output.schema.json"
+  local schema_path
+  schema_path="$(dirname "$script_path")/$(basename "$script_path" .sh).output.schema.json"
+
+  # Temporarily disable exit-on-error to safely capture the exit code
+  set +e
+  local output
+  output=$("$script_path" "$@")
+  local exit_code=$?
+  set -e
+
+  # If the executed script failed, report its output as an error and propagate its exit code.
+  if [[ $exit_code -ne 0 ]]; then
+    echo "$output" >&2
+    return $exit_code
+  fi
+
+  # If a corresponding schema file exists, perform validation.
+  if [[ -f "$schema_path" ]]; then
+    local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.sh"
+
+    if [[ ! -x "$validator_path" ]]; then
+      echo "Warning: Schema validator not found at '$validator_path'. Skipping validation for '$key'." >&2
+    else
+      # Pipe the output to the validator and capture any validation errors
+      local validation_errors
+      validation_errors=$(echo "$output" | "$validator_path" "$schema_path" 2>&1)
+      local validation_code=$?
+
+      if [[ $validation_code -ne 0 ]]; then
+        echo "Error: Output of '$key' ($script_path) failed schema validation." >&2
+        echo "Schema: $schema_path" >&2
+        echo "--- Validation Errors ---" >&2
+        echo "$validation_errors" >&2
+        echo "--- Invalid Output ---" >&2
+        echo "$output" >&2
+        return 1 # Return a generic error code for validation failure
+      fi
+    fi
+  fi
+
+  # If we reach here, the script succeeded and passed validation (or had no schema).
+  # Print the original captured output to stdout for the caller to use.
+  echo "$output"
 }
 
 source_dep() {
@@ -67,16 +106,10 @@ source_dep() {
     return 1
   fi
 
-  # 1. Remove the 'key' argument from the list of positional parameters.
   shift
-
-  # 2. Source the script, passing along all the *remaining* arguments.
-  #    "$@" expands to all remaining positional parameters, properly quoted.
   source "$path" "$@"
 }
 
 get_script_registry() {
-  # This function provides a clean way to export the entire
-  # dependency map without exposing the internal variable name.
   declare -p SCRIPT_REGISTRY
 }
