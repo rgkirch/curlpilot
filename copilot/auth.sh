@@ -7,13 +7,9 @@ set -euox pipefail
 source "$(dirname "$0")/../deps.sh"
 
 LOGIN_SCRIPT="login.sh"
-
-# This script takes no arguments. The spec is an empty object.
 ARG_SPEC_JSON="{}"
 
 register parse_args "parse_args.sh"
-# We execute parse_args to validate that no arguments were passed.
-# The output is ignored, but the script will exit if unknown args are found.
 exec_dep parse_args "$ARG_SPEC_JSON" "$@"
 
 register login $LOGIN_SCRIPT

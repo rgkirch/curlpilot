@@ -4,7 +4,8 @@ set -euo pipefail
 
 # curlpilot/copilot/request.sh
 
-source deps.sh
+source "$(dirname "$0")/../deps.sh"
+
 register auth "copilot/auth.sh"
 register parse_args "parse_args.sh"
 exec_dep auth
