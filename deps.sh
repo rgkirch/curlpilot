@@ -53,6 +53,7 @@ exec_dep() {
   shift
   "$path" "$@"
 }
+
 source_dep() {
   local key="$1"
   local path="${SCRIPT_REGISTRY[$key]}"

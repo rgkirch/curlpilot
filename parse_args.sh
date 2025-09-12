@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euox pipefail
+set -euo pipefail
 
 # curlpilot/parse_args.sh
 
@@ -44,9 +44,9 @@ readonly JOB_TICKET_JSON="$1"
 
 # Extract the spec and args from the ticket.
 # If .spec is not a valid object, default to an empty object.
-readonly USER_SPEC_JSON=$(echo "$JOB_TICKET_JSON" | jq -c 'if (.spec | type) == "object" then .spec else {} end')
+readonly USER_SPEC_JSON=$(echo "$JOB_TICKET_JSON" | jq --compact-output 'if (.spec | type) == "object" then .spec else {} end')
 # If .args is not a valid array, default to an empty array.
-ARGS_JSON=$(echo "$JOB_TICKET_JSON" | jq -c 'if (.args | type) == "array" then .args else [] end')
+ARGS_JSON=$(echo "$JOB_TICKET_JSON" | jq --compact-output 'if (.args | type) == "array" then .args else [] end')
 
 # The 'help' key is reserved for the parser's use.
 if [[ $(echo "$USER_SPEC_JSON" | jq 'has("help")') == "true" ]]; then
@@ -64,7 +64,7 @@ RAW_ARGS_JSON="{}"
 # Loop as long as there are elements in the ARGS_JSON array.
 while [[ $(echo "$ARGS_JSON" | jq 'length > 0') == "true" ]]; do
   # Get the first argument from the JSON array.
-  ARG=$(echo "$ARGS_JSON" | jq -r '.[0]')
+  ARG=$(echo "$ARGS_JSON" | jq --raw-output '.[0]')
   # Consume the first argument for the next iteration.
   ARGS_JSON=$(echo "$ARGS_JSON" | jq '.[1:]')
 
@@ -81,7 +81,7 @@ while [[ $(echo "$ARGS_JSON" | jq 'length > 0') == "true" ]]; do
   fi
 
   arg_name_snake=$(kebab_to_snake "$arg_name_kebab")
-  arg_type=$(echo "$ARG_SPEC_JSON" | jq -r --arg key "$arg_name_snake" '.[$key].type // empty')
+  arg_type=$(echo "$ARG_SPEC_JSON" | jq --raw-output --arg key "$arg_name_snake" '.[$key].type // empty')
 
   [[ -z "$arg_type" ]] && abort "Unknown option '--$arg_name_kebab'."
 
@@ -93,7 +93,7 @@ while [[ $(echo "$ARGS_JSON" | jq 'length > 0') == "true" ]]; do
       if [[ $(echo "$ARGS_JSON" | jq 'length == 0') == "true" ]]; then
         abort "Argument '--$arg_name_kebab' requires a value."
       fi
-      value=$(echo "$ARGS_JSON" | jq -r '.[0]')
+      value=$(echo "$ARGS_JSON" | jq --raw-output '.[0]')
       ARGS_JSON=$(echo "$ARGS_JSON" | jq '.[1:]')
     fi
   fi
@@ -116,11 +116,11 @@ readonly RAW_ARGS_JSON
 
 # --- 3. POST-PARSING ACTIONS (HELP) ---
 
-if echo "$RAW_ARGS_JSON" | jq -e '.help == true' >/dev/null; then
+if echo "$RAW_ARGS_JSON" | jq --exit-status '.help == true' >/dev/null; then
   echo "Usage: [options]"
   echo ""
   echo "Options:"
-  echo "$ARG_SPEC_JSON" | jq -r 'keys[] as $key | "  --\( ($key | gsub("_"; "-")) )\t\(.[$key].description // "")"'
+  echo "$ARG_SPEC_JSON" | jq --raw-output 'keys[] as $key | "  --\( ($key | gsub("_"; "-")) )\t\(.[$key].description // "")"'
   exit 0
 fi
 
@@ -132,11 +132,11 @@ readonly DEFAULTS_JSON=$(echo "$ARG_SPEC_JSON" | jq '
   with_entries(.value = .value.default)
 ')
 
-readonly FINAL_JSON=$(jq -s '.[0] + .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
+readonly FINAL_JSON=$(jq --slurp '.[0] + .[1]' <(echo "$DEFAULTS_JSON") <(echo "$RAW_ARGS_JSON"))
 
-readonly SPEC_KEYS=$(echo "$ARG_SPEC_JSON" | jq -r 'keys[]')
+readonly SPEC_KEYS=$(echo "$ARG_SPEC_JSON" | jq --raw-output 'keys[]')
 for key in $SPEC_KEYS; do
-  is_required=$(echo "$ARG_SPEC_JSON" | jq -r --arg key "$key" '.[$key].required // false')
+  is_required=$(echo "$ARG_SPEC_JSON" | jq --raw-output --arg key "$key" '.[$key].required // false')
   if [[ "$is_required" == "true" ]]; then
     if [[ $(echo "$FINAL_JSON" | jq --arg key "$key" 'has($key)') == "false" ]]; then
       abort "Required argument '--$(snake_to_kebab "$key")' is missing."
