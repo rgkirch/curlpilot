@@ -19,7 +19,7 @@ for test_file in $(find "$TEST_DIR" -type f -name "*_test.bash"); do
     temp_output=$(mktemp)
 
     # Run the test, redirecting stdout and stderr to the temporary file
-    if "$test_file" > "$temp_output" 2>&1; then
+    if bash "$test_file" > "$temp_output" 2>&1; then
         echo "✅ PASSED"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else

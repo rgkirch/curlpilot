@@ -30,9 +30,9 @@ TEST_INPUT_JSON='{
 
 
 # --- Pre-flight Checks ---
-if [ ! -x "$GENERATOR_SCRIPT" ]; then
-    echo "Error: Generator script '$GENERATOR_SCRIPT' not found or not executable." >&2
-    echo "Please ensure it's in the same directory and run 'chmod +x $GENERATOR_SCRIPT'." >&2
+if [ ! -f "$GENERATOR_SCRIPT" ]; then
+    echo "Error: Generator script '$GENERATOR_SCRIPT' not found." >&2
+    echo "Please ensure it's in the same directory." >&2
     exit 1
 fi
 
