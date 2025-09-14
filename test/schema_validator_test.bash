@@ -1,4 +1,3 @@
-#!/bin/bash
 set -euo pipefail
 
 # This script tests the functionality of schema_validator.sh.
@@ -38,16 +37,18 @@ EOF
 
 # --- Test Runner ---
 failures=0
+# Usage: run_test <description> <expected_exit_code> <command> [args...]
+# The command inherits its stdin from this function, allowing for piping.
 run_test() {
   local description="$1"
-  local command="$2"
-  local expected_exit_code="$3"
+  local expected_exit_code="$2"
+  shift 2 # The rest of the arguments are the command to execute.
 
   printf "  - %s... " "$description"
 
   # Run the command, capturing its output (stdout & stderr) and exit code.
   set +e
-  output=$(eval "$command" 2>&1)
+  output=$("$@" 2>&1)
   local exit_code=$?
   set -e
 
@@ -63,17 +64,19 @@ run_test() {
 }
 
 # --- Execute Tests ---
-run_test "Success: Valid data should pass silently" \
-  "echo '$VALID_DATA' | ./schema_validator.sh '$SCHEMA_FILE'" 0
+# Pipe data *into* the run_test function, which passes it to the command.
+echo "$VALID_DATA" | run_test "Success: Valid data should pass silently" 0 \
+  ./schema_validator.sh "$SCHEMA_FILE"
 
-run_test "Failure: Invalid data should fail with an error" \
-  "echo '$INVALID_DATA' | ./schema_validator.sh '$SCHEMA_FILE'" 1
+echo "$INVALID_DATA" | run_test "Failure: Invalid data should fail with an error" 1 \
+  ./schema_validator.sh "$SCHEMA_FILE"
 
-run_test "Failure: A non-existent schema file should cause an error" \
-  "./schema_validator.sh '/no/such/file.json'" 1
+# For commands that don't need stdin, just call run_test directly.
+run_test "Failure: A non-existent schema file should cause an error" 1 \
+  ./schema_validator.sh '/no/such/file.json'
 
-run_test "Failure: Missing schema file argument should show usage" \
-  "./schema_validator.sh" 1
+run_test "Failure: Missing schema file argument should show usage" 1 \
+  ./schema_validator.sh
 
 
 # --- Final Report ---
