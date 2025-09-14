@@ -1,10 +1,26 @@
 # curlpilot/deps.bash
 set -euo pipefail
 
-SCRIPT_REGISTRY_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+SCRIPT_REGISTRY_DIR="$PROJECT_ROOT"
+
 if ! declare -p SCRIPT_REGISTRY > /dev/null 2>&1; then
   declare -A SCRIPT_REGISTRY
 fi
+
+get_project_root() {
+  echo "$PROJECT_ROOT"
+}
+
+resolve_path() {
+  local relative_path="$1"
+  # Don't modify absolute paths
+  if [[ "$relative_path" = /* ]]; then
+    echo "$relative_path"
+  else
+    echo "$PROJECT_ROOT/$relative_path"
+  fi
+}
 
 register_dep() {
   local key="$1"
@@ -23,11 +39,7 @@ register_dep() {
     final_path="${!override_var_name}"
   fi
 
-  if [[ "$final_path" = /* ]]; then
-    SCRIPT_REGISTRY["$key"]="$final_path"
-  else
-    SCRIPT_REGISTRY["$key"]="$SCRIPT_REGISTRY_DIR/$final_path"
-  fi
+  SCRIPT_REGISTRY["$key"]="$(resolve_path "$final_path")"
 }
 
 exec_dep() {
