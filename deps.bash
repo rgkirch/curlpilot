@@ -115,7 +115,7 @@ exec_dep() {
   # --- Execute the script ---
   set +e
   local output
-  output=$(echo "$input" | "$script_path" "$@")
+  output=$(echo "$input" | bash "$script_path" "$@")
   local exit_code=$?
   set -e
 

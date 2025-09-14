@@ -12,7 +12,7 @@ set -euo pipefail
 # This script assumes your validate.js is in a sibling directory named 'ajv'.
 # Adjust this path if your directory structure is different.
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-NODE_VALIDATOR_PATH="$SCRIPT_DIR/../ajv/validate.js"
+NODE_VALIDATOR_PATH="$SCRIPT_DIR/ajv/validate.js"
 # ---------------------
 
 # 1. Ensure a schema path was provided as an argument.
