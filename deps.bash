@@ -29,6 +29,7 @@ register_dep() {
     SCRIPT_REGISTRY["$key"]="$SCRIPT_REGISTRY_DIR/$final_path"
   fi
 }
+
 exec_dep() {
   local key="$1"
   local script_path="${SCRIPT_REGISTRY[$key]}"
@@ -53,54 +54,49 @@ exec_dep() {
   local output_schema_path="${base_path}.output.schema.json"
   local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.bash"
 
-  # --- Optional ARGS Validation ---
-  if [[ -f "$args_schema_path" ]]; then
+  # --- Up-front Validator Check ---
+  # If any schema file exists for this script, the validator MUST be present.
+  if [[ -f "$args_schema_path" || -f "$input_schema_path" || -f "$output_schema_path" ]]; then
     if [[ ! -x "$validator_path" ]]; then
-      echo "Warning: Schema validator not found. Skipping ARGS validation for '$key'." >&2
-    else
-      # Convert arguments to a JSON array for validation
-      local args_json
-      if [ "$#" -gt 0 ]; then
-        args_json=$(printf '"%s",' "$@")
-        args_json="[${args_json%,}]"
-      else
-        args_json="[]"
-      fi
-
-      local validation_errors
-      validation_errors=$(echo "$args_json" | "$validator_path" "$args_schema_path" 2>&1)
-      local validation_code=$?
-
-      if [[ $validation_code -ne 0 ]]; then
-        echo "Error: Arguments for '$key' ($script_path) failed schema validation." >&2
-        echo "Schema: $args_schema_path" >&2
-        echo "--- Validation Errors ---" >&2
-        echo "$validation_errors" >&2
-        echo "--- Invalid Arguments (as JSON) ---" >&2
-        echo "$args_json" >&2
-        return 1
-      fi
+      echo "Error: A schema file was found, but the validator is missing or not executable at '$validator_path'." >&2
+      return 1
     fi
   fi
 
-  # --- Optional STDIN Validation ---
-  if [[ -f "$input_schema_path" ]]; then
-    if [[ ! -x "$validator_path" ]]; then
-      echo "Warning: Schema validator not found. Skipping INPUT validation for '$key'." >&2
+  # --- Simplified ARGS Validation ---
+  if [[ -f "$args_schema_path" ]]; then
+    local args_json
+    if [ "$#" -gt 0 ]; then
+      args_json=$(printf '"%s",' "$@")
+      args_json="[${args_json%,}]"
     else
-      local validation_errors
-      validation_errors=$(echo "$input" | "$validator_path" "$input_schema_path" 2>&1)
-      local validation_code=$?
+      args_json="[]"
+    fi
+    local validation_errors
+    validation_errors=$(echo "$args_json" | "$validator_path" "$args_schema_path" 2>&1)
+    if [[ $? -ne 0 ]]; then
+      echo "Error: Arguments for '$key' ($script_path) failed schema validation." >&2
+      echo "Schema: $args_schema_path" >&2
+      echo "--- Validation Errors ---" >&2
+      echo "$validation_errors" >&2
+      echo "--- Invalid Arguments (as JSON) ---" >&2
+      echo "$args_json" >&2
+      return 1
+    fi
+  fi
 
-      if [[ $validation_code -ne 0 ]]; then
-        echo "Error: Stdin for '$key' ($script_path) failed input schema validation." >&2
-        echo "Schema: $input_schema_path" >&2
-        echo "--- Validation Errors ---" >&2
-        echo "$validation_errors" >&2
-        echo "--- Invalid Input ---" >&2
-        echo "$input" >&2
-        return 1
-      fi
+  # --- Simplified STDIN Validation ---
+  if [[ -f "$input_schema_path" ]]; then
+    local validation_errors
+    validation_errors=$(echo "$input" | "$validator_path" "$input_schema_path" 2>&1)
+    if [[ $? -ne 0 ]]; then
+      echo "Error: Stdin for '$key' ($script_path) failed input schema validation." >&2
+      echo "Schema: $input_schema_path" >&2
+      echo "--- Validation Errors ---" >&2
+      echo "$validation_errors" >&2
+      echo "--- Invalid Input ---" >&2
+      echo "$input" >&2
+      return 1
     fi
   fi
 
@@ -117,24 +113,18 @@ exec_dep() {
     return $exit_code
   fi
 
-  # --- Optional OUTPUT Validation ---
+  # --- Simplified OUTPUT Validation ---
   if [[ -f "$output_schema_path" ]]; then
-    if [[ ! -x "$validator_path" ]]; then
-      echo "Warning: Schema validator not found. Skipping OUTPUT validation for '$key'." >&2
-    else
-      local validation_errors
-      validation_errors=$(echo "$output" | "$validator_path" "$output_schema_path" 2>&1)
-      local validation_code=$?
-
-      if [[ $validation_code -ne 0 ]]; then
-        echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
-        echo "Schema: $output_schema_path" >&2
-        echo "--- Validation Errors ---" >&2
-        echo "$validation_errors" >&2
-        echo "--- Invalid Output ---" >&2
-        echo "$output" >&2
-        return 1
-      fi
+    local validation_errors
+    validation_errors=$(echo "$output" | "$validator_path" "$output_schema_path" 2>&1)
+    if [[ $? -ne 0 ]]; then
+      echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
+      echo "Schema: $output_schema_path" >&2
+      echo "--- Validation Errors ---" >&2
+      echo "$validation_errors" >&2
+      echo "--- Invalid Output ---" >&2
+      echo "$output" >&2
+      return 1
     fi
   fi
 
