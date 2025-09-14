@@ -1,6 +1,11 @@
 # curlpilot
-
 This directory contains scripts for interacting with the Copilot API.
+
+## `deps.bash`
+
+``` bash
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
+```
 
 ## `login.bash`
 
@@ -65,7 +70,7 @@ printf '{"json":"payload"}\0{"status":"ok"}' | {
 }
 ```
 
-- expansian
+- expansion
 ``` bash
 # The string is first stored entirely in a variable
 full_string=$'{"json":"payload"}\0{"status":"ok"}'

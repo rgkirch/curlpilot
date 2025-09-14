@@ -1,43 +1,19 @@
 #!/bin/bash
 #
-# An INTEGRATION TEST to verify that deps.bash and the real validate.js
-# work together correctly for output schema validation.
+# Tests deps.bash "in place" and uses the resolve_path function
+# for clean, consistent path management.
 #
 set -euo pipefail
 
-# --- Configuration ---
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
-# 1. Set the root of your project directory.
-TEST_SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-PROJECT_ROOT="$(dirname "$TEST_SCRIPT_DIR")"
+VALIDATE_JS_PATH=$(resolve_path "ajv/validate.js")
 
-# 2. DEFINE THE PATHS to the REAL scripts we are testing.
-#    Confirm these paths are correct for your environment.
-DEPS_BASH_PATH="$PROJECT_ROOT/deps.bash"
-VALIDATE_JS_PATH="$PROJECT_ROOT/ajv/validate.js"
-SCHEMA_VALIDATOR_BASH_PATH="$PROJECT_ROOT/schema_validator.bash"
-
-# --- Test Setup ---
-
-# Check that the necessary files exist before starting.
-if [[ ! -f "$DEPS_BASH_PATH" || ! -f "$VALIDATE_JS_PATH" || ! -f "$SCHEMA_VALIDATOR_BASH_PATH" ]]; then
-  echo "❌ Error: A required script was not found. Check the paths in the configuration." >&2
-  exit 1
-fi
-
-# Create a temporary directory for our mock scripts and schemas
+# 3. Create a temporary directory for ONLY mock scripts and schemas.
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT # Cleanup on exit
 
-# Source the deps.bash script we're testing
-# shellcheck source=../deps.bash
-source "$DEPS_BASH_PATH"
-
-# Override SCRIPT_REGISTRY_DIR to point to the real project root,
-# so the real schema_validator.bash can be found.
-SCRIPT_REGISTRY_DIR="$PROJECT_ROOT"
-
-# --- Test Harness (same as before) ---
+# --- Test Harness ---
 
 assert_success() {
   local description="$1"
@@ -70,7 +46,13 @@ assert_failure() {
 # --- Test Cases ---
 
 main() {
-  echo "--- Running Integration Test for deps.bash and validate.js ---"
+  echo "--- Running Refactored In-Place Validation Tests ---"
+
+  # Check that validate.js exists before starting.
+  if [[ ! -f "$VALIDATE_JS_PATH" ]]; then
+    echo "❌ Error: validate.js not found at '$VALIDATE_JS_PATH'" >&2
+    exit 1
+  fi
 
   # --- Prepare Dependencies for the REAL validate.js ---
   echo "🔹 Ensuring 'ajv' dependency is installed for validate.js..."
@@ -84,46 +66,53 @@ main() {
     fi
   )
   echo "🔹 Setup complete."
-  # -----------------------------------------------------------------
 
   # --- Test Case 1: Valid Output ---
-  local valid_script="$TEST_DIR/valid_output.bash"
-  local schema_for_valid="$TEST_DIR/valid_output.output.schema.json"
+  local valid_script_path="$TEST_DIR/valid_output.bash"
+  local schema_for_valid_path="$TEST_DIR/valid_output.output.schema.json"
 
-  # Create a mock script that produces valid JSON
-  echo '#!/bin/bash' > "$valid_script"
-  echo 'echo ''{"status": "ok", "code": 200}''' >> "$valid_script"
-  chmod +x "$valid_script"
+  # Create a mock script in /tmp that produces valid JSON
+  cat > "$valid_script_path" <<'EOF'
+#!/bin/bash
+echo '{"status": "ok", "code": 200}'
+EOF
+  chmod +x "$valid_script_path"
 
-  # Create its corresponding schema
-  cat > "$schema_for_valid" <<'EOF'
+  # Create its corresponding schema in /tmp
+  cat > "$schema_for_valid_path" <<'EOF'
 {
-  "type": "object", "properties": { "status": { "type": "string" }, "code": { "type": "integer" }}, "required": ["status", "code"]
+  "type": "object",
+  "properties": { "status": { "type": "string" }, "code": { "type": "integer" } },
+  "required": ["status", "code"]
 }
 EOF
 
-  register_dep "valid_output_test" "$valid_script"
-  assert_success "system correctly validates good output" \
+  # Register the dependency using its full, absolute path
+  register_dep "valid_output_test" "$valid_script_path"
+  assert_success "script with valid output passes validation" \
     exec_dep "valid_output_test"
 
   # --- Test Case 2: Invalid Output ---
-  local invalid_script="$TEST_DIR/invalid_output.bash"
-  local schema_for_invalid="$TEST_DIR/invalid_output.output.schema.json"
+  local invalid_script_path="$TEST_DIR/invalid_output.bash"
+  local schema_for_invalid_path="$TEST_DIR/invalid_output.output.schema.json"
 
-  # Create a mock script that produces invalid JSON (code is a string)
-  echo '#!/bin/bash' > "$invalid_script"
-  echo 'echo ''{"status": "ok", "code": "200"}''' >> "$invalid_script"
-  chmod +x "$invalid_script"
+  # Create a mock script in /tmp that produces invalid JSON
+  cat > "$invalid_script_path" <<'EOF'
+#!/bin/bash
+echo '{"status": "ok", "code": "200"}'
+EOF
+  chmod +x "$invalid_script_path"
 
-  # Use the same schema definition
-  cp "$schema_for_valid" "$schema_for_invalid"
+  # Create its schema in /tmp
+  cp "$schema_for_valid_path" "$schema_for_invalid_path"
 
-  register_dep "invalid_output_test" "$invalid_script"
-  assert_failure "system correctly rejects bad output" \
+  # Register the dependency using its full, absolute path
+  register_dep "invalid_output_test" "$invalid_script_path"
+  assert_failure "script with invalid output fails validation" \
     exec_dep "invalid_output_test"
 
   echo
-  echo "🎉 All integration tests passed!"
+  echo "🎉 All refactored validation tests passed!"
 }
 
 # Run the tests
