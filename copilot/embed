@@ -1,6 +1,4 @@
-#!/bin/bash
-
-set -euox pipefail
+set -euo pipefail
 
 # curlpilot/copilot/embed
 

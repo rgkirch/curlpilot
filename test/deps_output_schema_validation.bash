@@ -25,28 +25,22 @@ assert_success() {
     exit 1
   fi
 }
+
 assert_failure() {
   local description="$1"
   shift
   echo -n "🔹 Testing: $description..."
-
-  # Temporarily disable exit-on-error
   set +e
   local output
-  # Capture all output (stdout and stderr) from the command into a variable
   output=$("$@" 2>&1)
   local exit_code=$?
-  # Re-enable exit-on-error
   set -e
-
   if [[ $exit_code -ne 0 ]]; then
-    # The command failed as expected. Print our clean success message.
     echo " ✅ PASSED (failed as expected)"
   else
-    # The command succeeded when it should have failed. This is a real test failure.
     echo " ❌ FAILED (was expected to fail but succeeded)"
     echo "--- Unexpected Output ---"
-    echo "$output" # Print the captured output to help with debugging.
+    echo "$output"
     echo "-----------------------"
     exit 1
   fi
@@ -57,13 +51,11 @@ assert_failure() {
 main() {
   echo "--- Running Final Integration Test ---"
 
-  # Check that validate.js exists before starting.
   if [[ ! -f "$VALIDATE_JS_PATH" ]]; then
     echo "❌ Error: validate.js not found at '$VALIDATE_JS_PATH'" >&2
     exit 1
   fi
 
-  # --- Prepare Dependencies for the REAL validate.js ---
   echo "🔹 Ensuring 'ajv' dependency is installed..."
   (
     cd "$(dirname "$VALIDATE_JS_PATH")"
@@ -78,14 +70,12 @@ main() {
   local valid_script_path="$TEST_DIR/valid_output.bash"
   local schema_for_valid_path="$TEST_DIR/valid_output.output.schema.json"
 
-  # Create a mock script in /tmp that produces valid JSON
   cat > "$valid_script_path" <<'EOF'
 #!/bin/bash
 echo '{"status": "ok", "code": 200}'
 EOF
   chmod +x "$valid_script_path"
 
-  # Create its corresponding schema in /tmp
   cat > "$schema_for_valid_path" <<'EOF'
 {
   "type": "object",
@@ -94,29 +84,27 @@ EOF
 }
 EOF
 
-  # Register the dependency using its full, absolute path
   register_dep "valid_output_test" "$valid_script_path"
+  # FIX: Provide empty stdin to exec_dep using a here-string
   assert_success "script with valid output passes validation" \
-    exec_dep "valid_output_test"
+    exec_dep "valid_output_test" <<< ""
 
   # --- Test Case 2: Invalid Output ---
   local invalid_script_path="$TEST_DIR/invalid_output.bash"
   local schema_for_invalid_path="$TEST_DIR/invalid_output.output.schema.json"
 
-  # Create a mock script in /tmp that produces invalid JSON
   cat > "$invalid_script_path" <<'EOF'
 #!/bin/bash
 echo '{"status": "ok", "code": "200"}'
 EOF
   chmod +x "$invalid_script_path"
 
-  # Create its schema in /tmp
   cp "$schema_for_valid_path" "$schema_for_invalid_path"
 
-  # Register the dependency using its full, absolute path
   register_dep "invalid_output_test" "$invalid_script_path"
+  # FIX: Provide empty stdin to exec_dep using a here-string
   assert_failure "script with invalid output fails validation" \
-    exec_dep "invalid_output_test"
+    exec_dep "invalid_output_test" <<< ""
 
   echo
   echo "🎉 All integration tests passed!"
