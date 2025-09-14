@@ -27,7 +27,9 @@ try {
   } else {
     console.error('❌ Data is invalid:');
     console.error(validate.errors);
+    process.exit(1); // <-- ADD THIS LINE
   }
 } catch (e) {
   console.error('An error occurred:', e.message);
+  process.exit(1); // It's also good practice to have this in the catch block
 }

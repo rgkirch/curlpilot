@@ -1,38 +1,35 @@
 # schema_validator.bash
 set -euo pipefail
 
-# A wrapper to use the Node.js ajv validator. It reads data from stdin
-# and uses process substitution to pass it as a file path to the Node script.
-#
-# Usage:
-#   cat data.json | ./schema_validator.bash schema.json
-#
+# 1. Source the framework to get the resolve_path function.
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/deps.bash"
 
-# --- Configuration ---
-# This script assumes your validate.js is in a sibling directory named 'ajv'.
-# Adjust this path if your directory structure is different.
-SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-NODE_VALIDATOR_PATH="$SCRIPT_DIR/ajv/validate.js"
-# ---------------------
+# 2. Use resolve_path to get the absolute path to the Node.js script.
+NODE_VALIDATOR_PATH=$(resolve_path "ajv/validate.js")
 
-# 1. Ensure a schema path was provided as an argument.
+# --- Main Logic ---
+
+# Check that the node script actually exists before trying to run it.
+if [[ ! -f "$NODE_VALIDATOR_PATH" ]]; then
+    echo "Error: The node validator script could not be found at '$NODE_VALIDATOR_PATH'" >&2
+    exit 1
+fi
+
+# Ensure a schema path was provided as an argument.
 if [[ -z "${1-}" ]]; then
   echo "Usage: cat data.json | $0 <path_to_schema.json>" >&2
   exit 1
 fi
 schema_path="$1"
 
-# 2. Read all of stdin into a variable.
-# This allows us to check if it's empty before proceeding.
+# Read all of stdin into a variable.
 input=$(cat)
 
-# 3. Provide a clear error if stdin was empty, which is not valid JSON.
+# Provide a clear error if stdin was empty.
 if [[ -z "$input" ]]; then
     echo "Error: Standard input was empty, which is not valid JSON." >&2
     exit 1
 fi
 
-# 4. Execute the Node.js validator.
-# Process substitution <(echo "$input") runs `echo` and provides its
-# output as a temporary file path that the Node script can read.
-node "$NODE_VALIDATOR_PATH" "$schema_path" <(echo "$input")
+# Execute the Node.js validator directly with the correct path.
+exec node "$NODE_VALIDATOR_PATH" "$schema_path" <(echo "$input")

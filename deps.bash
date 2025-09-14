@@ -1,6 +1,7 @@
 # curlpilot/deps.bash
 set -euo pipefail
 
+# The directory containing this script is now officially the PROJECT_ROOT.
 PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 SCRIPT_REGISTRY_DIR="$PROJECT_ROOT"
 
@@ -14,7 +15,6 @@ get_project_root() {
 
 resolve_path() {
   local relative_path="$1"
-  # Don't modify absolute paths
   if [[ "$relative_path" = /* ]]; then
     echo "$relative_path"
   else
@@ -56,7 +56,6 @@ exec_dep() {
   fi
   shift
 
-  # Capture stdin and define paths
   local input
   input=$(cat)
   local base_path
@@ -64,10 +63,8 @@ exec_dep() {
   local args_schema_path="${base_path}.args.schema.json"
   local input_schema_path="${base_path}.input.schema.json"
   local output_schema_path="${base_path}.output.schema.json"
-  local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.bash"
+  local validator_path="$PROJECT_ROOT/schema_validator.bash"
 
-  # --- Up-front Validator Check ---
-  # If any schema file exists for this script, the validator MUST be present.
   if [[ -f "$args_schema_path" || -f "$input_schema_path" || -f "$output_schema_path" ]]; then
     if [[ ! -f "$validator_path" ]]; then
       echo "Error: A schema file was found, but the validator is missing or not executable at '$validator_path'." >&2
@@ -75,7 +72,6 @@ exec_dep() {
     fi
   fi
 
-  # --- Simplified ARGS Validation ---
   if [[ -f "$args_schema_path" ]]; then
     local args_json
     if [ "$#" -gt 0 ]; then
@@ -84,9 +80,14 @@ exec_dep() {
     else
       args_json="[]"
     fi
+    # --- Start Fix ---
+    set +e
     local validation_errors
     validation_errors=$(echo "$args_json" | bash "$validator_path" "$args_schema_path" 2>&1)
-    if [[ $? -ne 0 ]]; then
+    local validation_code=$?
+    set -e
+    # --- End Fix ---
+    if [[ $validation_code -ne 0 ]]; then
       echo "Error: Arguments for '$key' ($script_path) failed schema validation." >&2
       echo "Schema: $args_schema_path" >&2
       echo "--- Validation Errors ---" >&2
@@ -97,11 +98,15 @@ exec_dep() {
     fi
   fi
 
-  # --- Simplified STDIN Validation ---
   if [[ -f "$input_schema_path" ]]; then
+    # --- Start Fix ---
+    set +e
     local validation_errors
     validation_errors=$(echo "$input" | bash "$validator_path" "$input_schema_path" 2>&1)
-    if [[ $? -ne 0 ]]; then
+    local validation_code=$?
+    set -e
+    # --- End Fix ---
+    if [[ $validation_code -ne 0 ]]; then
       echo "Error: Stdin for '$key' ($script_path) failed input schema validation." >&2
       echo "Schema: $input_schema_path" >&2
       echo "--- Validation Errors ---" >&2
@@ -112,24 +117,26 @@ exec_dep() {
     fi
   fi
 
-  # --- Execute the script ---
   set +e
   local output
   output=$(echo "$input" | bash "$script_path" "$@")
   local exit_code=$?
   set -e
 
-  # Handle script execution failure
   if [[ $exit_code -ne 0 ]]; then
     echo "$output" >&2
     return $exit_code
   fi
 
-  # --- Simplified OUTPUT Validation ---
   if [[ -f "$output_schema_path" ]]; then
+    # --- Start Fix ---
+    set +e
     local validation_errors
     validation_errors=$(echo "$output" | bash "$validator_path" "$output_schema_path" 2>&1)
-    if [[ $? -ne 0 ]]; then
+    local validation_code=$?
+    set -e
+    # --- End Fix ---
+    if [[ $validation_code -ne 0 ]]; then
       echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
       echo "Schema: $output_schema_path" >&2
       echo "--- Validation Errors ---" >&2
@@ -140,9 +147,9 @@ exec_dep() {
     fi
   fi
 
-  # If everything passed, print the final output
   echo "$output"
 }
+
 get_script_registry() {
   declare -p SCRIPT_REGISTRY
 }
