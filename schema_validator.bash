@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# This script tests the functionality of schema_validator.sh.
+# This script tests the functionality of schema_validator.bash.
 # It must be run from the project's root directory.
 
-echo "🧪 Running tests for schema_validator.sh..."
+echo "🧪 Running tests for schema_validator.bash..."
 
 # --- Prerequisite Check ---
 if ! command -v ajv &> /dev/null; then
@@ -63,16 +63,16 @@ run_test() {
 # This correctly pipes the JSON content, not the variable name.
 #
 run_test "Success: Valid data should pass silently" \
-  "printf '%s' \"$VALID_DATA\" | ./schema_validator.sh \"$SCHEMA_FILE\"" 0
+  "printf '%s' \"$VALID_DATA\" | ./schema_validator.bash \"$SCHEMA_FILE\"" 0
 
 run_test "Failure: Invalid data should fail with an error" \
-  "printf '%s' \"$INVALID_DATA\" | ./schema_validator.sh \"$SCHEMA_FILE\"" 1
+  "printf '%s' \"$INVALID_DATA\" | ./schema_validator.bash \"$SCHEMA_FILE\"" 1
 
 run_test "Failure: A non-existent schema file should cause an error" \
-  "./schema_validator.sh '/no/such/file.json'" 1
+  "./schema_validator.bash '/no/such/file.json'" 1
 
 run_test "Failure: Missing schema file argument should show usage" \
-  "./schema_validator.sh" 1
+  "./schema_validator.bash" 1
 
 
 # --- Final Report ---

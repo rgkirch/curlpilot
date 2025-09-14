@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# curlpilot/deps.sh
+# curlpilot/deps.bash
 
 SCRIPT_REGISTRY_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 if ! declare -p SCRIPT_REGISTRY > /dev/null 2>&1; then
@@ -47,9 +47,9 @@ exec_dep() {
   shift
 
   # Determine the potential path for the output schema based on convention.
-  # e.g., for "config.sh", it looks for "config.output.schema.json"
+  # e.g., for "config.bash", it looks for "config.output.schema.json"
   local schema_path
-  schema_path="$(dirname "$script_path")/$(basename "$script_path" .sh).output.schema.json"
+  schema_path="$(dirname "$script_path")/$(basename "$script_path" .bash).output.schema.json"
 
   # Temporarily disable exit-on-error to safely capture the exit code
   set +e
@@ -66,7 +66,7 @@ exec_dep() {
 
   # If a corresponding schema file exists, perform validation.
   if [[ -f "$schema_path" ]]; then
-    local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.sh"
+    local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.bash"
 
     if [[ ! -x "$validator_path" ]]; then
       echo "Warning: Schema validator not found at '$validator_path'. Skipping validation for '$key'." >&2

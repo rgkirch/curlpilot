@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-# curlpilot/test/chat.sh
+# curlpilot/test/chat.bash
 
-# Mock chat.sh for testing purposes.
+# Mock chat.bash for testing purposes.
 # It records the payload it receives and returns a canned response.
 
 # Get the directory where the script itself is located.
@@ -20,5 +20,5 @@ cat >> "$LOG_FILE"
 
 echo "--- PAYLOAD END ${TEST_RUN_ID} ---" >> "$LOG_FILE"
 
-# Return a canned response for curlpilot.sh to continue
+# Return a canned response for curlpilot.bash to continue
 echo "OK"

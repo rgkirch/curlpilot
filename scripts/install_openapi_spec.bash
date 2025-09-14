@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# curlpilot/scripts/install_openapi_spec.sh
+# curlpilot/scripts/install_openapi_spec.bash
 
 # This script downloads the official OpenAI OpenAPI specification and replaces a
 # number that is too large for standard 64-bit integer parsers (like yq's).

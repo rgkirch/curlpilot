@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-# curlpilot/default_config.sh
+# curlpilot/default_config.bash
 
-# User-configurable settings for curlpilot.sh
+# User-configurable settings for curlpilot.bash
 
 # Color for summarization messages (ANSI escape codes)
 # Example: Yellow (0;33), Cyan (0;36), Green (0;32), Red (0;31)
@@ -26,7 +26,7 @@ HISTORY_FILE="$CONFIG_DIR/convo_history.txt"
 SUMMARIZATION_LEVEL="NORMAL"
 
 # Use dirname to ensure sourcing works regardless of current directory
-source "$(dirname "${BASH_SOURCE[0]}")/prompts/prompts.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/prompts/prompts.bash"
 
 # Prompt for concise summarization
 SUMMARIZATION_PROMPT_CONCISE=$(cat <<'EOF'

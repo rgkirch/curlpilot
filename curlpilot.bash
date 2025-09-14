@@ -2,24 +2,24 @@
 
 set -euo pipefail
 
-# curlpilot/curlpilot.sh
+# curlpilot/curlpilot.bash
 
 # Main script for curlpilot, using a branching conversation model.
 
 # --- Configuration ---
 # Load default config
-if [ -f "$(dirname "$0")/default_config.sh" ]; then
-  source "$(dirname "$0")/default_config.sh"
+if [ -f "$(dirname "$0")/default_config.bash" ]; then
+  source "$(dirname "$0")/default_config.bash"
 fi
 
 # Load user config
 USER_CONFIG_DIR="$HOME/.config/curlpilot"
-if [ -f "$USER_CONFIG_DIR/config.sh" ]; then
-  source "$USER_CONFIG_DIR/config.sh"
+if [ -f "$USER_CONFIG_DIR/config.bash" ]; then
+  source "$USER_CONFIG_DIR/config.bash"
 fi
 
 # Path to the chat script
-: ${CHAT_SCRIPT:="$(dirname "$0")/copilot/chat.sh"} # Updated default path
+: ${CHAT_SCRIPT:="$(dirname "$0")/copilot/chat.bash"} # Updated default path
 
 # Default model and API endpoint
 : ${MODEL:="gpt-4.1"}
@@ -27,7 +27,7 @@ fi
 : ${STREAM_ENABLED:=true} # Default stream setting
 
 # --- Dependency Checks ---
-if ! "$(dirname "$0")/check_deps.sh"; then
+if ! "$(dirname "$0")/check_deps.bash"; then
     exit 1
 fi
 
@@ -185,7 +185,7 @@ while IFS= read -r -d $'\x04' PROMPT || [[ -n "$PROMPT" ]]; do
     # Build the payload by walking the current branch
     PAYLOAD=$(build_payload)
 
-    echo "Sending to chat.sh..." >&2
+    echo "Sending to chat.bash..." >&2
     TEMP_RESPONSE_FILE=$(mktemp)
     # Ensure trap cleans up the temp file
     trap 'rm -f "$TEMP_RESPONSE_FILE"' EXIT

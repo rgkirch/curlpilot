@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# curlpilot/context_calculator.sh
+# curlpilot/context_calculator.bash
 
 # Calculates how many messages in a branch fit within a token limit.
 
@@ -10,7 +10,7 @@ set -euo pipefail
 : ${CHARS_PER_TOKEN:=4}
 
 # --- Dependency Checks ---
-if ! "$(dirname "$0")/check_deps.sh"; then
+if ! "$(dirname "$0")/check_deps.bash"; then
     exit 1
 fi
 

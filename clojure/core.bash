@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# curlpilot/clojure/core.sh
+# curlpilot/clojure/core.bash
 
 # A collection of Bash functions that mimic Clojure's hash map operations
 # using jq for JSON manipulation. This version uses modern jq 1.6+ features.

@@ -4,13 +4,13 @@ set -euox pipefail
 
 # curlpilot/copilot/embed
 
-source "$(dirname "$0")/../deps.sh"
+source "$(dirname "$0")/../deps.bash"
 
-# Define API_ENDPOINT directly from copilot/config.sh
+# Define API_ENDPOINT directly from copilot/config.bash
 API_ENDPOINT="https://api.githubcopilot.com/chat/completions"
 
 # Register and source dependencies
-register auth "copilot/auth.sh"
+register auth "copilot/auth.bash"
 exec_dep auth
 
 # Get the input text from command line arguments

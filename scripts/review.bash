@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# curlpilot/scripts/review.sh
+# curlpilot/scripts/review.bash
 
 PEER_MD_CONTENT=$(cat PEER.md 2>/dev/null || true)
-OPTIMAL_N=$(scripts/diff_n_optimizer.sh --target-tokens=2000 2>/dev/null || echo 10)
+OPTIMAL_N=$(scripts/diff_n_optimizer.bash --target-tokens=2000 2>/dev/null || echo 10)
 
 # Read additional prompt from stdin
 ADDITIONAL_PROMPT=$(cat)
@@ -19,4 +19,4 @@ ${ADDITIONAL_PROMPT}
 EOF
 )
 
-jq -n --arg content "$INPUT_CONTENT" '[{"role": "user", "content": $content}]' | copilot/chat.sh --stream=false
+jq -n --arg content "$INPUT_CONTENT" '[{"role": "user", "content": $content}]' | copilot/chat.bash --stream=false

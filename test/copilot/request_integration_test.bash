@@ -4,10 +4,10 @@ set -euo pipefail
 # PURPOSE: Verify the raw HTTP request sent by curl is correctly formatted.
 # This test must be run from the project's root directory.
 
-echo "🧪 Running integration test for copilot/request.sh..."
+echo "🧪 Running integration test for copilot/request.bash..."
 
 # --- Test Setup ---
-source "./deps.sh"
+source "./deps.bash"
 
 PORT=8080
 LOG_FILE="request.log"
@@ -20,7 +20,7 @@ NC_PID=$!
 trap 'kill "$NC_PID"; rm -f "$LOG_FILE";' EXIT
 
 # 3. Use the simple 'success' mock for the auth dependency
-export CPO_COPILOT__AUTH_SH="./test/mocks/scripts/success/auth.sh"
+export CPO_COPILOT__AUTH_SH="./test/mocks/scripts/success/auth.bash"
 
 # 4. Set environment, pointing the API to our local netcat listener
 export API_ENDPOINT="http://localhost:$PORT"
@@ -29,7 +29,7 @@ export COPILOT_SESSION_TOKEN="integration-test-fake-token"
 
 # --- Run the Test ---
 # The script will hang here until netcat receives a request and closes the connection.
-echo '{"prompt": "hello"}' | ./copilot/request.sh
+echo '{"prompt": "hello"}' | ./copilot/request.bash
 
 
 # --- Verification ---

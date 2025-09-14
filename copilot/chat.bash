@@ -17,18 +17,18 @@
 
 set -euo pipefail
 
-# curlpilot/copilot/chat.sh
+# curlpilot/copilot/chat.bash
 
-source deps.sh
+source deps.bash
 
 # Register dependencies
-register copilot_request "copilot/request.sh"
-register parse_args "parse_args.sh"
-register schema_validator "schema_validator.sh"
-register parse_response "copilot/parse_response.sh"
-register copilot_config "copilot/config.sh"
+register copilot_request "copilot/request.bash"
+register parse_args "parse_args.bash"
+register schema_validator "schema_validator.bash"
+register parse_response "copilot/parse_response.bash"
+register copilot_config "copilot/config.bash"
 source_dep copilot_config
-register config "config.sh"
+register config "config.bash"
 source_dep config
 
 # Define the argument specification for this script, using defaults from config.

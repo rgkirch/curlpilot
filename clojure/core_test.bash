@@ -1,15 +1,15 @@
 #!/bin/bash
 set -uo pipefail
 
-# curlpilot/clojure/core_test.sh
+# curlpilot/clojure/core_test.bash
 
-# A simple, framework-free test script for hash_map.sh.
+# A simple, framework-free test script for hash_map.bash.
 # It sources the functions and runs a series of checks.
 
 # --- Test Runner Setup ---
 # Load the functions to be tested
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/core.sh"
+source "$SCRIPT_DIR/core.bash"
 
 # Counters for test results
 PASSED_COUNT=0

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# curlpilot/test/mock_tests/server/copilot/sse_completion_response_test.sh
+# curlpilot/test/mock_tests/server/copilot/sse_completion_response_test.bash
 
 # This script tests the SSE generator script by feeding it a predefined
 # JSON input and comparing its output against a known-good "golden" file.
@@ -12,7 +12,7 @@ set -euo pipefail
 BASE_PATH="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test"
 
 # The script we want to test.
-GENERATOR_SCRIPT="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mock/server/copilot/sse_completion_response.sh"
+GENERATOR_SCRIPT="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mock/server/copilot/sse_completion_response.bash"
 
 # The file containing the expected, correct output.
 EXPECTED_OUTPUT_FILE="$BASE_PATH/sse-response.txt"

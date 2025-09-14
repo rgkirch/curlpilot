@@ -2,12 +2,12 @@
 
 set -euo pipefail
 
-# curlpilot/test/parse_args_test.sh
+# curlpilot/test/parse_args_test.bash
 
-source "$(dirname "$0")/../deps.sh"
-register "parse_args" "parse_args.sh"
+source "$(dirname "$0")/../deps.bash"
+register "parse_args" "parse_args.bash"
 
-# Test file for the unified, schema-driven argument_parser.sh
+# Test file for the unified, schema-driven argument_parser.bash
 
 # Simple testing framework
 PASS_COUNT=0

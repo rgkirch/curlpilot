@@ -3,7 +3,7 @@
 # This script checks for required dependencies defined in dependencies.json.
 # It handles both executable commands and executable setup scripts.
 
-# curlpilot/check_deps.sh
+# curlpilot/check_deps.bash
 
 SCRIPT_DIR="$(dirname "$0")"
 DEPENDENCIES_FILE="$SCRIPT_DIR/dependencies.json"

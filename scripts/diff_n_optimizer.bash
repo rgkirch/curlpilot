@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# curlpilot/scripts/diff_n_optimizer.sh
+# curlpilot/scripts/diff_n_optimizer.bash
 
 # Default values
 TARGET_LINES_VAL=""
@@ -20,7 +20,7 @@ validate_positive_integer() {
 }
 
 # Parse command-line arguments
-TEMP=$(getopt -o '' --long target-lines:,target-tokens: -n 'diff_n_optimizer.sh' -- "$@")
+TEMP=$(getopt -o '' --long target-lines:,target-tokens: -n 'diff_n_optimizer.bash' -- "$@")
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to parse options." >&2

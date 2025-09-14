@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-# curlpilot/copilot/parse_response.sh
+# curlpilot/copilot/parse_response.bash
 
 # Use read to split the stream on the null delimiter
 IFS= read -r -d $'' response_body

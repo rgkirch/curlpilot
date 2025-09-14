@@ -2,23 +2,23 @@
 
 set -euo pipefail
 
-# curlpilot/test/chat_test_non_streaming.sh
+# curlpilot/test/chat_test_non_streaming.bash
 
 # Get the directory of the test script
 TEST_DIR=$(dirname "$(readlink -f "$0")")
 
-# This is the non-streaming test for chat.sh
+# This is the non-streaming test for chat.bash
 
 # Define the mock script path
-MOCK_REQUEST_SCRIPT="$TEST_DIR/mock/server/copilot/completion_response.sh"
+MOCK_REQUEST_SCRIPT="$TEST_DIR/mock/server/copilot/completion_response.bash"
 
 # Set the environment variable to override the dependency
 export CPO_COPILOT__REQUEST_SH="$MOCK_REQUEST_SCRIPT"
 
-# Define the absolute path to the chat.sh script
-CHAT_SH_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/copilot/chat.sh"
+# Define the absolute path to the chat.bash script
+CHAT_SH_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/copilot/chat.bash"
 
-# Run the chat.sh script with stream=false
+# Run the chat.bash script with stream=false
 output=$(echo '{"role": "user", "content": "hi"}' | "$CHAT_SH_PATH" --stream=false)
 
 # Assert the output

@@ -3,11 +3,11 @@ set -euo pipefail
 
 # This script makes the final authenticated request to the Copilot API.
 
-source "$(dirname "$0")/../deps.sh"
+source "$(dirname "$0")/../deps.bash"
 
 # Register dependencies for configuration and authentication.
-register config "copilot/config.sh"
-register auth "copilot/auth.sh"
+register config "copilot/config.bash"
+register auth "copilot/auth.bash"
 
 
 # --- Get Configuration ---

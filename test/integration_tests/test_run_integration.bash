@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Test runner for curlpilot.sh
+# Test runner for curlpilot.bash
 
-# curlpilot/test/integration_tests/test_run_integration.sh
+# curlpilot/test/integration_tests/test_run_integration.bash
 
 set -euo pipefail
 
@@ -12,12 +12,12 @@ set -euo pipefail
 TEST_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # Define paths relative to the test script
-CURLPILOT_SCRIPT="$TEST_DIR/../../curlpilot.sh"
+CURLPILOT_SCRIPT="$TEST_DIR/../../curlpilot.bash"
 # Generate a unique ID for this test run
 export TEST_RUN_ID=$(uuidgen)
 
 # Set the CHAT_SCRIPT environment variable to our mock server
-export CHAT_SCRIPT="$TEST_DIR/../chat.sh"
+export CHAT_SCRIPT="$TEST_DIR/../chat.bash"
 
 # Create temporary directories for conversation history and log files
 TEMP_CONFIG_DIR=$(mktemp -d)
@@ -38,7 +38,7 @@ trap cleanup EXIT
 
 # --- Test Execution ---
 
-echo "Running curlpilot.sh with two messages..."
+echo "Running curlpilot.bash with two messages..."
 
 # Simulate a user typing "message 1", pressing Ctrl+D, typing "message 2", and pressing Ctrl+D.
 # The \x04 is the hex code for the EOT (End of Transmission) character, which is what Ctrl+D sends.

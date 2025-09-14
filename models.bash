@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-# curlpilot/models.sh
+# curlpilot/models.bash
 
-bash "$(dirname "$0")/login.sh"
+bash "$(dirname "$0")/login.bash"
 
 CONFIG_DIR="$HOME/.config/curlpilot"
 TOKEN_FILE="$CONFIG_DIR/token.txt"

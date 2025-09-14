@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# curlpilot/schema_validator.sh
+# curlpilot/schema_validator.bash
 
 #
 # Validates a JSON object against a schema, applying defaults and checking requirements.
 #
-# Usage: ./validate_args.sh <spec_json_string> <data_json_string>
+# Usage: ./validate_args.bash <spec_json_string> <data_json_string>
 #
 # The spec_json is an object where each key is the snake_case name of an
 # argument, and the value is an object describing the argument:

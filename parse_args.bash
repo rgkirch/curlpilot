@@ -2,14 +2,14 @@
 
 set -euo pipefail
 
-# curlpilot/parse_args.sh
+# curlpilot/parse_args.bash
 
 #
 # A schema-driven argument parser that converts a JSON array of arguments
 # into a final JSON object based on a provided specification.
 #
 # Usage:
-#   ./parse_args.sh '{"spec": {...}, "args": ["--foo", "bar"]}'
+#   ./parse_args.bash '{"spec": {...}, "args": ["--foo", "bar"]}'
 #
 # This script reads a single JSON object from the first command-line argument.
 #

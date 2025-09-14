@@ -2,7 +2,7 @@ help:
     @just --list
 
 test:
-    @./run_tests.sh
+    @./run_tests.bash
 
 copilot-review-diff:
-    @./scripts/review.sh
+    @./scripts/review.bash

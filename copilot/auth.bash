@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-source "$(dirname "$0")/../deps.sh"
+source "$(dirname "$0")/../deps.bash"
 
-register login "login.sh"
+register login "login.bash"
 
 LOGIN_JSON=$(exec_dep login)
 
 if [[ -z "$LOGIN_JSON" ]]; then
-  echo "Error: auth.sh did not receive a response from the login provider." >&2
+  echo "Error: auth.bash did not receive a response from the login provider." >&2
   exit 1
 fi
 

@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-# curlpilot/test/mock_tests/server/copilot/completion_response_test.sh
+# curlpilot/test/mock_tests/server/copilot/completion_response_test.bash
 
-# Test script for mock/server/copilot/completion_response.sh
+# Test script for mock/server/copilot/completion_response.bash
 
-SCRIPT_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mock/server/copilot/completion_response.sh"
+SCRIPT_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mock/server/copilot/completion_response.bash"
 
 FAILED_TESTS=0
 

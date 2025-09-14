@@ -16,7 +16,7 @@
     "type": "executable"
   },
   {
-    "name": "install_openapi_spec.sh",
+    "name": "install_openapi_spec.bash",
     "type": "script"
   }
 ]

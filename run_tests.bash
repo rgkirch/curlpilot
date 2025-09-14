@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# curlpilot/run_tests.sh
+# curlpilot/run_tests.bash
 
 TEST_DIR="$(dirname "${BASH_SOURCE[0]}")/test"
 PASSED_TESTS=0
@@ -11,8 +11,8 @@ FAILED_TESTS=0
 echo "Running all tests in $TEST_DIR..."
 echo "-----------------------------------"
 
-# Find all test_*.sh files and run them
-for test_file in $(find "$TEST_DIR" -type f -name "*_test.sh"); do
+# Find all test_*.bash files and run them
+for test_file in $(find "$TEST_DIR" -type f -name "*_test.bash"); do
     echo -n "Running $test_file... " # -n to keep cursor on same line
 
     # Create a temporary file for output
