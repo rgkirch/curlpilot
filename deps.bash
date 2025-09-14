@@ -57,7 +57,7 @@ exec_dep() {
   # --- Up-front Validator Check ---
   # If any schema file exists for this script, the validator MUST be present.
   if [[ -f "$args_schema_path" || -f "$input_schema_path" || -f "$output_schema_path" ]]; then
-    if [[ ! -x "$validator_path" ]]; then
+    if [[ ! -f "$validator_path" ]]; then
       echo "Error: A schema file was found, but the validator is missing or not executable at '$validator_path'." >&2
       return 1
     fi
@@ -73,7 +73,7 @@ exec_dep() {
       args_json="[]"
     fi
     local validation_errors
-    validation_errors=$(echo "$args_json" | "$validator_path" "$args_schema_path" 2>&1)
+    validation_errors=$(echo "$args_json" | bash "$validator_path" "$args_schema_path" 2>&1)
     if [[ $? -ne 0 ]]; then
       echo "Error: Arguments for '$key' ($script_path) failed schema validation." >&2
       echo "Schema: $args_schema_path" >&2
@@ -88,7 +88,7 @@ exec_dep() {
   # --- Simplified STDIN Validation ---
   if [[ -f "$input_schema_path" ]]; then
     local validation_errors
-    validation_errors=$(echo "$input" | "$validator_path" "$input_schema_path" 2>&1)
+    validation_errors=$(echo "$input" | bash "$validator_path" "$input_schema_path" 2>&1)
     if [[ $? -ne 0 ]]; then
       echo "Error: Stdin for '$key' ($script_path) failed input schema validation." >&2
       echo "Schema: $input_schema_path" >&2
@@ -116,7 +116,7 @@ exec_dep() {
   # --- Simplified OUTPUT Validation ---
   if [[ -f "$output_schema_path" ]]; then
     local validation_errors
-    validation_errors=$(echo "$output" | "$validator_path" "$output_schema_path" 2>&1)
+    validation_errors=$(echo "$output" | bash "$validator_path" "$output_schema_path" 2>&1)
     if [[ $? -ne 0 ]]; then
       echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
       echo "Schema: $output_schema_path" >&2
