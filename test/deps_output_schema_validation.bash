@@ -1,4 +1,4 @@
-set -euox pipefail
+set -euo pipefail
 
 # --- Configuration & Setup ---
 
@@ -25,19 +25,29 @@ assert_success() {
     exit 1
   fi
 }
-
 assert_failure() {
   local description="$1"
   shift
   echo -n "🔹 Testing: $description..."
+
+  # Temporarily disable exit-on-error
   set +e
-  "$@"
+  local output
+  # Capture all output (stdout and stderr) from the command into a variable
+  output=$("$@" 2>&1)
   local exit_code=$?
+  # Re-enable exit-on-error
   set -e
+
   if [[ $exit_code -ne 0 ]]; then
+    # The command failed as expected. Print our clean success message.
     echo " ✅ PASSED (failed as expected)"
   else
+    # The command succeeded when it should have failed. This is a real test failure.
     echo " ❌ FAILED (was expected to fail but succeeded)"
+    echo "--- Unexpected Output ---"
+    echo "$output" # Print the captured output to help with debugging.
+    echo "-----------------------"
     exit 1
   fi
 }
