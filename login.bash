@@ -5,7 +5,7 @@ set -euo pipefail
 # It uses ~/.config/curlpilot/ for caching credentials.
 
 source "$(dirname "$0")/../deps.bash"
-register parse_args "parse_args.bash"
+register_dep parse_args "parse_args.bash"
 
 # --- Argument Parsing ---
 read -r -d '' ARG_SPEC_JSON <<'EOF'

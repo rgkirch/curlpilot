@@ -6,8 +6,8 @@ set -euo pipefail
 source "$(dirname "$0")/../deps.bash"
 
 # Register dependencies for configuration and authentication.
-register config "copilot/config.bash"
-register auth "copilot/auth.bash"
+register_dep config "copilot/config.bash"
+register_dep auth "copilot/auth.bash"
 
 
 # --- Get Configuration ---

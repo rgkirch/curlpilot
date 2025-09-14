@@ -8,7 +8,7 @@ echo "🧪 Running unit test for copilot/request.bash..."
 
 # --- Test Setup ---
 source "$(dirname "$0")/../../deps.bash"
-register request copilot/request.bash
+register_dep request copilot/request.bash
 
 # 1. Define the mock curl function to capture arguments
 curl() {

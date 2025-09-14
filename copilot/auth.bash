@@ -3,7 +3,7 @@ set -euo pipefail
 
 source "$(dirname "$0")/../deps.bash"
 
-register login "login.bash"
+register_dep login "login.bash"
 
 LOGIN_JSON=$(exec_dep login)
 

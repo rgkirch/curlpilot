@@ -1,14 +1,12 @@
-#!/bin/bash
-set -euo pipefail
-
 # curlpilot/deps.bash
+set -euo pipefail
 
 SCRIPT_REGISTRY_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 if ! declare -p SCRIPT_REGISTRY > /dev/null 2>&1; then
   declare -A SCRIPT_REGISTRY
 fi
 
-register() {
+register_dep() {
   local key="$1"
   local original_path="$2"
   local final_path="$original_path"
@@ -31,7 +29,6 @@ register() {
     SCRIPT_REGISTRY["$key"]="$SCRIPT_REGISTRY_DIR/$final_path"
   fi
 }
-
 exec_dep() {
   local key="$1"
   local script_path="${SCRIPT_REGISTRY[$key]}"
@@ -46,70 +43,104 @@ exec_dep() {
   fi
   shift
 
-  # Determine the potential path for the output schema based on convention.
-  # e.g., for "config.bash", it looks for "config.output.schema.json"
-  local schema_path
-  schema_path="$(dirname "$script_path")/$(basename "$script_path" .bash).output.schema.json"
+  # Capture stdin and define paths
+  local input
+  input=$(cat)
+  local base_path
+  base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
+  local args_schema_path="${base_path}.args.schema.json"
+  local input_schema_path="${base_path}.input.schema.json"
+  local output_schema_path="${base_path}.output.schema.json"
+  local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.bash"
 
-  # Temporarily disable exit-on-error to safely capture the exit code
+  # --- Optional ARGS Validation ---
+  if [[ -f "$args_schema_path" ]]; then
+    if [[ ! -x "$validator_path" ]]; then
+      echo "Warning: Schema validator not found. Skipping ARGS validation for '$key'." >&2
+    else
+      # Convert arguments to a JSON array for validation
+      local args_json
+      if [ "$#" -gt 0 ]; then
+        args_json=$(printf '"%s",' "$@")
+        args_json="[${args_json%,}]"
+      else
+        args_json="[]"
+      fi
+
+      local validation_errors
+      validation_errors=$(echo "$args_json" | "$validator_path" "$args_schema_path" 2>&1)
+      local validation_code=$?
+
+      if [[ $validation_code -ne 0 ]]; then
+        echo "Error: Arguments for '$key' ($script_path) failed schema validation." >&2
+        echo "Schema: $args_schema_path" >&2
+        echo "--- Validation Errors ---" >&2
+        echo "$validation_errors" >&2
+        echo "--- Invalid Arguments (as JSON) ---" >&2
+        echo "$args_json" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  # --- Optional STDIN Validation ---
+  if [[ -f "$input_schema_path" ]]; then
+    if [[ ! -x "$validator_path" ]]; then
+      echo "Warning: Schema validator not found. Skipping INPUT validation for '$key'." >&2
+    else
+      local validation_errors
+      validation_errors=$(echo "$input" | "$validator_path" "$input_schema_path" 2>&1)
+      local validation_code=$?
+
+      if [[ $validation_code -ne 0 ]]; then
+        echo "Error: Stdin for '$key' ($script_path) failed input schema validation." >&2
+        echo "Schema: $input_schema_path" >&2
+        echo "--- Validation Errors ---" >&2
+        echo "$validation_errors" >&2
+        echo "--- Invalid Input ---" >&2
+        echo "$input" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  # --- Execute the script ---
   set +e
   local output
-  output=$("$script_path" "$@")
+  output=$(echo "$input" | "$script_path" "$@")
   local exit_code=$?
   set -e
 
-  # If the executed script failed, report its output as an error and propagate its exit code.
+  # Handle script execution failure
   if [[ $exit_code -ne 0 ]]; then
     echo "$output" >&2
     return $exit_code
   fi
 
-  # If a corresponding schema file exists, perform validation.
-  if [[ -f "$schema_path" ]]; then
-    local validator_path="$SCRIPT_REGISTRY_DIR/schema_validator.bash"
-
+  # --- Optional OUTPUT Validation ---
+  if [[ -f "$output_schema_path" ]]; then
     if [[ ! -x "$validator_path" ]]; then
-      echo "Warning: Schema validator not found at '$validator_path'. Skipping validation for '$key'." >&2
+      echo "Warning: Schema validator not found. Skipping OUTPUT validation for '$key'." >&2
     else
-      # Pipe the output to the validator and capture any validation errors
       local validation_errors
-      validation_errors=$(echo "$output" | "$validator_path" "$schema_path" 2>&1)
+      validation_errors=$(echo "$output" | "$validator_path" "$output_schema_path" 2>&1)
       local validation_code=$?
 
       if [[ $validation_code -ne 0 ]]; then
-        echo "Error: Output of '$key' ($script_path) failed schema validation." >&2
-        echo "Schema: $schema_path" >&2
+        echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
+        echo "Schema: $output_schema_path" >&2
         echo "--- Validation Errors ---" >&2
         echo "$validation_errors" >&2
         echo "--- Invalid Output ---" >&2
         echo "$output" >&2
-        return 1 # Return a generic error code for validation failure
+        return 1
       fi
     fi
   fi
 
-  # If we reach here, the script succeeded and passed validation (or had no schema).
-  # Print the original captured output to stdout for the caller to use.
+  # If everything passed, print the final output
   echo "$output"
 }
-
-source_dep() {
-  local key="$1"
-  local path="${SCRIPT_REGISTRY[$key]}"
-
-  if [[ -z "$path" ]]; then
-    echo "Error: No script registered for key '$key'" >&2
-    return 1
-  fi
-  if [[ ! -f "$path" ]]; then
-    echo "Error: Script file '$path' does not exist." >&2
-    return 1
-  fi
-
-  shift
-  source "$path" "$@"
-}
-
 get_script_registry() {
   declare -p SCRIPT_REGISTRY
 }

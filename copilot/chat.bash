@@ -22,14 +22,13 @@ set -euo pipefail
 source deps.bash
 
 # Register dependencies
-register copilot_request "copilot/request.bash"
-register parse_args "parse_args.bash"
-register schema_validator "schema_validator.bash"
-register parse_response "copilot/parse_response.bash"
-register copilot_config "copilot/config.bash"
-source_dep copilot_config
-register config "config.bash"
-source_dep config
+register_dep copilot_request "copilot/request.bash"
+register_dep parse_args "parse_args.bash"
+register_dep schema_validator "schema_validator.bash"
+register_dep parse_response "copilot/parse_response.bash"
+register_dep copilot_config "copilot/config.bash"
+register_dep config "config.bash"
+
 
 # Define the argument specification for this script, using defaults from config.
 ARG_SPEC_JSON=$(cat <<EOF
