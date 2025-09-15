@@ -27,7 +27,6 @@ export API_ENDPOINT="http://test.api/chat"
 export COPILOT_SESSION_TOKEN="unit-test-fake-token"
 
 
-# --- Run the Test ---
-echo '{"prompt": "hello"}' | exec_dep request
+exec_dep request --body '{"prompt": "hello"}'
 
 echo "✅ Unit test completed."

@@ -1,8 +1,5 @@
 #!/bin/bash
-
 set -euo pipefail
-
-# curlpilot/parse_args.bash
 
 #
 # A schema-driven argument parser that converts a JSON array of arguments
@@ -34,38 +31,29 @@ kebab_to_snake() {
 
 # --- 1. INITIALIZATION & SCHEMA VALIDATION ---
 
-# Check if the job ticket argument is provided.
 if [[ -z "${1-}" ]]; then
     abort "Usage: $0 JOB_TICKET_JSON"
 fi
 
-# Read the entire "job ticket" from the first command-line argument.
 readonly JOB_TICKET_JSON="$1"
-
-# Extract the spec and args from the ticket.
-# If .spec is not a valid object, default to an empty object.
 readonly USER_SPEC_JSON=$(echo "$JOB_TICKET_JSON" | jq --compact-output 'if (.spec | type) == "object" then .spec else {} end')
-# If .args is not a valid array, default to an empty array.
 ARGS_JSON=$(echo "$JOB_TICKET_JSON" | jq --compact-output 'if (.args | type) == "array" then .args else [] end')
 
-# The 'help' key is reserved for the parser's use.
 if [[ $(echo "$USER_SPEC_JSON" | jq 'has("help")') == "true" ]]; then
   abort "The argument key 'help' is reserved and cannot be defined in the schema."
 fi
 
-# Add the 'help' option to the spec for automatic help generation.
 readonly ARG_SPEC_JSON=$(echo "$USER_SPEC_JSON" | jq '. + {"help": {"type": "boolean", "description": "Show this help message and exit."}}')
 
 
 # --- 2. RAW ARGUMENT PARSING LOOP ---
 
 RAW_ARGS_JSON="{}"
+## NEW: Add a flag to ensure stdin is only ever read once.
+stdin_was_read=false
 
-# Loop as long as there are elements in the ARGS_JSON array.
 while [[ $(echo "$ARGS_JSON" | jq 'length > 0') == "true" ]]; do
-  # Get the first argument from the JSON array.
   ARG=$(echo "$ARGS_JSON" | jq --raw-output '.[0]')
-  # Consume the first argument for the next iteration.
   ARGS_JSON=$(echo "$ARGS_JSON" | jq '.[1:]')
 
   [[ "$ARG" != --* ]] && abort "Invalid argument format: $ARG."
@@ -89,13 +77,25 @@ while [[ $(echo "$ARGS_JSON" | jq 'length > 0') == "true" ]]; do
     if [[ "$arg_type" == "boolean" ]]; then
       value="true"
     else
-      # Instead of shifting, get the next value from the JSON array.
       if [[ $(echo "$ARGS_JSON" | jq 'length == 0') == "true" ]]; then
         abort "Argument '--$arg_name_kebab' requires a value."
       fi
       value=$(echo "$ARGS_JSON" | jq --raw-output '.[0]')
       ARGS_JSON=$(echo "$ARGS_JSON" | jq '.[1:]')
     fi
+  fi
+
+  ## NEW: Check for '-' and read from stdin if found.
+  if [[ "$value" == "-" ]]; then
+    if [[ "$stdin_was_read" == true ]]; then
+      abort "Cannot read from stdin for '--$arg_name_kebab'; stdin has already been consumed by another argument."
+    fi
+    # Only allow stdin reading for types that make sense (not booleans).
+    if [[ "$arg_type" != "string" && "$arg_type" != "path" && "$arg_type" != "json" ]]; then
+      abort "Reading from stdin ('-') is not supported for argument '--$arg_name_kebab' of type '$arg_type'."
+    fi
+    value=$(cat)
+    stdin_was_read=true
   fi
 
   case "$arg_type" in
@@ -115,7 +115,6 @@ readonly RAW_ARGS_JSON
 
 
 # --- 3. POST-PARSING ACTIONS (HELP) ---
-
 if echo "$RAW_ARGS_JSON" | jq --exit-status '.help == true' >/dev/null; then
   echo "Usage: [options]"
   echo ""

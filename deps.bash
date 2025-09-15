@@ -1,5 +1,5 @@
 # curlpilot/deps.bash
-set -euox pipefail
+set -euo pipefail
 
 # The directory containing this script is now officially the PROJECT_ROOT.
 PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -56,16 +56,13 @@ exec_dep() {
   fi
   shift
 
-  local input
-  input=$(cat)
   local base_path
   base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
   local args_schema_path="${base_path}.args.schema.json"
-  local input_schema_path="${base_path}.input.schema.json"
   local output_schema_path="${base_path}.output.schema.json"
   local validator_path="$PROJECT_ROOT/schema_validator.bash"
 
-  if [[ -f "$args_schema_path" || -f "$input_schema_path" || -f "$output_schema_path" ]]; then
+  if [[ -f "$args_schema_path" || -f "$output_schema_path" ]]; then
     if [[ ! -f "$validator_path" ]]; then
       echo "Error: A schema file was found, but the validator is missing or not executable at '$validator_path'." >&2
       return 1
@@ -98,32 +95,13 @@ exec_dep() {
     fi
   fi
 
-  if [[ -f "$input_schema_path" ]]; then
-    # --- Start Fix ---
-    set +e
-    local validation_errors
-    validation_errors=$(echo "$input" | bash "$validator_path" "$input_schema_path" 2>&1)
-    local validation_code=$?
-    set -e
-    # --- End Fix ---
-    if [[ $validation_code -ne 0 ]]; then
-      echo "Error: Stdin for '$key' ($script_path) failed input schema validation." >&2
-      echo "Schema: $input_schema_path" >&2
-      echo "--- Validation Errors ---" >&2
-      echo "$validation_errors" >&2
-      echo "--- Invalid Input ---" >&2
-      echo "$input" >&2
-      return 1
-    fi
-  fi
-
   local output_file
   output_file=$(mktemp)
   trap 'rm -f "$output_file"' RETURN
 
   set +e
-  echo "$input" | bash "$script_path" "$@" > "$output_file"
-  local exit_code=${PIPESTATUS[1]}
+  bash "$script_path" "$@" > "$output_file"
+  local exit_code=$?
   set -e
 
   if [[ $exit_code -ne 0 ]]; then
