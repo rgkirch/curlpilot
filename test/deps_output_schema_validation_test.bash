@@ -1,4 +1,5 @@
 set -euo pipefail
+set -x
 
 # --- Configuration & Setup ---
 
@@ -10,7 +11,7 @@ VALIDATE_JS_PATH=$(resolve_path "ajv/validate.js")
 
 # 3. Create a temporary directory for mock scripts and schemas.
 TEST_DIR=$(mktemp -d)
-trap 'rm -rf "$TEST_DIR"' EXIT # Cleanup on exit
+trap 'rm -rf "$TEST_DIR"' EXIT
 
 # --- Test Harness ---
 

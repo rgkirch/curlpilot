@@ -1,5 +1,6 @@
 # curlpilot/deps.bash
 set -euo pipefail
+#set -x
 
 # The directory containing this script is now officially the PROJECT_ROOT.
 PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -95,7 +96,6 @@ exec_dep() {
     fi
   fi
 
-  local output_file
   output_file=$(mktemp)
   trap 'rm -f "$output_file"' RETURN
 
