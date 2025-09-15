@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# curlpilot/test/mock/server/copilot/completion_response.bash
+# curlpilot/test/mocks/server/copilot/completion_response.bash
 
 # This script generates a mock Copilot API response in JSON format.
 # All logic, including static JSON objects, is defined inside the jq recipe.

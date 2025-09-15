@@ -50,8 +50,8 @@ exec_dep() {
     echo "Error: No script registered for key '$key'" >&2
     return 1
   fi
-  if [[ ! -x "$script_path" ]]; then
-    echo "Error: Script file '$script_path' is not executable or does not exist." >&2
+  if [[ ! -f "$script_path" ]]; then
+    echo "Error: Script file '$script_path' does not exist." >&2
     return 1
   fi
   shift
@@ -119,7 +119,7 @@ exec_dep() {
 
   set +e
   local output
-  output=$(echo "$input" | bash "$script_path" "$@")
+    output=$(echo "$input" | bash "$script_path" "$@")
   local exit_code=$?
   set -e
 

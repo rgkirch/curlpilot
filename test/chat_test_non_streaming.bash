@@ -10,7 +10,7 @@ TEST_DIR=$(dirname "$(readlink -f "$0")")
 # This is the non-streaming test for chat.bash
 
 # Define the mock script path
-MOCK_REQUEST_SCRIPT="$TEST_DIR/mock/server/copilot/completion_response.bash"
+MOCK_REQUEST_SCRIPT="$TEST_DIR/mocks/server/copilot/completion_response.bash"
 
 # Set the environment variable to override the dependency
 export CPO_COPILOT__REQUEST_SH="$MOCK_REQUEST_SCRIPT"

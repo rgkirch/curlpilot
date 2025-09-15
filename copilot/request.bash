@@ -3,7 +3,7 @@ set -euo pipefail
 
 # This script makes the final authenticated request to the Copilot API.
 
-source "$(dirname "$0")/../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
 # Register dependencies for configuration and authentication.
 register_dep config "copilot/config.bash"
@@ -11,7 +11,7 @@ register_dep auth "copilot/auth.bash"
 
 
 # --- Get Configuration ---
-CONFIG_JSON=$(exec_dep config)
+CONFIG_JSON=$(exec_dep config < /dev/null)
 API_ENDPOINT=$(echo "$CONFIG_JSON" | jq --raw-output '.api_endpoint')
 
 # Validate that we received an endpoint
@@ -22,7 +22,7 @@ fi
 
 
 # --- Get Authentication Token ---
-AUTH_JSON=$(exec_dep auth)
+AUTH_JSON=$(exec_dep auth < /dev/null)
 COPILOT_SESSION_TOKEN=$(echo "$AUTH_JSON" | jq --raw-output '.session_token')
 
 # Validate that we received a token

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# curlpilot/test/mock/server/copilot/sse_completion_response.bash
+# curlpilot/test/mocks/server/copilot/sse_completion_response.bash
 
 # This script reads a JSON object from stdin and generates a Server-Sent Events (SSE) stream
 # to stdout using a predefined jq filter script.
@@ -13,7 +13,7 @@ set -euo pipefail
 #   echo '{"message_parts": ["Hello", " world!"], "prompt_tokens": 5}' | ./generate_sse.bash
 
 # For robustness, use $HOME which reliably expands to the user's home directory.
-JQ_SCRIPT_PATH="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mock/server/copilot/sse_completion_response.jq"
+JQ_SCRIPT_PATH="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mocks/server/copilot/sse_completion_response.jq"
 
 # --- Script Body ---
 

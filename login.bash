@@ -4,7 +4,7 @@ set -euo pipefail
 # This script acquires a Copilot session token and outputs it as a JSON object.
 # It uses ~/.config/curlpilot/ for caching credentials.
 
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/deps.bash"
 register_dep parse_args "parse_args.bash"
 
 # --- Argument Parsing ---

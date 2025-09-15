@@ -19,7 +19,8 @@ curl() {
 export -f curl
 
 # 2. Use the simple 'success' mock for the auth dependency
-export CPO_COPILOT__AUTH_SH="test/mocks/scripts/success/auth.bash"
+export CPO_COPILOT__AUTH_BASH="test/mocks/scripts/success/auth.bash"
+export CPO_COPILOT__CONFIG_BASH="test/mocks/scripts/success/config.bash"
 
 # 3. Set environment variables for the script under test
 export API_ENDPOINT="http://test.api/chat"

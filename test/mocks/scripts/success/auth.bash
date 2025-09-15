@@ -1,3 +1,4 @@
 #!/bin/bash
 set -euo pipefail
-exit 0
+token="${COPILOT_SESSION_TOKEN:-mock_token}"
+echo "{\"session_token\": \"$token\"}"
