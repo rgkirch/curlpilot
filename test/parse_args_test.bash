@@ -287,6 +287,36 @@ run_special_test() {
   fi
 }
 
+echo "--- Running Test: Reads argument value from stdin when value is '-' ---"
+# Define the parameters for this specific test.
+STDIN_SPEC='{"content": {"type": "string", "required": true}}'
+STDIN_ARGS=("--content" "-")
+STDIN_DATA="This is a line from stdin."
+EXPECTED_STDIN_OUTPUT='{"content": "This is a line from stdin."}'
+# Build the job ticket for the parser.
+script_to_test="${SCRIPT_REGISTRY[parse_args]}"
+job_ticket=$(jq -n --argjson spec "$STDIN_SPEC" '{"spec": $spec, "args": $ARGS.positional}' --args -- "${STDIN_ARGS[@]}")
+# Execute the test, piping the data to stdin.
+output=""
+exit_code=0
+if ! output=$(echo "$STDIN_DATA" | bash "$script_to_test" "$job_ticket" 2>/dev/null); then
+  exit_code=$?
+fi
+# Assert the results.
+expected_sorted=$(echo "$EXPECTED_STDIN_OUTPUT" | jq -S .)
+output_sorted=$(echo "$output" | jq -S .)
+if [[ "$exit_code" -eq 0 && "$output_sorted" == "$expected_sorted" ]]; then
+  echo "PASS: Reads argument value from stdin when value is '-'"
+  PASS_COUNT=$((PASS_COUNT + 1))
+else
+  echo "FAIL: Stdin test failed."
+  echo "  Exit Code: $exit_code (Expected 0)"
+  echo "  Expected Output: $expected_sorted"
+  echo "  Actual Output:   $output_sorted"
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+fi
+
+
 run_special_test \
   "Handles empty JSON object '{}' as input" \
   '{}' \
