@@ -1,5 +1,5 @@
-#!/bin/bash
-set -euo pipefail
+
+set -euox pipefail
 
 # This script makes the final authenticated request to the Copilot API.
 

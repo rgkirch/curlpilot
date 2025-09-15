@@ -1,5 +1,5 @@
 # curlpilot/deps.bash
-set -euo pipefail
+set -euox pipefail
 
 # The directory containing this script is now officially the PROJECT_ROOT.
 PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -117,37 +117,38 @@ exec_dep() {
     fi
   fi
 
+  local output_file
+  output_file=$(mktemp)
+  trap 'rm -f "$output_file"' RETURN
+
   set +e
-  local output
-    output=$(echo "$input" | bash "$script_path" "$@")
-  local exit_code=$?
+  echo "$input" | bash "$script_path" "$@" > "$output_file"
+  local exit_code=${PIPESTATUS[1]}
   set -e
 
   if [[ $exit_code -ne 0 ]]; then
-    echo "$output" >&2
+    cat "$output_file" >&2
     return $exit_code
   fi
 
   if [[ -f "$output_schema_path" ]]; then
-    # --- Start Fix ---
     set +e
     local validation_errors
-    validation_errors=$(echo "$output" | bash "$validator_path" "$output_schema_path" 2>&1)
+    validation_errors=$(cat "$output_file" | bash "$validator_path" "$output_schema_path" 2>&1)
     local validation_code=$?
     set -e
-    # --- End Fix ---
     if [[ $validation_code -ne 0 ]]; then
       echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
       echo "Schema: $output_schema_path" >&2
       echo "--- Validation Errors ---" >&2
       echo "$validation_errors" >&2
       echo "--- Invalid Output ---" >&2
-      echo "$output" >&2
+      cat "$output_file" >&2
       return 1
     fi
   fi
 
-  echo "$output"
+  cat "$output_file"
 }
 
 get_script_registry() {
