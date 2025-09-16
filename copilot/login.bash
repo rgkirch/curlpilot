@@ -20,12 +20,10 @@ PARSED_ARGS_JSON=$(exec_dep parse_args "$JOB_TICKET_JSON")
 FORCE_REFRESH=$(jq --raw-output '.refresh_session_token' <<< "$PARSED_ARGS_JSON")
 
 GITHUB_PAT_FILE="$CURLPILOT_CONFIG_DIR/github_pat.txt"
-## MODIFIED: The token file is now a .json file.
 TOKEN_FILE="$CURLPILOT_CONFIG_DIR/token.json"
 
 # --- Token Cache Check ---
 if [[ "$FORCE_REFRESH" = false && -f "$TOKEN_FILE" ]]; then
-  ## MODIFIED: Read and parse the JSON token file.
   token_json="$(cat "$TOKEN_FILE")"
   cached_token="$(jq -r '.session_token // empty' <<< "$token_json")"
   cached_expires_at="$(jq -r '.expires_at // empty' <<< "$token_json")"
@@ -58,8 +56,7 @@ get_copilot_session_token() {
   local expires_at=$(jq -r '.expires_at // empty' <<< "$copilot_token_response")
 
   if [[ -n "$copilot_session_token" && -n "$expires_at" ]]; then
-    ## MODIFIED: Write to the cache file as a JSON object.
-    jq -n \
+        jq -n \
       --arg token "$copilot_session_token" \
       --argjson expires "$expires_at" \
       '{session_token: $token, expires_at: $expires}' > "$TOKEN_FILE"
