@@ -65,14 +65,14 @@ run_test "Custom message" \
       ".choices[0].message.content": "Hello, world!",
       ".usage.completion_tokens": 3
     }' \
-    --message_content "Hello, world!"
+    --message-content "Hello, world!"
 
 run_test "Override completion tokens" \
     '{
       ".choices[0].message.content": "test",
       ".usage.completion_tokens": 50
     }' \
-    --message_content "test" --completion-tokens 50
+    --message-content "test" --completion-tokens 50
 
 run_test "Override prompt tokens" \
     '{
@@ -86,7 +86,7 @@ run_test "Override both tokens" \
       ".usage.completion_tokens": 77,
       ".usage.prompt_tokens": 88
     }' \
-    --message_content "Full override" --completion-tokens 77 --prompt-tokens 88
+    --message-content "Full override" --completion-tokens 77 --prompt-tokens 88
 
 
 echo "All tests completed."
