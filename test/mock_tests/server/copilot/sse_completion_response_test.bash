@@ -1,56 +1,37 @@
 # curlpilot/test/mock_tests/server/copilot/sse_completion_response_test.bash
 set -euo pipefail
 
-# This script tests the SSE generator script by feeding it a predefined
-# JSON input and comparing its output against a known-good "golden" file.
+# This script tests the SSE generator script by feeding it command-line arguments
+# and comparing its output against a known-good "golden" file.
 
-# --- Configuration ---
-# Use $HOME for robustness.
-BASE_PATH="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test"
+# --- Setup ---
+echo "🧪 Running test for sse_completion_response.bash..."
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
 
-# The script we want to test.
-GENERATOR_SCRIPT="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mocks/server/copilot/sse_completion_response.bash"
+register_dep sse_generator "test/mocks/server/copilot/sse_completion_response.bash"
 
-# The file containing the expected, correct output.
-EXPECTED_OUTPUT_FILE="$BASE_PATH/sse-response.txt"
+readonly EXPECTED_OUTPUT_FILE=$(resolve_path "test/mocks/sse-response.txt")
 
-# This JSON input is designed to produce an output that exactly matches
-# the contents of the EXPECTED_OUTPUT_FILE.
-# The 'created' and 'id' fields are now provided as input to the jq script
-# to ensure the output is deterministic and repeatable.
-TEST_INPUT_JSON='{
-  "message_parts": ["Hello", "!", " How", " can", " I", " assist", " you", " today", "?"],
-  "prompt_tokens": 7,
-  "created": 1757366620,
-  "id": "chatcmpl-CDdcq1c8DjPBjsa8MlM7oQS2Vx8L9"
-}'
-
-
-# --- Pre-flight Checks ---
-if [ ! -f "$GENERATOR_SCRIPT" ]; then
-    echo "Error: Generator script '$GENERATOR_SCRIPT' not found." >&2
-    echo "Please ensure it's in the same directory." >&2
-    exit 1
-fi
+# Define the arguments that will be passed to the generator script.
+readonly MESSAGE_PARTS='["Hello", "!", " How", " can", " I", " assist", " you", " today", "?"]'
+readonly PROMPT_TOKENS=7
+readonly CREATED_TS=1757366620
+readonly ID="chatcmpl-CDdcq1c8DjPBjsa8MlM7oQS2Vx8L9"
 
 if [ ! -f "$EXPECTED_OUTPUT_FILE" ]; then
     echo "Error: Expected output file not found at '$EXPECTED_OUTPUT_FILE'." >&2
     exit 1
 fi
 
-# --- Test Execution ---
 echo "▶️  Running test..."
 
-# Generate the actual output by piping the test JSON into our generator script.
-ACTUAL_OUTPUT=$(echo "$TEST_INPUT_JSON" | bash "$GENERATOR_SCRIPT")
+ACTUAL_OUTPUT=$(exec_dep sse_generator \
+    --message-parts "$MESSAGE_PARTS" \
+    --prompt-tokens "$PROMPT_TOKENS" \
+    --created "$CREATED_TS" \
+    --id "$ID")
 
-# The jq script should now produce a completely static output based on the input.
-# We use the '-q' flag (short for '--brief') which is more portable than '--quiet'.
-# It exits with 0 if files are the same, and 1 if they differ, suppressing output.
-diff -q <(echo "$ACTUAL_OUTPUT") "$EXPECTED_OUTPUT_FILE"
-
-# Check the exit code of the diff command. 0 means no differences were found.
-if [ $? -eq 0 ]; then
+if diff --brief <(echo -n "$ACTUAL_OUTPUT") "$EXPECTED_OUTPUT_FILE" >/dev/null; then
     echo "✅ SUCCESS: The generated output exactly matches the expected response."
     exit 0
 else
@@ -58,6 +39,6 @@ else
     echo ""
     echo "--- Diff (what changed) ---"
     # Run diff again, this time with a unified format to show the user what's wrong.
-    diff --unified <(echo "$ACTUAL_OUTPUT") "$EXPECTED_OUTPUT_FILE"
+    diff --unified <(echo -n "$ACTUAL_OUTPUT") "$EXPECTED_OUTPUT_FILE"
     exit 1
 fi

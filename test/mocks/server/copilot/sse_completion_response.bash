@@ -1,28 +1,30 @@
 # curlpilot/test/mocks/server/copilot/sse_completion_response.bash
 set -euo pipefail
 
-# This script reads a JSON object from stdin and generates a Server-Sent Events (SSE) stream
-# to stdout using a predefined jq filter script.
-#
-# It is designed to be used in a pipeline.
-#
-# Example Usage:
-#   echo '{"message_parts": ["Hello", " world!"], "prompt_tokens": 5}' | ./generate_sse.bash
+# This script generates a Server-Sent Events (SSE) stream to stdout.
+# It uses a predefined jq filter script and takes its parameters as CLI arguments.
 
-# For robustness, use $HOME which reliably expands to the user's home directory.
-JQ_SCRIPT_PATH="$HOME/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mocks/server/copilot/sse_completion_response.jq"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+register_dep parse_args "parse_args.bash"
 
-# --- Script Body ---
+# 1. Define the schema for the command-line arguments.
+readonly ARG_SPEC_JSON='{
+  "message_parts": {
+    "type": "json",
+    "description": "Required. A JSON array of strings for each content chunk.",
+    "required": true
+  },
+  "prompt_tokens": { "type": "number", "required": true },
+  "created": { "type": "number", "required": true },
+  "id": { "type": "string", "required": true }
+}'
 
-# Check if the required jq script exists before proceeding.
-if [ ! -f "$JQ_SCRIPT_PATH" ]; then
-    # Print errors to stderr
-    echo "Error: JQ script not found at the expected path:" >&2
-    echo "$JQ_SCRIPT_PATH" >&2
-    exit 1
-fi
+# 2. Build the job ticket and parse the command-line arguments.
+job_ticket_json=$(jq -n \
+  --argjson spec "$ARG_SPEC_JSON" \
+  --compact-output \
+  '{spec: $spec, args: $ARGS.positional}' \
+  --args -- "$@")
 
-# Execute jq with the specified filter.
-# -c for compact output, -r for raw string output (removes quotes).
-# jq automatically reads from stdin if no input file is given.
-jq -c -r -f "$JQ_SCRIPT_PATH"
+exec_dep parse_args "$job_ticket_json" | \
+    jq -c -r -f "$(dirname "$0")"/sse_completion_response.jq
