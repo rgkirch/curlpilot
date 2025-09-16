@@ -1,10 +1,6 @@
-#!/bin/bash
-
+# test/mock_tests/server/copilot/completion_response_test.bash
 set -euo pipefail
 
-# curlpilot/test/mock_tests/server/copilot/completion_response_test.bash
-
-# Test script for mocks/server/copilot/completion_response.bash
 
 SCRIPT_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mocks/server/copilot/completion_response.bash"
 

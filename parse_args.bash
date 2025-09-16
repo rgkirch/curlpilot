@@ -1,4 +1,4 @@
-#!/bin/bash
+# parse_args.bash
 set -euo pipefail
 
 #
