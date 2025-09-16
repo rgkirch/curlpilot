@@ -1,8 +1,5 @@
-#!/bin/bash
-
-set -euo pipefail
-
 # curlpilot/test/mocks/server/copilot/sse_completion_response.bash
+set -euo pipefail
 
 # This script reads a JSON object from stdin and generates a Server-Sent Events (SSE) stream
 # to stdout using a predefined jq filter script.

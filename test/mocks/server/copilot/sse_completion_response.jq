@@ -1,3 +1,5 @@
+# test/mocks/server/copilot/sse_completion_response.jq
+
 # Define static variables needed for the recipe
 {
   "hate": { "filtered": false, "severity": "safe" },

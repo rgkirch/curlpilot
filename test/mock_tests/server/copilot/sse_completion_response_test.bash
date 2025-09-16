@@ -1,8 +1,5 @@
-#!/bin/bash
-
-set -euo pipefail
-
 # curlpilot/test/mock_tests/server/copilot/sse_completion_response_test.bash
+set -euo pipefail
 
 # This script tests the SSE generator script by feeding it a predefined
 # JSON input and comparing its output against a known-good "golden" file.
