@@ -1,38 +1,24 @@
-#!/bin/bash
-
+# test/mocks/server/copilot/completion_response.bash
 set -euo pipefail
 
-# curlpilot/test/mocks/server/copilot/completion_response.bash
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
 
-# This script generates a mock Copilot API response in JSON format.
-# All logic, including static JSON objects, is defined inside the jq recipe.
-# Usage: echo '{"message_content": "..."}' | ./completion_response.bash
+register_dep parse_args "parse_args.bash"
 
-# Generate the JSON response using jq
-JSON_RESPONSE=$(jq -f "$(dirname "$0")"/completion_response.jq)
+readonly ARG_SPEC_JSON='{
+  "message": {
+    "type": "string",
+    "description": "The AI response.",
+    "default": "This is a mock Copilot response."
+  }
+}'
 
-# Path to the JSON schema
-SCHEMA_PATH="$(dirname "$0")"/completion_response.output.schema.json
+job_ticket_json=$(jq -n \
+  --argjson spec "$ARG_SPEC_JSON" \
+  --compact-output \
+  '{spec: $spec, args: $ARGS.positional}' \
+  --args -- "$@")
 
-# Validate the JSON response against the schema using ajv-cli
-if ! command -v ajv &> /dev/null
-then
-    echo "Error: ajv-cli is not installed. Please install it globally: npm install -g ajv-cli" >&2
-    exit 1
-fi
-
-TEMP_DIR=$(mktemp -d)
-TEMP_JSON_FILE="$TEMP_DIR/response.json"
-echo "$JSON_RESPONSE" > "$TEMP_JSON_FILE"
-ajv validate -s "$SCHEMA_PATH" -d "$TEMP_JSON_FILE" 1>&2
-
-# If validation passes, print the JSON response followed by the status block
-if [ $? -eq 0 ]; then
-    # Print the main body
-    echo "$JSON_RESPONSE"
-    # Print the null separator and the status JSON
-    printf '\0%s\n' '{"http_code": 200, "exitcode": 0, "errormsg": ""}'
-else
-    echo "JSON validation failed against schema: $SCHEMA_PATH" >&2
-    exit 1
-fi
+exec_dep parse_args "$job_ticket_json" | \
+  jq --compact-output '{message_content: .message}' | \
+  jq -f "$(dirname "$0")"/completion_response.jq

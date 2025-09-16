@@ -1,14 +1,10 @@
-#!/bin/bash
+# copilot/config.bash
 set -euo pipefail
 
-# This script provides configuration details as a JSON object.
-# It merges a default settings file with a user-specific override file.
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
-# --- Define Paths ---
-SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
-DEFAULT_SETTINGS_FILE="$SCRIPT_DIR/settings.json"
+DEFAULT_SETTINGS_FILE="$(resolve_path settings.json)"
 USER_SETTINGS_FILE="$HOME/.config/curlpilot/copilot/settings.json"
-
 
 # --- Read Configuration Files ---
 # Read default settings, defaulting to an empty object if the file doesn't exist.
