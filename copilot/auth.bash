@@ -1,9 +1,9 @@
-#!/bin/bash
+# copilot/auth.bash
 set -euo pipefail
 
-source "$(dirname "$0")/../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
-register_dep login "login.bash"
+register_dep login "copilot/login.bash"
 
 LOGIN_JSON=$(exec_dep login)
 

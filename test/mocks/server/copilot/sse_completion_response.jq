@@ -92,4 +92,4 @@
 } | tojson) + "\n",
 
 # 5. End of stream marker
-"data: [DONE]\n"
+"data: [DONE]"

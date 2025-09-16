@@ -1,13 +1,10 @@
+# copilot/embed.bash
 set -euo pipefail
 
-# curlpilot/copilot/embed
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
-source "$(dirname "$0")/../deps.bash"
-
-# Define API_ENDPOINT directly from copilot/config.bash
 API_ENDPOINT="https://api.githubcopilot.com/chat/completions"
 
-# Register and source dependencies
 register_dep auth "copilot/auth.bash"
 exec_dep auth
 

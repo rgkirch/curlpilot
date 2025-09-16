@@ -1,39 +1,24 @@
-#!/bin/bash
+# copilot/login.bash
 set -euo pipefail
-
-# This script acquires a Copilot session token and outputs it as a JSON object.
-# It uses ~/.config/curlpilot/ for caching credentials.
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/deps.bash"
 register_dep parse_args "parse_args.bash"
 
-# --- Argument Parsing ---
-read -r -d '' ARG_SPEC_JSON <<'EOF'
-{
+JOB_TICKET_JSON=$(jq --null-input \
+  '{spec: $spec, args: $ARGS.positional}' \
+  --argjson spec '{
   "refresh_session_token": {
     "type": "boolean",
     "default": false,
     "description": "Force a refresh of the Copilot session token, ignoring any cached valid token."
   }
-}
-EOF
-
-ARGS_AS_JSON=$(jq --null-input --compact-output --args "$@")
-JOB_TICKET_JSON=$(jq --null-input \
-  --argjson spec "$ARG_SPEC_JSON" \
-  --argjson args "$ARGS_AS_JSON" \
-  '{"spec": $spec, "args": $args}')
+}' --args -- "$@")
 
 PARSED_ARGS_JSON=$(exec_dep parse_args "$JOB_TICKET_JSON")
 FORCE_REFRESH=$(echo "$PARSED_ARGS_JSON" | jq --raw-output '.refresh_session_token')
 
-
-# --- Setup Paths ---
-CONFIG_DIR="$HOME/.config/curlpilot"
-mkdir -p "$CONFIG_DIR"
-GITHUB_PAT_FILE="$CONFIG_DIR/github_pat.txt"
-TOKEN_FILE="$CONFIG_DIR/token.txt"
-
+GITHUB_PAT_FILE="$CURLPILOT_CONFIG_DIR/github_pat.txt"
+TOKEN_FILE="$CURLPILOT_CONFIG_DIR/token.txt"
 
 # --- Token Cache Check ---
 if [[ "$FORCE_REFRESH" = false && -f "$TOKEN_FILE" ]]; then
