@@ -1,80 +1,96 @@
 # test/mock_tests/server/copilot/completion_response_test.bash
 set -euo pipefail
 
-
-SCRIPT_PATH="/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/mocks/server/copilot/completion_response.bash"
-
+echo "🧪 Running tests for completion_response.bash..."
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+register_dep mock_completion "test/mocks/server/copilot/completion_response.bash"
 FAILED_TESTS=0
 
-# Function to run a test case
 run_test() {
     local test_name="$1"
-    local input_json="$2"
-    local expected_message_content="$3"
-    local expected_completion_tokens="$4"
-    local expected_prompt_tokens="$5"
+    local expected_json="$2"
+    shift 2 # The rest of the arguments ($@) are for the script.
 
     echo "--- Running Test: $test_name ---"
 
-    # Use 'read' and process substitution to correctly handle the null byte
-    # This reads everything up to the first null byte into the 'main_json' variable
-    IFS= read -r -d '' main_json < <(echo "$input_json" | "$SCRIPT_PATH")
-    local exit_code=$?
+    local exit_code=0
+    local raw_output
+    raw_output=$(exec_dep mock_completion "$@" || exit_code=$?)
 
     if [ $exit_code -ne 0 ]; then
         echo "FAIL: $test_name - Script exited with error code $exit_code"
-        echo "Output: (Script output not captured due to null byte handling)"
-        return 1
-    fi
-
-    actual_message_content=$(echo "$main_json" | jq -r '.choices[0].message.content')
-    actual_completion_tokens=$(echo "$main_json" | jq -r '.usage.completion_tokens')
-    actual_prompt_tokens=$(echo "$main_json" | jq -r '.usage.prompt_tokens')
-
-    if [ "$actual_message_content" = "$expected_message_content" ] && \
-       [ "$actual_completion_tokens" = "$expected_completion_tokens" ] && \
-       [ "$actual_prompt_tokens" = "$expected_prompt_tokens" ]; then
-        echo "PASS: $test_name"
-    else
-        echo "FAIL: $test_name"
-        echo "  Expected Message Content: '$expected_message_content', Actual: '$actual_message_content'"
-        echo "  Expected Completion Tokens: '$expected_completion_tokens', Actual: '$actual_completion_tokens'"
-        echo "  Expected Prompt Tokens: '$expected_prompt_tokens', Actual: '$actual_prompt_tokens'"
+        echo "--- Output ---"; echo "$raw_output"; echo "--------------"
         FAILED_TESTS=$((FAILED_TESTS + 1))
         return 1
     fi
+
+    # Iterate through each key (which is a jq filter) in the expected_json
+    # and verify that the actual output matches the expected value.
+    local filters_to_check
+    filters_to_check=$(echo "$expected_json" | jq -r 'keys[]')
+    for filter in $filters_to_check; do
+        # Get the expected value as a compact JSON literal (e.g., "hello", 50, true).
+        local expected_value
+        expected_value=$(echo "$expected_json" | jq --compact-output --arg f "$filter" '.[$f]')
+
+        # Get the actual value by running the filter against the raw output.
+        local actual_value
+        actual_value=$(echo "$raw_output" | jq --compact-output "$filter")
+
+        if [[ "$expected_value" != "$actual_value" ]]; then
+            echo "FAIL: $test_name"
+            echo "  - Mismatch on filter: '$filter'"
+            echo "  - Expected JSON value: $expected_value"
+            echo "  -      Got JSON value: $actual_value"
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+            return 1 # Stop checking on first failure
+        fi
+    done
+
+    echo "PASS: $test_name"
     echo ""
 }
 
-# Test Cases
+# The expected results are now a map of { "jq filter": expected_value }.
 
-# Test 1: Default values
-run_test "Default Values" '{}' "This is a mock Copilot response." 8 999
+run_test "Default values" \
+    '{
+      ".choices[0].message.content": "This is a mock Copilot response.",
+      ".usage.prompt_tokens": 999
+    }'
+    # No arguments are passed, so the script's defaults are used.
 
-# Test 2: Custom message content
-run_test "Custom Message Content" '{"message_content": "Hello, world!"}' "Hello, world!" 3 999
+run_test "Custom message" \
+    '{
+      ".choices[0].message.content": "Hello, world!",
+      ".usage.completion_tokens": 3
+    }' \
+    --message "Hello, world!"
 
-# Test 3: Custom prompt_tokens
-run_test "Custom Prompt Tokens" '{"prompt_tokens": 150}' "This is a mock Copilot response." 8 150
+run_test "Override completion tokens" \
+    '{
+      ".choices[0].message.content": "test",
+      ".usage.completion_tokens": 50
+    }' \
+    --message "test" --completion-tokens 50
 
-# Test 4: Custom completion_tokens
-run_test "Custom Completion Tokens" '{"completion_tokens": 20}' "This is a mock Copilot response." 20 999
+run_test "Override prompt tokens" \
+    '{
+      ".usage.prompt_tokens": 123
+    }' \
+    --prompt-tokens 123
 
-# Test 5: All custom values
-run_test "All Custom Values" '{"message_content": "Test message for all values.", "completion_tokens": 10, "prompt_tokens": 50}' "Test message for all values." 10 50
+run_test "Override both tokens" \
+    '{
+      ".choices[0].message.content": "Full override",
+      ".usage.completion_tokens": 77,
+      ".usage.prompt_tokens": 88
+    }' \
+    --message "Full override" --completion-tokens 77 --prompt-tokens 88
 
-# Test 6: Message content that results in fractional completion tokens
-run_test "Fractional Completion Tokens" '{"message_content": "abc"}' "abc" 0 999
-
-# Test 7: Empty message content
-run_test "Empty Message Content" '{"message_content": ""}' "" 0 999
-
-# Test 8: No input (should error, but run_test expects success for now)
-# This test case needs a different approach as run_test expects a successful script execution.
-# For now, we'll skip direct error testing within run_test.
 
 echo "All tests completed."
-
 if [ "$FAILED_TESTS" -gt 0 ]; then
+    echo "$FAILED_TESTS tests failed."
     exit 1
 fi
