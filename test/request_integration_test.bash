@@ -1,6 +1,6 @@
 # test/copilot/request_integration_test.bash
 set -uo pipefail
-set -x
+#set -x
 
 # PURPOSE: Verify the raw HTTP request sent by curl is correctly formatted
 # and that the response from the server is correctly returned.
