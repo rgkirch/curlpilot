@@ -1,3 +1,5 @@
+https://www.gnu.org/software/bash/manual/bash.html#Redirections
+https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Process-Substitution
 # curlpilot
 This directory contains scripts for interacting with the Copilot API.
 
