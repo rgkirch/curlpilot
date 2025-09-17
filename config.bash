@@ -12,3 +12,10 @@ if [[ ! -d "$CURLPILOT_CONFIG_DIR" ]]; then
 fi
 
 TOKEN_FILE="$CURLPILOT_CONFIG_DIR/token.txt"
+
+COPILOT_SETTINGS_FILE="$CURLPILOT_CONFIG_DIR/copilot_settings.json"
+if [[ ! -f "$COPILOT_SETTINGS_FILE" ]]; then
+  echo '{}' > "$COPILOT_SETTINGS_FILE"
+fi
+
+cat "$COPILOT_SETTINGS_FILE"
