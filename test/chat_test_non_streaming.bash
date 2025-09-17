@@ -1,5 +1,5 @@
 set -euo pipefail
-set -x
+#set -x
 
 # curlpilot/test/chat_test_non_streaming.bash
 

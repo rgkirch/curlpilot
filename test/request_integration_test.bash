@@ -9,10 +9,10 @@ set -uo pipefail
 echo "🧪 Running integration test for copilot/request.bash..."
 
 # --- Test Setup ---
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 register_dep request copilot/request.bash
 
-PORT=8080
+PORT=$(shuf -i 20000-65000 -n 1)
 LOG_FILE="request.log"
 MOCK_RESPONSE_FILE=$(resolve_path "test/mocks/server/copilot/mock_http_response.txt")
 

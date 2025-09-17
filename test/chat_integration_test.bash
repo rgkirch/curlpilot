@@ -34,12 +34,14 @@ COMPLETION_ID="chatcmpl-test-${CREATED_TIMESTAMP}"
   ) | nc -l "$PORT" > "$LOG_FILE" ) &
 NC_PID=$!
 
-trap 'kill "$NC_PID" 2>/dev/null; echo "--- Captured Request Log ---"; cat "$LOG_FILE" &>/dev/null;' EXIT
+trap 'kill "$NC_PID" 2>/dev/null || true; echo "--- Captured Request Log ---"; cat "$LOG_FILE" &>/dev/null && rm -f "$LOG_FILE";' EXIT
 sleep 0.1
 
 # --- Test Execution ---
 CHAT_INPUT='[{"role":"user","content":"Tell me a joke"}]'
 FINAL_OUTPUT=$(exec_dep chat <<< "$CHAT_INPUT")
+
+wait "$NC_PID"
 
 # --- Assertions ---
 echo "Verifying captured HTTP request in '$LOG_FILE'..."
@@ -59,6 +61,8 @@ if ! grep -q '"messages":\[{"role":"user","content":"Tell me a joke"}\]' "$LOG_F
     echo "❌ Test failed: Request body content not found in log."
     exit 1
 fi
+
+echo "Verifying final output..."
 
 if [[ "$FINAL_OUTPUT" != "$EXPECTED_OUTPUT" ]]; then
     echo "❌ Test failed: Unexpected final output."

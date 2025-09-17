@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "🧪 Running tests for completion_response.bash..."
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 register_dep mock_completion "test/mocks/server/copilot/completion_response.bash"
 FAILED_TESTS=0
 

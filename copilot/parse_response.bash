@@ -1,5 +1,6 @@
 # curlpilot/copilot/parse_response.bash
-set -euox pipefail
+set -euo pipefail
+#set -x
 
 cat | \
   grep -v '^data: \[DONE\]$' | \

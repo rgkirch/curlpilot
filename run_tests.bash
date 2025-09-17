@@ -31,7 +31,6 @@ for test_file in $(find "$TEST_DIR" -type f -name "*_test.bash"); do
     fi
 
     rm "$temp_output" # Clean up the temporary file
-    echo "-----------------------------------"
 done
 
 echo "Test Summary:"

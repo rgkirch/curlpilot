@@ -4,7 +4,7 @@ set -euo pipefail
 
 # --- Setup ---
 echo "🧪 Running test for sse_completion_response.bash..."
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 
 register_dep sse_generator "test/mocks/server/copilot/sse_completion_response.bash"
 
@@ -30,7 +30,7 @@ DIFF_OUTPUT=$(exec_dep sse_generator \
     --message-parts "$MESSAGE_PARTS" \
     --prompt-tokens "$PROMPT_TOKENS" \
     --created "$CREATED_TS" \
-    --id "$ID" | diff --unified - "$EXPECTED_OUTPUT_FILE")
+    --id "$ID" | diff --side-by-side - "$EXPECTED_OUTPUT_FILE")
 diff_exit_code=$?
 set -e
 
