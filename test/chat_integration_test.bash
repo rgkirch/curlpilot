@@ -1,6 +1,6 @@
 # test/copilot/chat_integration_test.bash
 set -uo pipefail
-#set -x
+set -x
 
 # PURPOSE: Verify that chat.bash correctly processes input, sends a valid
 # HTTP request, and correctly parses a dynamically generated streamed response.
@@ -10,28 +10,33 @@ echo "🧪 Running integration test for chat.bash with dynamic mock response..."
 
 # --- Test Setup ---
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
-# 1. (MODIFIED) Register all script dependencies, including mocks.
 register_dep chat "copilot/chat.bash"
 register_dep sse_generator "test/mocks/server/copilot/sse_completion_response.bash"
 
-PORT=8080
-LOG_FILE="chat_request.log"
+# (FIXED) Use a random port to prevent "Address already in use" errors.
+PORT=$(shuf -i 20000-65000 -n 1)
+export MOCK_PORT=$PORT # Export for the mock config to use
 
+LOG_FILE="chat_request.log"
 EXPECTED_OUTPUT="Why don't scientists trust atoms? Because they make up everything!"
 MESSAGE_PARTS="[\"Why don't \",\"scientists \",\"trust atoms? \",\"Because they \",\"make up everything!\"]"
 CREATED_TIMESTAMP=$(date +%s)
 COMPLETION_ID="chatcmpl-test-${CREATED_TIMESTAMP}"
 
-# 2. (MODIFIED) Start nc listener, using exec_dep to run the generator script.
-(exec_dep sse_generator \
-  --message_parts "$MESSAGE_PARTS" \
-  --prompt_tokens 15 \
-  --created "$CREATED_TIMESTAMP" \
-  --id "$COMPLETION_ID" \
-| nc -l "$PORT" > "$LOG_FILE") &
+# (FIXED) A subshell now generates both the HTTP headers and the SSE body.
+( (
+    # First, print the HTTP headers required by curl for a valid response
+    echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"
+    # Then, run the script that generates the SSE body
+    exec_dep sse_generator \
+      --message_parts "$MESSAGE_PARTS" \
+      --prompt_tokens 15 \
+      --created "$CREATED_TIMESTAMP" \
+      --id "$COMPLETION_ID"
+  ) | nc -l "$PORT" > "$LOG_FILE" ) &
 NC_PID=$!
 
-trap 'kill "$NC_PID" 2>/dev/null; echo "--- Captured Request Log ---"; cat "$LOG_FILE" && rm "$LOG_FILE";' EXIT
+trap 'kill "$NC_PID" 2>/dev/null; echo "--- Captured Request Log ---"; cat "$LOG_FILE" && rm -f "$LOG_FILE";' EXIT
 sleep 0.1
 
 export CPO_COPILOT__CONFIG_BASH="$(resolve_path "test/mocks/config.bash")"
