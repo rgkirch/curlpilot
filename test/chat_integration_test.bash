@@ -15,7 +15,7 @@ register_dep sse_generator "test/mocks/server/copilot/sse_completion_response.ba
 
 PORT=$(shuf -i 20000-65000 -n 1)
 export MOCK_PORT=$PORT
-export CPO_COPILOT__CONFIG_BASH="$(resolve_path "test/mocks/config.bash")"
+export CPO_CONFIG_BASH="$(resolve_path "test/mocks/config.bash")"
 export CPO_COPILOT__AUTH_BASH="$(resolve_path test/mocks/scripts/success/auth.bash)"
 
 LOG_FILE="chat_request.log"
@@ -39,7 +39,7 @@ sleep 0.1
 
 # --- Test Execution ---
 CHAT_INPUT='[{"role":"user","content":"Tell me a joke"}]'
-FINAL_OUTPUT=$(exec_dep chat <<< "$CHAT_INPUT")
+FINAL_OUTPUT=$(exec_dep chat --messages "$CHAT_INPUT")
 
 wait "$NC_PID"
 

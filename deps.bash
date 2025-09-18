@@ -59,39 +59,12 @@ exec_dep() {
 
   local base_path
   base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
-  local args_schema_path="${base_path}.args.schema.json"
-  local output_schema_path="${base_path}.output.schema.json"
+    local output_schema_path="${base_path}.output.schema.json"
   local validator_path="$PROJECT_ROOT/schema_validator.bash"
 
-  if [[ -f "$args_schema_path" || -f "$output_schema_path" ]]; then
+  if [[ -f "$output_schema_path" ]]; then
     if [[ ! -f "$validator_path" ]]; then
       echo "Error: A schema file was found, but the validator is missing or not executable at '$validator_path'." >&2
-      return 1
-    fi
-  fi
-
-  if [[ -f "$args_schema_path" ]]; then
-    local args_json
-    if [ "$#" -gt 0 ]; then
-      args_json=$(printf '"%s",' "$@")
-      args_json="[${args_json%,}]"
-    else
-      args_json="[]"
-    fi
-    # --- Start Fix ---
-    set +e
-    local validation_errors
-    validation_errors=$(echo "$args_json" | bash "$validator_path" "$args_schema_path" 2>&1)
-    local validation_code=$?
-    set -e
-    # --- End Fix ---
-    if [[ $validation_code -ne 0 ]]; then
-      echo "Error: Arguments for '$key' ($script_path) failed schema validation." >&2
-      echo "Schema: $args_schema_path" >&2
-      echo "--- Validation Errors ---" >&2
-      echo "$validation_errors" >&2
-      echo "--- Invalid Arguments (as JSON) ---" >&2
-      echo "$args_json" >&2
       return 1
     fi
   fi

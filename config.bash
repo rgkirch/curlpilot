@@ -1,5 +1,6 @@
 # config.bash
 set -euo pipefail
+#set -x
 
 if [[ -z "${HOME:-}" ]]; then
   echo "Error: HOME environment variable is not set." >&2

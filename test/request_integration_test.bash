@@ -31,7 +31,7 @@ trap 'echo "--- Captured Request Log ---"; cat "$LOG_FILE"; rm -f "$LOG_FILE"; r
 
 # 3. Use the simple 'success' mock for the auth dependency
 export CPO_COPILOT__AUTH_BASH="./test/mocks/scripts/success/auth.bash"
-export CPO_COPILOT__CONFIG_BASH="./test/mocks/scripts/success/config.bash"
+export CPO_CONFIG_BASH="./test/mocks/scripts/success/config.bash"
 
 # 4. Set environment, pointing the API to our local netcat listener
 export API_ENDPOINT="http://localhost:$PORT"

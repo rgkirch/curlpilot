@@ -11,6 +11,7 @@ register_dep config "config.bash"
 
 readonly ARG_SPEC_JSON=$(echo "$(exec_dep config)" | jq '
 {
+  "_description": "Sends a message history to the GitHub Copilot chat API and streams the response.",
   "model": {
     "type": "string",
     "description": "Specify the AI model to use.",
@@ -25,21 +26,30 @@ readonly ARG_SPEC_JSON=$(echo "$(exec_dep config)" | jq '
     "type": "boolean",
     "description": "Enable or disable streaming responses.",
     "default": (.stream_enabled // true)
+  },
+  "messages": {
+    "type": "json",
+    "description": "A JSON array of messages for the chat.",
+    "required": true
   }
 }
 ')
 
-J="$(jq --null-input \
+REQUEST_TICKET_JSON="$(jq --null-input \
   --argjson spec "$ARG_SPEC_JSON" \
   '{"spec": $spec, "args": $ARGS.positional}' \
   --args -- "$@")"
 
-PARAMS_JSON=$(exec_dep parse_args "$J")
+PARSED_ARGS="$(exec_dep parse_args "$REQUEST_TICKET_JSON")"
 
-jq --slurp \
-  --argjson params "$PARAMS_JSON" \
-  '($params | {model, stream_enabled: .stream}) + {messages: .[0]}' \
-| exec_dep request --body - \
-| exec_dep parse_response
+if echo "$PARSED_ARGS" | jq -e 'has("help")' >/dev/null; then
+  echo "$PARSED_ARGS" | jq -r '.help'
+  exit 0
+fi
+
+echo "$PARSED_ARGS" \
+  | jq '{model, stream_enabled: .stream, messages}' \
+  | exec_dep request --body - \
+  | exec_dep parse_response
 
 echo

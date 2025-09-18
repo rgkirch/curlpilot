@@ -1,4 +1,0 @@
-{
-    "api_endpoint": "https://api.githubcopilot.com/chat/completions",
-    "model": "gpt-4.1"
-}

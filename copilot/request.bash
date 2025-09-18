@@ -4,9 +4,9 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
-register_dep config "copilot/config.bash"
 register_dep auth "copilot/auth.bash"
 register_dep parse_args "parse_args.bash"
+register_dep config "config.bash"
 
 readonly ARG_SPEC_JSON='{
   "body": {
