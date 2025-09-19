@@ -1,6 +1,6 @@
 # curlpilot/test/parse_args_test.bash
 set -euo pipefail
-set -x
+#set -x
 
 source "$(dirname "$0")/../deps.bash"
 register_dep "parse_args" "parse_args.bash"
