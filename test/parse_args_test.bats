@@ -151,7 +151,6 @@ MAIN_SPEC='{
   assert_json_equal "$output" "$expected"
 }
 
-#bats test_tags=bats:focus
 @test "Correctly fails when a defined flag is used as a value" {
   spec='{"command": {"type": "string"}, "version": {"type": "boolean"}}'
 
@@ -162,7 +161,7 @@ MAIN_SPEC='{
   assert_failure
 
   # We also assert that it prints the correct error message to stderr.
-  assert_output --stderr "jq: error (at <unknown>): Non-boolean argument --command requires a value"
+  assert_stderr "jq: error (at <unknown>): Non-boolean argument --command requires a value"
 }
 # ===============================================
 # ==           FAILURE TEST CASES            ==
@@ -172,21 +171,21 @@ MAIN_SPEC='{
   run_parser "$MAIN_SPEC" --model=gpt-4
 
   assert_failure
-  assert_output --partial "Error: Required argument '--api-key' is missing."
+  assert_stderr --partial "jq: error (at <unknown>): Missing required value for key: api_key"
 }
 
 @test "Fails on an unknown argument" {
   run_parser "$MAIN_SPEC" --api-key=SECRET --non-existent-arg
 
   assert_failure
-  assert_output --partial "Error: Unknown option '--non-existent-arg'."
+  assert_stderr --partial "jq: error (at <unknown>): Unknown argument: --non-existent-arg"
 }
 
 @test "Fails when a value-taking argument receives no value" {
   run_parser "$MAIN_SPEC" --api-key SECRET --model
 
   assert_failure
-  assert_output --partial "Error: Argument '--model' requires a value."
+  assert_stderr --partial "jq: error (at <unknown>): Non-boolean argument --model requires a value"
 }
 
 # ===============================================
@@ -215,7 +214,7 @@ EOF
   assert_json_equal "$output" "$expected_json"
 }
 
-@test "Reads argument value from stdin when value is '-'" {
+@test "Reads argument value from stdin when value is '- '" {
   spec='{"content": {"type": "string", "required": true}}'
   expected='{"content": "This is a line from stdin."}'
 
