@@ -64,9 +64,6 @@ def process_args:
 # 1. Fill in default values for any unset items.
 # 2. Error out if a required item (one without a default) is missing.
 def ensure_values:
-  # with_entries is a concise way to transform an object's key-value pairs.
-  # The manual notes: "`with_entries(f)` is a shorthand for
-  # `to_entries | map(f) | from_entries`".
   with_entries(
     if (.value | has("value") | not) then
       if (.value | has("default")) then
@@ -79,5 +76,17 @@ def ensure_values:
     end
   );
 
+# After ensuring values, substitute any "-" value with data from stdin.
+def substitute_stdin_values:
+  with_entries(
+    if .value.value == "-" then
+      # The `input` builtin reads the next JSON value from stdin.
+      .value.value = input
+    else
+      . # Leave the entry unchanged
+    end
+  );
+
+
 # --- Main execution flow ---
-process_args | ensure_values
+process_args | ensure_values | substitute_stdin_values
