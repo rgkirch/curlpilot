@@ -1,27 +1,48 @@
 #!/usr/bin/env bash
-set -euo pipefail
-#set -x
 
-if [[ -z "${1-}" ]]; then
-    echo "Usage: $0 JOB_TICKET_JSON" >&2
+# This script is a wrapper that uses 'parse_args.jq' to parse arguments.
+# It requires one argument: a JSON string '{ "spec": {...}, "args": [...] }'.
+# Standard input is passed through to the jq script.
+
+# Exit immediately if a command exits with a non-zero status or if a variable is unset.
+set -e -u -o pipefail
+
+## --- Pre-flight Checks ---
+
+# 1. Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is not installed. Please install it to run this script." >&2
     exit 1
 fi
-readonly JOB_TICKET_JSON="$1"
-readonly PARSER_SCRIPT="parse_args.jq"
 
-# The wrapper now just pipes stdin directly to jq.
-# The jq script will decide whether or not to read it using the `input` builtin.
-# We use the -n flag because the primary input is now an argument, not stdin.
-output_json=$(jq \
-  --null-input \
-  --argjson ticket "$JOB_TICKET_JSON" \
-  --from-file "$PARSER_SCRIPT"
-)
-
-# The help-handling logic remains the same
-if jq --exit-status '.is_help == true' <<< "$output_json" > /dev/null; then
-  jq --raw-output '.message' <<< "$output_json"
-  exit 0
-else
-  echo "$output_json"
+# 2. Check for the correct number of arguments
+if [[ "$#" -ne 1 ]]; then
+    echo "Usage: $0 '{\"spec\": {...}, \"args\": [...] }'" >&2
+    echo "Example: cat my_data.json | $0 '{\"spec\": {\"file\": {\"type\": \"string\"}}, \"args\": [\"--file=-\"]}'" >&2
+    exit 1
 fi
+
+# 3. Locate the accompanying .jq script
+# This ensures the script can be called from any directory.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+JQ_SCRIPT_PATH="$SCRIPT_DIR/parse_args.jq"
+
+if [[ ! -f "$JQ_SCRIPT_PATH" ]]; then
+    echo "Error: The required script 'parse_args.jq' was not found in the same directory as this script." >&2
+    exit 1
+fi
+
+## --- Argument Extraction ---
+
+JSON_INPUT=$1
+SPEC_JSON=$(echo "$JSON_INPUT" | jq -c '.spec')
+ARGS_JSON=$(echo "$JSON_INPUT" | jq -c '.args')
+
+## --- Execution ---
+
+# Run the external jq script using the -f flag.
+# Stdin is passed through to jq for the `input` builtin to use.
+jq -n \
+  --argjson spec "$SPEC_JSON" \
+  --argjson args "$ARGS_JSON" \
+  -f "$JQ_SCRIPT_PATH"

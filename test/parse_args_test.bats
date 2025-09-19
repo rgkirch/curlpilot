@@ -57,6 +57,7 @@ MAIN_SPEC='{
 # ==           SUCCESS TEST CASES            ==
 # ===============================================
 
+#bats test_tags=bats:focus
 @test "All args provided" {
   expected='{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5}'
   run_parser "$MAIN_SPEC" --api-key=SECRET --model=gpt-4 --stream=false --retries=5
@@ -65,7 +66,6 @@ MAIN_SPEC='{
   assert_json_equal "$output" "$expected"
 }
 
-#bats test_tags=bats:focus
 @test "Argument with space" {
   expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0}'
   run_parser "$MAIN_SPEC" --api-key SECRET --retries 0
