@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
+#set -x
 
 if [[ -z "${1-}" ]]; then
     echo "Usage: $0 JOB_TICKET_JSON" >&2
