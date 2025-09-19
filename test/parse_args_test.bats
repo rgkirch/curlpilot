@@ -57,7 +57,6 @@ MAIN_SPEC='{
 # ==           SUCCESS TEST CASES            ==
 # ===============================================
 
-#bats test_tags=bats:focus
 @test "All args provided" {
   expected='{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5}'
   run_parser "$MAIN_SPEC" --api-key=SECRET --model=gpt-4 --stream=false --retries=5
@@ -65,6 +64,7 @@ MAIN_SPEC='{
   assert_success
   assert_json_equal "$output" "$expected"
 }
+
 
 @test "Argument with space" {
   expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0}'
@@ -151,15 +151,19 @@ MAIN_SPEC='{
   assert_json_equal "$output" "$expected"
 }
 
-@test "Correctly handles a value that looks like a flag" {
+#bats test_tags=bats:focus
+@test "Correctly fails when a defined flag is used as a value" {
   spec='{"command": {"type": "string"}, "version": {"type": "boolean"}}'
-  expected='{"command": "--version"}'
-  run_parser "$spec" --command '--version'
 
-  assert_success
-  assert_json_equal "$output" "$expected"
+  # This command is ambiguous and should be rejected by the parser.
+  run_parser "$spec" --command --version --version
+
+  # We assert that the command MUST fail (return a non-zero exit code).
+  assert_failure
+
+  # We also assert that it prints the correct error message to stderr.
+  assert_output --stderr "jq: error (at <unknown>): Non-boolean argument --command requires a value"
 }
-
 # ===============================================
 # ==           FAILURE TEST CASES            ==
 # ===============================================
