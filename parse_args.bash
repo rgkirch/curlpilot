@@ -62,7 +62,8 @@ else
   # Otherwise, run the main parser script for normal execution.
   # It needs both the spec and the args.
   jq --null-input \
-    --argjson spec "$SPEC_JSON" \
-    --argjson args "$ARGS_JSON" \
-    --from-file "$MAIN_PARSER_SCRIPT"
+      --raw-input \
+      --argjson spec "$SPEC_JSON" \
+      --argjson args "$ARGS_JSON" \
+      --from-file "$MAIN_PARSER_SCRIPT"
 fi

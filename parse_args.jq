@@ -68,7 +68,9 @@ def ensure_values:
 def substitute_stdin_values:
   with_entries(
     if .value.value == "-" then
-      .value.value = input
+      debug("reading input from stdin", .) |
+      .value.value = input |
+      debug("read input from stdin \(.value.value)", .)
     else
       . # Leave the entry unchanged
     end
