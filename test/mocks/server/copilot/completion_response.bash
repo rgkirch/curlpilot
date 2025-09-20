@@ -13,11 +13,13 @@ readonly ARG_SPEC_JSON='{
   },
   "completion_tokens": {
     "type": "number",
-    "description": "Override the calculated completion tokens."
+    "description": "Override the calculated completion tokens.",
+    "default": "50"
   },
   "prompt_tokens": {
     "type": "number",
-    "description": "Override the default prompt tokens."
+    "description": "Override the default prompt tokens.",
+    "default": "10"
   }
 }'
 

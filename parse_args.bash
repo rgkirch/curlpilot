@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# parse_args.bash
 
 # This script is a wrapper that dispatches to one of two jq scripts.
 # - If --help is present, it calls generate_help_text.jq.

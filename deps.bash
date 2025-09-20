@@ -28,8 +28,16 @@ resolve_path() {
 # @param1: The original path of the dependency (e.g., "copilot/auth.bash").
 _get_override_var_name() {
   local original_path="$1"
+  local relative_path="$original_path"
+
+  # If the path is absolute and starts with the project root, convert it to relative.
+  if [[ "$relative_path" == "$PROJECT_ROOT/"* ]]; then
+    relative_path="${relative_path#$PROJECT_ROOT/}"
+  fi
+
   local sanitized_path
-  sanitized_path=$(echo "$original_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
+  # The original logic is preserved to avoid collisions (e.g. 'foo/bar' vs 'foo_bar')
+  sanitized_path=$(echo "$relative_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
   echo "CPO_$sanitized_path"
 }
 
@@ -53,6 +61,12 @@ register_dep() {
 }
 
 exec_dep() {
+  if ! declare -p SCRIPT_REGISTRY >/dev/null 2>&1; then
+    echo "Error (deps.bash): SCRIPT_REGISTRY is not defined." >&2
+    echo "  This means the test environment was not set up in the 'run' subshell." >&2
+    exit 1
+  fi
+
   local key="$1"
   local script_path="${SCRIPT_REGISTRY[$key]}"
 
