@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# test/test_helper.bash
 
 bats_require_minimum_version 1.5.0
 

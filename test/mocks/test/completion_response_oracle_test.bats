@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 #set -x
 
+bats_require_minimum_version 1.5.0
+
 export PROJECT_ROOT
 PROJECT_ROOT="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"
 
@@ -70,7 +72,7 @@ assert_json_oracle() {
   }'
 
   # The `run` command executes the script and captures its output.
-  run run_with_setup exec_dep mock_completion
+  run --separate-stderr run_with_setup exec_dep mock_completion
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -82,7 +84,7 @@ assert_json_oracle() {
     ".usage.completion_tokens": 50
   }'
 
-  run run_with_setup exec_dep mock_completion --message-content "Hello, world!"
+  run --separate-stderr run_with_setup exec_dep mock_completion --message-content "Hello, world!"
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -94,7 +96,7 @@ assert_json_oracle() {
     ".usage.completion_tokens": 500
   }'
 
-  run run_with_setup exec_dep mock_completion --message-content "test" --completion-tokens 500
+  run --separate-stderr run_with_setup exec_dep mock_completion --message-content "test" --completion-tokens 500
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -105,7 +107,7 @@ assert_json_oracle() {
     ".usage.prompt_tokens": 123
   }'
 
-  run run_with_setup exec_dep mock_completion --prompt-tokens 123
+  run --separate-stderr run_with_setup exec_dep mock_completion --prompt-tokens 123
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -118,7 +120,7 @@ assert_json_oracle() {
     ".usage.prompt_tokens": 88
   }'
 
-  run run_with_setup exec_dep mock_completion --message-content "Full override" --completion-tokens 77 --prompt-tokens 88
+  run --separate-stderr run_with_setup exec_dep mock_completion --message-content "Full override" --completion-tokens 77 --prompt-tokens 88
 
   assert_success
   assert_json_oracle "$output" "$expected"
