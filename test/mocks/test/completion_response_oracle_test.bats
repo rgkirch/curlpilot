@@ -1,4 +1,5 @@
-#!/usr/bin/env bats
+# test/mocks/test/completion_response_oracle_test.bats
+set -euo pipefail
 #set -x
 
 bats_require_minimum_version 1.5.0
