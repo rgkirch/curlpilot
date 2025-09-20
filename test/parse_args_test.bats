@@ -192,9 +192,10 @@ MAIN_SPEC='{
 # ==          SPECIAL TEST CASES             ==
 # ===============================================
 
+#bats test_tags=bats:focus
 @test "Help generation" {
   # Use a heredoc for cleaner multi-line strings
-  read -r -d '' help_text <<'EOF' || true
+  help_text=$(cat <<'EOF'
 A test script with various argument types.
 
 Usage: [options]
@@ -206,6 +207,7 @@ Options:
   --retries Number of retries on failure.
   --stream  Enable streaming responses.
 EOF
+           )
   expected_json=$(jq -n --arg msg "$help_text" '{help: $msg}')
 
   run_parser "$MAIN_SPEC" --help
