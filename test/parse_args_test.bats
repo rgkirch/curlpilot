@@ -58,7 +58,7 @@ MAIN_SPEC='{
 }'
 
 # ===============================================
-# ==           SUCCESS TEST CASES            ==
+# ==         SUCCESS TEST CASES              ==
 # ===============================================
 
 @test "All args provided" {
@@ -155,8 +155,29 @@ MAIN_SPEC='{
   assert_json_equal "$output" "$expected"
 }
 
+@test "Duplicate arguments uses the last provided value" {
+  expected='{"api_key": "LAST_KEY", "model": "gpt-default", "stream": true, "retries": 3, "messages": []}'
+  run_parser "$MAIN_SPEC" --api-key=FIRST_KEY --api-key=LAST_KEY
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+@test "Returns all default values when no arguments are provided" {
+  local all_optional_spec='{
+    "model": {"type": "string", "default": "default-model"},
+    "stream": {"type": "boolean", "default": false}
+  }'
+  expected='{"model": "default-model", "stream": false}'
+
+  run_parser "$all_optional_spec" # No arguments
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
 # ===============================================
-# ==           FAILURE TEST CASES            ==
+# ==         FAILURE TEST CASES              ==
 # ===============================================
 
 @test "Fails when a required argument is missing" {
@@ -199,8 +220,33 @@ MAIN_SPEC='{
   [ "$filtered_stderr" = "$expected_error" ]
 }
 
+@test "Fails when a non-numeric value is provided for a number type" {
+  # 'five' is not a valid number.
+  run_parser "$MAIN_SPEC" --api-key=SECRET --retries=five
+
+  assert_failure
+  assert_stderr --partial "jq: error (at <unknown>): string (\"five\") cannot be parsed as a number"
+}
+
+@test "Fails when invalid JSON is provided for a json type" {
+  # This is not a valid JSON array.
+  local invalid_json='[{"role": "user"}'
+  run_parser "$MAIN_SPEC" --api-key=SECRET --messages="$invalid_json"
+
+  assert_failure
+  assert_stderr --partial "jq: error (at <unknown>): Unfinished JSON term at EOF at line 1, column 17 (while parsing '[{\"role\": \"user\"}')"
+}
+
+@test "Fails when an invalid value is provided for a boolean type" {
+  # 'yes' is not a valid boolean according to the script's likely logic (true/false).
+  run_parser "$MAIN_SPEC" --api-key=SECRET --stream=yes
+
+  assert_failure
+  assert_stderr --partial "jq: error (at <unknown>): string (\"yes\") cannot be parsed as a boolean"
+}
+
 # ===============================================
-# ==           SPECIAL TEST CASES            ==
+# ==         SPECIAL TEST CASES              ==
 # ===============================================
 
 @test "Help generation" {
