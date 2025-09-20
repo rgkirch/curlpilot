@@ -51,15 +51,18 @@ ARGS_JSON=$(echo "$JSON_INPUT" | jq -c '.args')
 # --- 3. DISPATCH LOGIC ---
 
 # Check if --help exists in the args array using jq's exit code
-if echo "$ARGS_JSON" | jq -e '. | index("--help")' > /dev/null; then
+if echo "$ARGS_JSON" | jq --exit-status '. | index("--help")' > /dev/null; then
   # If --help is found, run the help generator script.
   # It only needs the spec to generate the help text.
-  jq -n --argjson spec "$SPEC_JSON" -f "$HELP_SCRIPT"
+  jq --null-input \
+      --raw-output \
+      --argjson spec "$SPEC_JSON" \
+      --from-file "$HELP_SCRIPT"
 else
   # Otherwise, run the main parser script for normal execution.
   # It needs both the spec and the args.
-  jq -n \
+  jq --null-input \
     --argjson spec "$SPEC_JSON" \
     --argjson args "$ARGS_JSON" \
-    -f "$MAIN_PARSER_SCRIPT"
+    --from-file "$MAIN_PARSER_SCRIPT"
 fi

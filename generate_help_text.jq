@@ -1,4 +1,4 @@
-# generate_help.jq - Formats a spec into a help message.
+# generate_help_text.jq - Formats a spec into a help message.
 
 def generate_help($spec):
   # Helper to format a single option line
@@ -14,21 +14,23 @@ def generate_help($spec):
     "  --\(($key | gsub("_"; "-")))\t\( $details.description ) \($default_text)";
 
   # Main formatting logic
-  (
-    $spec._description,
-    "",
-    "USAGE:",
-    "  script.sh [OPTIONS]",
-    "",
-    "OPTIONS:"
-  ),
-  (
-    $spec
-    | to_entries
-    | map(select(.key | startswith("_") | not))
-    | map(format_option)[]
-  )
-  | join("\n");
+  # FIX: Collect all string parts into a single array before joining.
+  [
+    (
+      $spec._description,
+      "",
+      "USAGE:",
+      "  script.sh [OPTIONS]",
+      "",
+      "OPTIONS:"
+    ),
+    (
+      $spec
+      | to_entries
+      | map(select(.key | startswith("_") | not))
+      | map(format_option)[]
+    )
+  ] | join("\n");
 
 # --- Main execution flow ---
 generate_help($spec)

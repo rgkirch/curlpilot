@@ -192,28 +192,26 @@ MAIN_SPEC='{
 # ==          SPECIAL TEST CASES             ==
 # ===============================================
 
-#bats test_tags=bats:focus
 @test "Help generation" {
-  # Use a heredoc for cleaner multi-line strings
-  help_text=$(cat <<'EOF'
-A test script with various argument types.
-
-Usage: [options]
-
-Options:
-  --api-key The API key for authentication.
-  --help  Show this help message and exit.
-  --model The model to use.
-  --retries Number of retries on failure.
-  --stream  Enable streaming responses.
-EOF
-           )
-  expected_json=$(jq -n --arg msg "$help_text" '{help: $msg}')
+  # Use printf to build the expected string with explicit tabs (\t)
+  # to match the jq script's output.
+  expected_output=$(printf '%b\n' \
+    "A test script with various argument types." \
+    "" \
+    "USAGE:" \
+    "  script.sh [OPTIONS]" \
+    "" \
+    "OPTIONS:" \
+    "  --model\tThe model to use. (default: \"gpt-default\")" \
+    "  --stream\tEnable streaming responses. (default: true)" \
+    "  --api-key\tThe API key for authentication. " \
+    "  --retries\tNumber of retries on failure. (default: 3)"
+)
 
   run_parser "$MAIN_SPEC" --help
 
   assert_success
-  assert_json_equal "$output" "$expected_json"
+  assert_output "$expected_output"
 }
 
 @test "Reads argument value from stdin when value is '- '" {
