@@ -100,10 +100,16 @@ def extract_values:
 
 
 # --- Main execution flow ---
+debug("before process_args", {spec: $spec, args: $args}) |
 {spec: $spec, args: $args}
 | process_args
+| debug("before remove_metadata", .)
 | remove_metadata
+| debug("before ensure_values", .)
 | ensure_values
+| debug("before substitute_stdin_values", .)
 | substitute_stdin_values
+| debug("before coerce_types", .)
 | coerce_types
+| debug("before extract_values", .)
 | extract_values

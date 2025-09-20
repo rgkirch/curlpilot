@@ -43,13 +43,17 @@ MAIN_SPEC='{
   },
   "api_key": {
     "type": "string",
-    "required": true,
     "description": "The API key for authentication."
   },
   "retries": {
     "type": "number",
     "default": 3,
     "description": "Number of retries on failure."
+  },
+  "messages": {
+    "type": "json",
+    "default": [],
+    "description": "A JSON array of messages."
   }
 }'
 
@@ -58,8 +62,8 @@ MAIN_SPEC='{
 # ===============================================
 
 @test "All args provided" {
-  expected='{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5}'
-  run_parser "$MAIN_SPEC" --api-key=SECRET --model=gpt-4 --stream=false --retries=5
+  expected='{"api_key": "SECRET", "model": "gpt-4", "stream": false, "retries": 5, "messages": ["hello"]}'
+  run_parser "$MAIN_SPEC" --api-key=SECRET --model=gpt-4 --stream=false --retries=5 --messages='["hello"]'
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -67,7 +71,7 @@ MAIN_SPEC='{
 
 
 @test "Argument with space" {
-  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0}'
+  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 0, "messages": []}'
   run_parser "$MAIN_SPEC" --api-key SECRET --retries 0
 
   assert_success
@@ -75,7 +79,7 @@ MAIN_SPEC='{
 }
 
 @test "Handles key=value parsing without order-of-operations bug" {
-  spec='{"api_key": {"type": "string", "required": true}}'
+  spec='{"api_key": {"type": "string"}}'
   expected='{"api_key": "SECRET_VALUE"}'
   run_parser "$spec" --api-key=SECRET_VALUE
 
@@ -93,7 +97,7 @@ MAIN_SPEC='{
 }
 
 @test "Standalone boolean flag is treated as true" {
-  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}'
+  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3, "messages": []}'
   run_parser "$MAIN_SPEC" --api-key=SECRET --stream
 
   assert_success
@@ -101,7 +105,7 @@ MAIN_SPEC='{
 }
 
 @test "Boolean can be explicitly set to false" {
-  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": false, "retries": 3}'
+  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": false, "retries": 3, "messages": []}'
   run_parser "$MAIN_SPEC" --api-key=SECRET --stream=false
 
   assert_success
@@ -109,7 +113,7 @@ MAIN_SPEC='{
 }
 
 @test "Number type is respected" {
-  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 10}'
+  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 10, "messages": []}'
   run_parser "$MAIN_SPEC" --api-key=SECRET --retries=10
 
   assert_success
@@ -126,7 +130,7 @@ MAIN_SPEC='{
 }
 
 @test "Defaults are applied correctly" {
-  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3}'
+  expected='{"api_key": "SECRET", "model": "gpt-default", "stream": true, "retries": 3, "messages": []}'
   run_parser "$MAIN_SPEC" --api-key=SECRET
 
   assert_success
@@ -151,23 +155,12 @@ MAIN_SPEC='{
   assert_json_equal "$output" "$expected"
 }
 
-@test "Correctly fails when a defined flag is used as a value" {
-  spec='{"command": {"type": "string"}, "version": {"type": "boolean"}}'
-
-  # This command is ambiguous and should be rejected by the parser.
-  run_parser "$spec" --command --version --version
-
-  # We assert that the command MUST fail (return a non-zero exit code).
-  assert_failure
-
-  # We also assert that it prints the correct error message to stderr.
-  assert_stderr "jq: error (at <unknown>): Non-boolean argument --command requires a value"
-}
 # ===============================================
 # ==           FAILURE TEST CASES            ==
 # ===============================================
 
 @test "Fails when a required argument is missing" {
+  # api_key is required because it has no default.
   run_parser "$MAIN_SPEC" --model=gpt-4
 
   assert_failure
@@ -188,13 +181,29 @@ MAIN_SPEC='{
   assert_stderr --partial "jq: error (at <unknown>): Non-boolean argument --model requires a value"
 }
 
+@test "Correctly fails when a defined flag is used as a value" {
+  spec='{"command": {"type": "string"}, "version": {"type": "boolean"}}'
+  run_parser "$spec" --command --version --version
+
+  assert_failure
+
+  # 1. Define the exact error you expect.
+  local expected_error="jq: error (at <unknown>): Non-boolean argument --command requires a value"
+
+  # 2. Filter the actual stderr to remove debug lines.
+  #    The 'grep -v' command excludes lines matching the pattern.
+  local filtered_stderr
+  filtered_stderr=$(echo "$stderr" | grep -v '\["DEBUG:"')
+
+  # 3. Assert that the filtered output is exactly what you expect.
+  [ "$filtered_stderr" = "$expected_error" ]
+}
+
 # ===============================================
-# ==          SPECIAL TEST CASES             ==
+# ==           SPECIAL TEST CASES            ==
 # ===============================================
 
 @test "Help generation" {
-  # Use printf to build the expected string with explicit tabs (\t)
-  # to match the jq script's output.
   expected_output=$(printf '%b\n' \
     "A test script with various argument types." \
     "" \
@@ -205,7 +214,8 @@ MAIN_SPEC='{
     "  --model\tThe model to use. (default: \"gpt-default\")" \
     "  --stream\tEnable streaming responses. (default: true)" \
     "  --api-key\tThe API key for authentication. " \
-    "  --retries\tNumber of retries on failure. (default: 3)"
+    "  --retries\tNumber of retries on failure. (default: 3)" \
+    "  --messages\tA JSON array of messages. (default: [])"
 )
 
   run_parser "$MAIN_SPEC" --help
@@ -214,14 +224,43 @@ MAIN_SPEC='{
   assert_output "$expected_output"
 }
 
-@test "Reads argument value from stdin when value is '- '" {
-  spec='{"content": {"type": "string", "required": true}}'
-  expected='{"content": "This is a line from stdin."}'
+@test "Reads string value from stdin when value is '-'" {
+  spec='{"content": {"type": "string"}}'
 
-  job_ticket=$(jq -n --argjson spec "$spec" '{"spec": $spec, "args": ["--content", "-"]}')
+  local stdin_data
+  stdin_data="This is a line from stdin."
 
-  # Pipe data into the script and capture its output with 'run'
-  run --separate-stderr bash -c "echo 'This is a line from stdin.' | bash '$SCRIPT_TO_TEST' '$job_ticket'"
+  expected="{\"content\": \"${stdin_data}\"}"
+
+  local job_ticket
+  job_ticket=$(jq -n \
+    --argjson spec "$spec" \
+    '{"spec": $spec, "args": $ARGS.positional}' \
+    --args -- --content -
+  )
+
+  run --separate-stderr bash "$SCRIPT_TO_TEST" "$job_ticket" <<< "$stdin_data"
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+@test "Reads JSON value from stdin when value is '-'" {
+  local stdin_data
+  stdin_data='[{"role": "user", "content": "hello"}]'
+
+  expected=$(cat <<EOF
+{
+  "api_key": "SECRET",
+  "messages": $stdin_data,
+  "model": "gpt-default",
+  "stream": true,
+  "retries": 3
+}
+EOF
+)
+
+  run_parser "$MAIN_SPEC" --api-key=SECRET --messages - <<< "$stdin_data"
 
   assert_success
   assert_json_equal "$output" "$expected"
