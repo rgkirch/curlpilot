@@ -23,6 +23,16 @@ resolve_path() {
   fi
 }
 
+# --- Internal Helper Function ---
+# Derives the override environment variable name from a script's original path.
+# @param1: The original path of the dependency (e.g., "copilot/auth.bash").
+_get_override_var_name() {
+  local original_path="$1"
+  local sanitized_path
+  sanitized_path=$(echo "$original_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
+  echo "CPO_$sanitized_path"
+}
+
 register_dep() {
   local key="$1"
   local original_path="$2"
@@ -32,9 +42,8 @@ register_dep() {
     return 0
   fi
 
-  local sanitized_path
-  sanitized_path=$(echo "$original_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
-  local override_var_name="CPO_$sanitized_path"
+  local override_var_name
+  override_var_name=$(_get_override_var_name "$original_path")
 
   if [[ -n "${!override_var_name-}" ]]; then
     final_path="${!override_var_name}"
@@ -104,4 +113,28 @@ exec_dep() {
 
 get_script_registry() {
   declare -p SCRIPT_REGISTRY
+}
+
+# Sets a mock for a dependency script and validates the original path exists.
+# This prevents tests from silently passing if a real dependency is moved or deleted.
+#
+# @param1 The original, real path to the dependency (e.g., "copilot/auth.bash").
+# @param2 The path to the mock script to use instead.
+mock_dep() {
+  local original_path="$1"
+  local mock_path="$2"
+
+  # 1. Validate that the real dependency file actually exists.
+  #    This is the key improvement that catches refactoring errors.
+  if [[ ! -f "$(resolve_path "$original_path")" ]]; then
+    echo "Mocking ERROR: The original dependency file '$original_path' does not exist." >&2
+    return 1
+  fi
+
+  # 2. Derive the override variable name using the shared helper function.
+  local override_var_name
+  override_var_name=$(_get_override_var_name "$original_path")
+
+  # 3. Export the variable with the resolved path to the mock.
+  export "$override_var_name"="$(resolve_path "$mock_path")"
 }
