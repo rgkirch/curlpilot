@@ -281,10 +281,8 @@ MAIN_SPEC='{
 @test "Reads string value from stdin when value is '-'" {
   spec='{"content": {"type": "string"}}'
 
-  local stdin_data
-  stdin_data="This is a line from stdin."
-
-  expected="{\"content\": \"${stdin_data}\"}"
+  local stdin_data="This is a line from stdin."
+  local expected="{\"content\": \"${stdin_data}\"}"
 
   local job_ticket
   job_ticket=$(jq -n \
@@ -293,7 +291,9 @@ MAIN_SPEC='{
     --args -- --content -
   )
 
-  run --separate-stderr bash "$SCRIPT_TO_TEST" "$job_ticket" <<< "$stdin_data"
+  # Use process substitution to provide stdin without putting `run` in a subshell.
+  # The `<` redirects stdin from the output of the `printf` command.
+  run --separate-stderr bash "$SCRIPT_TO_TEST" "$job_ticket" < <(printf "%s" "$stdin_data")
 
   assert_success
   assert_json_equal "$output" "$expected"
