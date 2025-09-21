@@ -1,5 +1,6 @@
 # test/mock/server/copilot.bash
 set -euo pipefail
+#set -x
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 register_dep parse_args "parse_args.bash"
@@ -14,7 +15,7 @@ readonly ARG_SPEC_JSON='{
   "message_content": {
     "type": "json",
     "description": "A single string or a JSON array of strings for the mock response(s).",
-    "required": true
+    "default": "\"Hello from the mock copilot server!\""
   }
 }'
 
@@ -72,13 +73,19 @@ generate_response() {
 #    messages, serving one response per connection.
 (
   for message in "${messages_to_serve[@]}"; do
-    # Generate the response for this specific request and pipe it to nc.
-    # nc will accept one connection, serve the response, and then exit,
-    # allowing the loop to continue to the next message.
-    generate_response "$message" | nc -l "$PORT"
+    # 1. Generate the entire response into a temporary file first.
+    response_file=$(mktemp)
+    generate_response "$message" > "$response_file"
+
+    # 2. Serve the static content of the file with nc. This avoids the deadlock.
+    nc -l "$PORT" < "$response_file"
+
+    # 3. Clean up the temporary file for this specific request.
+    rm "$response_file"
   done
-) &
+) 3>&- &
 SERVER_PID=$!
+
 
 # Output the port and PID for the test script to use for connection and cleanup.
 echo "$PORT"

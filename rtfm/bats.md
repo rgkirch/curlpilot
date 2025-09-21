@@ -122,6 +122,28 @@ You can tag tests to categorize and filter them.
 }
 ```
 
+#### Focusing on a Single Test
+
+To focus on a single test or a small group of tests, you can use the special `bats:focus` tag. When Bats encounters a test with this tag, it will only run the tests that are marked with `bats:focus` and will ignore all other tests.
+
+This is useful during development when you want to repeatedly run a specific test without running the entire test suite.
+
+```bash
+# bats test_tags=bats:focus
+@test "a focused test" {
+  # This test will run
+}
+
+@test "another test" {
+  # This test will be skipped
+}
+```
+
+**Important:** When tests are run in focus mode, the exit code of a successful run is forced to `1`. This is a safety measure to prevent you from accidentally committing focused tests and having your CI build pass on a subset of your tests.
+
+If you need the true exit code (e.g., for a `git bisect` operation), you can set the `BATS_NO_FAIL_FOCUS_RUN=1` environment variable.
+
+
 ## Running Tests
 
 To run your tests, invoke the `bats` executable with the path to your test files or directories.
