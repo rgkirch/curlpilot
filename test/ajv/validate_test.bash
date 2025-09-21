@@ -1,135 +1,127 @@
-#!/bin/bash
+#!/usr/bin/env bats
 
-# ==============================================================================
-# Test script for ajv/validate.js
-#
-# This script verifies the functionality of the JSON schema validation script
-# by running it against several test cases:
-#   1. Valid data against a schema.
-#   2. Invalid data (wrong type) against a schema.
-#   3. Invalid data (missing required property) against a schema.
-#   4. Handling of non-existent files.
-#   5. Handling of malformed JSON.
-#   6. Correct usage message when no arguments are provided.
-# ==============================================================================
+# 1. Source the project's main dependency script first.
+#    This defines the $PROJECT_ROOT variable. The path is relative to this test file.
+source "$(dirname "$BATS_TEST_FILENAME")/../../deps.bash"
 
-# --- Setup ---
-# Get the directory where the test script is located
-TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Path to the Node.js script to be tested
-VALIDATE_SCRIPT_PATH="$TEST_DIR/../../ajv/validate.js"
-# Create a temporary directory for test files
-TEMP_DIR=$(mktemp -d)
+# 2. Now, use the reliable $PROJECT_ROOT to load the Bats helper libraries.
+#    This will work no matter where the `bats` command is run from.
+load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
+load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
 
-# Colors for output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# 3. Define the path to the script under test using $PROJECT_ROOT for robustness.
+VALIDATE_SCRIPT_PATH="$PROJECT_ROOT/ajv/validate.js"
 
-# Counters for test results
-passed=0
-failed=0
+# Bats provides a temporary directory for each test file, available as $BATS_TMPDIR.
+# It's automatically created and cleaned up, so manual setup and teardown are not needed.
 
-# --- Teardown ---
-# Function to clean up the temporary directory on exit
-cleanup() {
-  rm -rf "$TEMP_DIR"
-}
-trap cleanup EXIT
+# ===============================================
+# ==           TEST CASES                      ==
+# ===============================================
 
-# --- Test Runner ---
-# A function to run a test and check the output
-# Arguments:
-#   $1: Test name
-#   $2: Expected output string (grep pattern)
-#   $3: Command to run
-run_test() {
-  local test_name="$1"
-  local expected_output="$2"
-  shift 2
-  local command_to_run=("$@")
+@test "Valid data succeeds" {
+  # Arrange: Create the schema and data files for this specific test.
+  local schema_file="$BATS_TMPDIR/schema.json"
+  local data_file="$BATS_TMPDIR/data.json"
 
-  echo -n "🧪 Running test: '$test_name'... "
-
-  # Execute command and capture output
-  output=$("${command_to_run[@]}" 2>&1)
-
-  # Check if output contains the expected string
-  if echo "$output" | grep -q "$expected_output"; then
-    echo -e "${GREEN}PASS${NC}"
-    ((passed++))
-  else
-    echo -e "${RED}FAIL${NC}"
-    echo "   - Expected to find: '$expected_output'"
-    echo "   - Actual output was: '$output'"
-    ((failed++))
-  fi
-}
-
-# --- Test Cases ---
-
-## 1. Test with valid data
-cat > "$TEMP_DIR/schema1.json" <<EOL
+  cat > "$schema_file" <<EOL
 {
   "type": "object",
-  "properties": {
-    "name": { "type": "string" },
-    "age": { "type": "number" }
-  },
+  "properties": { "name": { "type": "string" }, "age": { "type": "number" } },
   "required": ["name", "age"]
 }
 EOL
-cat > "$TEMP_DIR/data1_valid.json" <<EOL
+  cat > "$data_file" <<EOL
+{ "name": "John Doe", "age": 30 }
+EOL
+
+  # Act: Run the validation script.
+  run node "$VALIDATE_SCRIPT_PATH" "$schema_file" "$data_file"
+
+  # Assert: Check for a successful exit code and the correct output.
+  assert_success
+  assert_output --partial "✅ Data is valid!"
+}
+
+@test "Invalid data (wrong type) fails" {
+  local schema_file="$BATS_TMPDIR/schema.json"
+  local data_file="$BATS_TMPDIR/data.json"
+
+  cat > "$schema_file" <<EOL
 {
-  "name": "John Doe",
-  "age": 30
+  "type": "object",
+  "properties": { "name": { "type": "string" }, "age": { "type": "number" } },
+  "required": ["name", "age"]
 }
 EOL
-run_test "Valid data" "✅ Data is valid!" node "$VALIDATE_SCRIPT_PATH" "$TEMP_DIR/schema1.json" "$TEMP_DIR/data1_valid.json"
+  cat > "$data_file" <<EOL
+{ "name": "Jane Doe", "age": "twenty-five" }
+EOL
 
-## 2. Test with invalid data (wrong type)
-cat > "$TEMP_DIR/data2_invalid.json" <<EOL
+  run node "$VALIDATE_SCRIPT_PATH" "$schema_file" "$data_file"
+
+  assert_failure
+  assert_output --partial "❌ Data is invalid:"
+}
+
+@test "Invalid data (missing required property) fails" {
+  local schema_file="$BATS_TMPDIR/schema.json"
+  local data_file="$BATS_TMPDIR/data.json"
+
+  cat > "$schema_file" <<EOL
 {
-  "name": "Jane Doe",
-  "age": "twenty-five"
+  "type": "object",
+  "properties": { "name": { "type": "string" }, "age": { "type": "number" } },
+  "required": ["name", "age"]
 }
 EOL
-run_test "Invalid data (wrong type)" "❌ Data is invalid:" node "$VALIDATE_SCRIPT_PATH" "$TEMP_DIR/schema1.json" "$TEMP_DIR/data2_invalid.json"
+  cat > "$data_file" <<EOL
+{ "name": "Jane Doe" }
+EOL
 
-## 3. Test with invalid data (missing required property)
-cat > "$TEMP_DIR/data3_missing.json" <<EOL
+  run node "$VALIDATE_SCRIPT_PATH" "$schema_file" "$data_file"
+
+  assert_failure
+  assert_output --partial "❌ Data is invalid:"
+}
+
+@test "Non-existent schema file fails" {
+  local data_file="$BATS_TMPDIR/data.json"
+  cat > "$data_file" <<EOL
+{ "name": "John Doe", "age": 30 }
+EOL
+
+  run node "$VALIDATE_SCRIPT_PATH" "$BATS_TMPDIR/nonexistent.json" "$data_file"
+
+  assert_failure
+  assert_output --partial "An error occurred"
+}
+
+@test "Malformed data file fails" {
+  local schema_file="$BATS_TMPDIR/schema.json"
+  local data_file="$BATS_TMPDIR/data.json"
+
+  cat > "$schema_file" <<EOL
 {
-  "name": "Jane Doe"
+  "type": "object",
+  "properties": { "name": { "type": "string" }, "age": { "type": "number" } },
+  "required": ["name", "age"]
 }
 EOL
-run_test "Invalid data (missing property)" "❌ Data is invalid:" node "$VALIDATE_SCRIPT_PATH" "$TEMP_DIR/schema1.json" "$TEMP_DIR/data3_missing.json"
-
-## 4. Test with non-existent files
-run_test "Non-existent schema file" "An error occurred" node "$VALIDATE_SCRIPT_PATH" "$TEMP_DIR/nonexistent.json" "$TEMP_DIR/data1_valid.json"
-
-## 5. Test with malformed JSON
-cat > "$TEMP_DIR/malformed.json" <<EOL
-{
-  "name": "Bad JSON",
-  "age": 40,
-}
+  cat > "$data_file" <<EOL
+{ "name": "Bad JSON", "age": 40, }
 EOL
-run_test "Malformed data file" "An error occurred" node "$VALIDATE_SCRIPT_PATH" "$TEMP_DIR/schema1.json" "$TEMP_DIR/malformed.json"
 
+  run node "$VALIDATE_SCRIPT_PATH" "$schema_file" "$data_file"
 
-## 6. Test usage message with no arguments
-run_test "Usage message" "Usage: node validate.js" node "$VALIDATE_SCRIPT_PATH"
+  assert_failure
+  assert_output --partial "An error occurred"
+}
 
-# --- Summary ---
-echo "---------------------------------"
-echo "Test summary:"
-echo -e "  ${GREEN}Passed: $passed${NC}"
-echo -e "  ${RED}Failed: $failed${NC}"
-echo "---------------------------------"
+@test "No arguments shows usage message" {
+  run node "$VALIDATE_SCRIPT_PATH"
 
-# Exit with a non-zero status code if any tests failed
-if [ "$failed" -gt 0 ]; then
-  exit 1
-fi
-
-exit 0
+  # A well-behaved CLI tool should exit with an error code on bad invocation.
+  assert_failure
+  assert_output --partial "Usage: node validate.js"
+}
