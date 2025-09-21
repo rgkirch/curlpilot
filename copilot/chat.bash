@@ -47,9 +47,32 @@ if echo "$PARSED_ARGS" | jq -e 'has("help")' >/dev/null; then
   exit 0
 fi
 
+# 1. Create a temporary directory to hold status and response files.
+TEMP_DIR=$(mktemp -d)
+
+# 2. Define file paths within the new directory.
+STATUS_FILE="$TEMP_DIR/status.json"
+RESPONSE_BODY_FILE="$TEMP_DIR/response.body"
+
+# 3. Set a trap to ensure the entire temporary directory is cleaned up on exit.
+trap 'rm -rf "$TEMP_DIR"' EXIT
+
+# 4. Execute the request, providing the --status-file flag and saving the body.
 echo "$PARSED_ARGS" \
-  | jq '{model, stream_enabled: .stream, messages}' \
-  | exec_dep request --body - \
-  | exec_dep parse_response
+  | jq --compact-output '{model, stream_enabled: .stream, messages}' \
+  | exec_dep request --body - --status-file "$STATUS_FILE" > "$RESPONSE_BODY_FILE"
+
+# 5. Check the HTTP status code from the status file.
+HTTP_CODE=$(jq -r '.http_code' "$STATUS_FILE")
+
+if [[ "$HTTP_CODE" -ne 200 ]]; then
+  echo "Error: API request failed with HTTP status ${HTTP_CODE}." >&2
+  # The response body often contains a detailed error message from the API.
+  cat "$RESPONSE_BODY_FILE" >&2
+  exit 1
+fi
+
+# 6. If the request was successful, parse the response body using the --response flag.
+exec_dep parse_response --response "$(cat "$RESPONSE_BODY_FILE")"
 
 echo

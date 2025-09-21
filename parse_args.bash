@@ -55,6 +55,7 @@ if echo "$ARGS_JSON" | jq --exit-status '. | index("--help")' > /dev/null; then
   # If --help is found, run the help generator script.
   # It only needs the spec to generate the help text.
   jq --null-input \
+      --slurp \
       --raw-output \
       --argjson spec "$SPEC_JSON" \
       --from-file "$HELP_SCRIPT"
@@ -62,6 +63,7 @@ else
   # Otherwise, run the main parser script for normal execution.
   # It needs both the spec and the args.
   jq --null-input \
+      --slurp \
       --raw-input \
       --argjson spec "$SPEC_JSON" \
       --argjson args "$ARGS_JSON" \

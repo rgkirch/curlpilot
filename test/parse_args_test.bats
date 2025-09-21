@@ -1,4 +1,4 @@
-#!/usr/bin/env bats
+# test/parse_args_test.bats
 
 # Load the helper file at the top. Its setup_file() function will run
 # automatically by Bats before any tests start.
@@ -245,6 +245,14 @@ MAIN_SPEC='{
   assert_stderr --partial "jq: error (at <unknown>): string (\"yes\") cannot be parsed as a boolean"
 }
 
+@test "Fails when a positional argument is provided" {
+  # "some_file.txt" is a positional argument and should be rejected.
+  run_parser "$MAIN_SPEC" --api-key=SECRET "some_file.txt"
+
+  assert_failure
+  assert_stderr --partial "jq: error (at <unknown>): Invalid argument (does not start with --): some_file.txt"
+}
+
 # ===============================================
 # ==         SPECIAL TEST CASES              ==
 # ===============================================
@@ -292,22 +300,26 @@ MAIN_SPEC='{
 }
 
 @test "Reads JSON value from stdin when value is '-'" {
+  # Arrange: Define the core test data as compact JSON strings.
+  local compact_stdin_data='[{"role": "user", "content": "hello"}]'
+  local expected_base_json='{"api_key":"SECRET","model":"gpt-default","stream":true,"retries":3}'
+
+  # Arrange: Use jq's identity filter (.) to pretty-print the compact string for stdin.
   local stdin_data
-  stdin_data='[{"role": "user", "content": "hello"}]'
+  stdin_data=$(jq . <<< "$compact_stdin_data")
 
-  expected=$(cat <<EOF
-{
-  "api_key": "SECRET",
-  "messages": $stdin_data,
-  "model": "gpt-default",
-  "stream": true,
-  "retries": 3
-}
-EOF
-)
+  # Arrange: Use jq to safely build the final expected JSON object.
+  # This is more robust than using a shell here-document.
+  local expected
+  expected=$(jq -n \
+    --argjson stdin "$compact_stdin_data" \
+    --argjson base "$expected_base_json" \
+    '$base + {messages: $stdin}')
 
+  # Act: Run the parser, piping the pretty-printed data to stdin via a here-string.
   run_parser "$MAIN_SPEC" --api-key=SECRET --messages - <<< "$stdin_data"
 
+  # Assert
   assert_success
   assert_json_equal "$output" "$expected"
 }
