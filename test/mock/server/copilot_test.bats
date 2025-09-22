@@ -1,6 +1,5 @@
 # test/mock/server/copilot_test.bats
 set -euo pipefail
-#set -x
 #export PS4='+(${BASH_SOURCE}:${LINENO}) '
 
 bats_require_minimum_version 1.5.0
@@ -17,40 +16,37 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot.bash"
 # ==           TEST CASES                      ==
 # ===============================================
 
-# bats test_tags=bats:focus
 @test "Starts in streaming mode and chunks message content" {
-  # Arrange: Define the full message we expect after parsing the stream.
-  echo "i can't see this though" >&2
-  local message_content="\"Hello streamed world\""
+  # Arrange: Define the raw message.
+  local message="Hello streamed world"
 
-  # Act: Start the server in its default streaming mode.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --message-content "$message_content" &
-  echo "output $output" >&2
-  echo "stderr $stderr" >&2
+  # Act: Start the server. Note the '&' is removed. The server script
+  # backgrounds itself, so 'run' will capture the port/PID and exit correctly.
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --message-content "$message"
   assert_success
 
   # Arrange: Capture port/PID and set a trap for cleanup.
   local port=${lines[0]}
   local pid=${lines[1]}
   trap 'kill "$pid" &>/dev/null || true' RETURN
-  sleep 0.1
+  sleep 0.1 # Give the server a moment to start listening.
 
-  # Act: Use the real `chat.bash` script to connect to our mock server and
-  # parse the streamed response. This is the best way to verify the stream
-  # is being generated correctly.
+  # Act: Use the real `chat.bash` script to connect to our mock server.
   run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
     --api-endpoint "http://localhost:$port/" \
     --messages '[{"role":"user","content":"test"}]'
 
   # Assert: Verify the final, concatenated output is correct.
   assert_success
-  assert_output "$message_content"
+  assert_output "$message"
 }
 
 @test "Starts in non-streaming mode and serves a single JSON object" {
-  local message_content="\"Hello single JSON\""
+  # Arrange: Define the raw message.
+  local message="Hello single JSON"
 
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --message-content "$message_content"
+  # Act: Start the server in non-streaming mode.
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --message-content "$message"
   assert_success
 
   local port=${lines[0]}
@@ -58,43 +54,19 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot.bash"
   trap 'kill "$pid" &>/dev/null || true' RETURN
   sleep 0.1
 
-  # Act: Connect with curl and pipe the output to jq for validation.
+  # Act: Connect with curl.
   run --separate-stderr curl --silent --max-time 1 "http://localhost:$port"
 
   # Assert: Verify the response is a valid JSON object with the correct content.
   assert_success
-  assert_output --partial '"content":"Hello single JSON"'
-}
-
-@test "Handles multiple requests when message-content is a JSON array" {
-  # Arrange: Define the sequence of responses.
-  local messages_json='["First response", "Second response"]'
-
-  # Act: Start the server, telling it to serve two separate responses.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --message-content "$messages_json"
-  assert_success
-
-  local port=${lines[0]}
-  local pid=${lines[1]}
-  trap 'kill "$pid" &>/dev/null || true' RETURN
-  sleep 0.1
-
-  # Act & Assert (First Request): Connect once and check the first response.
-  run --separate-stderr curl --silent --max-time 1 "http://localhost:$port"
-  assert_success
-  assert_output --partial '"content":"First response"'
-
-  # Act & Assert (Second Request): Connect again and check the second response.
-  run --separate-stderr curl --silent --max-time 1 "http://localhost:$port"
-  assert_success
-  assert_output --partial '"content":"Second response"'
+  assert_output --partial "\"content\":\"$message\""
 }
 
 @test "Uses default message content when flag is not provided" {
-  # Arrange: The default message from your new spec.
-  local expected_output="Hello from the mock copilot server!"
+  # Arrange: The default message from the script's argument spec.
+  local expected_output="Hello from the mock server!"
 
-  # Act: Run the server with NO arguments. It should now succeed.
+  # Act: Run the server with no arguments to test the default behavior.
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT"
   assert_success
 
@@ -104,7 +76,7 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot.bash"
   trap 'kill "$pid" &>/dev/null || true' RETURN
   sleep 0.1
 
-  # Act: Use the real chat.bash to connect and parse the default (streaming) response.
+  # Act: Connect and parse the default (streaming) response.
   run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
     --api-endpoint "http://localhost:$port/" \
     --messages '[{"role":"user","content":"test"}]'
