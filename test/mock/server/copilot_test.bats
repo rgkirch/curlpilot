@@ -1,5 +1,5 @@
 # test/mock/server/copilot_test.bats
-set -euo pipefail
+#set -euo pipefail
 #export PS4='+(${BASH_SOURCE}:${LINENO}) '
 
 bats_require_minimum_version 1.5.0
@@ -15,6 +15,27 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot.bash"
 # ===============================================
 # ==           TEST CASES                      ==
 # ===============================================
+
+@test "Starts in non-streaming mode and serves a single JSON object" {
+  # Arrange: Define the raw message.
+  local message="Hello single JSON"
+
+  # Act: Start the server in non-streaming mode.
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --message-content "$message"
+  assert_success
+
+  local port=${lines[0]}
+  local pid=${lines[1]}
+  trap 'kill "$pid" &>/dev/null || true' RETURN
+  sleep 0.1
+
+  # Act: Connect with curl.
+  run --separate-stderr curl --silent --max-time 1 "http://localhost:$port"
+
+  # Assert: Verify the response is a valid JSON object with the correct content.
+  assert_success
+  assert_output --partial "\"content\":\"$message\""
+}
 
 @test "Starts in streaming mode and chunks message content" {
   # Arrange: Define the raw message.
@@ -39,27 +60,6 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot.bash"
   # Assert: Verify the final, concatenated output is correct.
   assert_success
   assert_output "$message"
-}
-
-@test "Starts in non-streaming mode and serves a single JSON object" {
-  # Arrange: Define the raw message.
-  local message="Hello single JSON"
-
-  # Act: Start the server in non-streaming mode.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --message-content "$message"
-  assert_success
-
-  local port=${lines[0]}
-  local pid=${lines[1]}
-  trap 'kill "$pid" &>/dev/null || true' RETURN
-  sleep 0.1
-
-  # Act: Connect with curl.
-  run --separate-stderr curl --silent --max-time 1 "http://localhost:$port"
-
-  # Assert: Verify the response is a valid JSON object with the correct content.
-  assert_success
-  assert_output --partial "\"content\":\"$message\""
 }
 
 @test "Uses default message content when flag is not provided" {
