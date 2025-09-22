@@ -58,7 +58,7 @@ MAIN_SPEC='{
 }'
 
 # ===============================================
-# ==         SUCCESS TEST CASES              ==
+# ==       SUCCESS TEST CASES        ==
 # ===============================================
 
 @test "All args provided" {
@@ -177,7 +177,65 @@ MAIN_SPEC='{
 }
 
 # ===============================================
-# ==         FAILURE TEST CASES              ==
+# ==         -- TERMINATOR TESTS             ==
+# ===============================================
+
+@test "Handles -- to capture multiple subsequent words as an array" {
+  local spec='{"message_content": {"type": "array"}}'
+  local expected='{"message_content": ["this", "is", "a", "test"]}'
+
+  run_parser "$spec" --message-content -- this is a test
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+@test "Handles -- to capture values that look like other options" {
+  local spec='{"message_content": {"type": "array"}}'
+  local expected='{"message_content": ["this", "--is", "--a", "test"]}'
+
+  run_parser "$spec" --message-content -- this --is --a test
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+@test "Handles -- with a single quoted argument" {
+  local spec='{"message_content": {"type": "array"}}'
+  local expected='{"message_content": ["a single quoted value"]}'
+
+  run_parser "$spec" --message-content -- "a single quoted value"
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+@test "Handles -- correctly when other arguments are present" {
+  local spec='{
+    "model": {"type": "string"},
+    "message_content": {"type": "array", "default": []}
+  }'
+  local expected='{"model": "gpt-4", "message_content": ["this", "is", "a", "test"]}'
+
+  run_parser "$spec" --model gpt-4 --message-content -- this is a test
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+@test "Handles -- with no subsequent values" {
+  local spec='{"message_content": {"type": "array", "default": null}}'
+  local expected='{"message_content": []}'
+
+  run_parser "$spec" --message-content --
+
+  assert_success
+  assert_json_equal "$output" "$expected"
+}
+
+
+# ===============================================
+# ==       FAILURE TEST CASES        ==
 # ===============================================
 
 @test "Fails when a required argument is missing" {
@@ -254,7 +312,7 @@ MAIN_SPEC='{
 }
 
 # ===============================================
-# ==         SPECIAL TEST CASES              ==
+# ==       SPECIAL TEST CASES        ==
 # ===============================================
 
 @test "Help generation" {

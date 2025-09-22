@@ -19,19 +19,28 @@ def process_args:
             value: $kv.v,
             rest: (.args | .[1:])
           }
-        # Case 2: Argument is --key value or a boolean --key
+        # Case 2: Argument is --key value, a boolean --key, or --key -- values...
         else
           .args[1:] as $tail |
           ($arg | sub("^--"; "") | gsub("-"; "_")) as $key_name |
           if ($key_name | in($spec) | not) then
             error("Unknown argument: \($arg)")
           else
-            if (($tail | length) == 0) or ($tail[0] | startswith("--")) then
+            # Case 2a: --key -- ...rest of args
+            if (($tail | length > 0) and ($tail[0] == "--")) then
+              {
+                key: $key_name,
+                value: $tail[1:], # Value is EVERYTHING after "--"
+                rest: []          # No more arguments left to process
+              }
+            # Case 2b: Boolean --key
+            elif (($tail | length) == 0) or ($tail[0] | startswith("--")) then
               if ($spec[$key_name].type == "boolean") then
                 { key: $key_name, value: true, rest: $tail }
               else
                 error("Non-boolean argument \($arg) requires a value")
               end
+            # Case 2c: --key value
             else
               { key: $key_name, value: $tail[0], rest: ($tail | .[1:]) }
             end
