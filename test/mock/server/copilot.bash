@@ -1,11 +1,10 @@
 # test/mock/server/copilot.bash
 set -euo pipefail
-#set -x
+set -x
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 register_dep parse_args "parse_args.bash"
 
-# 1. Update the spec to accept 'json' for message-content.
 readonly ARG_SPEC_JSON='{
   "stream": {
     "type": "boolean",
@@ -19,17 +18,16 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
-# 2. Parse the server's arguments.
-job_ticket_json=$(jq -n \
+job_ticket_json=$(jq --null-input \
   --argjson spec "$ARG_SPEC_JSON" \
   '{spec: $spec, args: $ARGS.positional}' \
   --args -- "$@")
+
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 
-readonly STREAM_ENABLED=$(echo "$PARSED_ARGS" | jq -r '.stream')
+readonly STREAM_ENABLED=$(jq --raw-output '.stream' <<< "$PARSED_ARGS")
 # Keep message_content as a JSON literal to check its type.
-readonly MESSAGE_CONTENT_JSON=$(echo "$PARSED_ARGS" | jq '.message_content')
-readonly SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+readonly MESSAGE_CONTENT_JSON=$(jq '.message_content' <<< "$PARSED_ARGS")
 
 # 3. Process message_content into a standard Bash array.
 messages_to_serve=()
@@ -51,13 +49,13 @@ generate_response() {
   local generator_args=()
 
   if [[ "$STREAM_ENABLED" == "true" ]]; then
-    generator_script="$SCRIPT_DIR/sse_completion_response.bash"
+    generator_script=$(path_relative_to_here "copilot/sse_completion_response.bash")
     read -r -a words <<< "$message"
     local message_parts_json
     message_parts_json=$(jq -n --compact-output '$ARGS.positional' --args -- "${words[@]}")
     generator_args+=("--message-parts" "$message_parts_json")
   else
-    generator_script="$SCRIPT_DIR/completion_response.bash"
+    generator_script=$(path_relative_to_here "copilot/completion_response.bash")
     generator_args+=("--message-content" "$message")
   fi
 

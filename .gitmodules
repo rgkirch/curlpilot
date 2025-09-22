@@ -13,3 +13,6 @@
 [submodule "test/test/test_helper/bats-mock"]
 	path = test/test_helper/bats-mock
 	url = https://github.com/buildkite-plugins/bats-mock.git
+[submodule "libs/TickTick"]
+	path = libs/TickTick
+	url = https://github.com/kristopolous/TickTick.git

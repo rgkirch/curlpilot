@@ -10,8 +10,7 @@ readonly ARG_SPEC_JSON='{
   "_description": "Parses a Copilot chat completion stream, extracting the content.",
   "response": {
     "type": "string",
-    "description": "The chat completion response stream to parse. Use '\''-'\'' to read from stdin.",
-    "required": true
+    "description": "The chat completion response stream to parse. Use '\''-'\'' to read from stdin."
   }
 }'
 

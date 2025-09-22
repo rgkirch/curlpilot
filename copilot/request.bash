@@ -11,12 +11,12 @@ register_dep config "config.bash"
 readonly ARG_SPEC_JSON='{
   "body": {
     "type": "json",
-    "description": "The JSON request body.",
-    "required": true
+    "description": "The JSON request body."
   },
   "status_file": {
     "type": "path",
-    "description": "File to write the final status JSON to."
+    "description": "File to write the final status JSON to.",
+    "default": null
   }
 }'
 

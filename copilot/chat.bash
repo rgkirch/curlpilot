@@ -29,8 +29,7 @@ readonly ARG_SPEC_JSON=$(echo "$(exec_dep config)" | jq '
   },
   "messages": {
     "type": "json",
-    "description": "A JSON array of messages for the chat.",
-    "required": true
+    "description": "A JSON array of messages for the chat."
   }
 }
 ')

@@ -24,7 +24,7 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot.bash"
   local message_content="\"Hello streamed world\""
 
   # Act: Start the server in its default streaming mode.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --message-content "$message_content"
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --message-content "$message_content" &
   echo "output $output" >&2
   echo "stderr $stderr" >&2
   assert_success

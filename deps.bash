@@ -1,6 +1,9 @@
 # curlpilot/deps.bash
+#. ./libs/TickTick/ticktick.sh
 set -euo pipefail
 #set -x
+
+#export PS4='+\e[0;33m${BASH_SOURCE##*/}:${LINENO}\e[0m '
 
 # The directory containing this script is now officially the PROJECT_ROOT.
 PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -20,6 +23,25 @@ resolve_path() {
     echo "$relative_path"
   else
     echo "$PROJECT_ROOT/$relative_path"
+  fi
+}
+
+path_relative_to_here() {
+  local relative_path="$1"
+  # BASH_SOURCE[1] is the path to the script that called this function (which sourced deps.bash).
+  local caller_path="${BASH_SOURCE[1]}"
+  if [[ -z "$caller_path" ]]; then
+    # Fallback if not called from a sourced script (e.g. interactive shell)
+    # In this case, it behaves like resolve_path
+    resolve_path "$relative_path"
+  else
+    local caller_dir
+    caller_dir=$(dirname "$(readlink -f "$caller_path")")
+    if [[ "$relative_path" = /* ]]; then
+      echo "$relative_path"
+    else
+      echo "$caller_dir/$relative_path"
+    fi
   fi
 }
 

@@ -14,7 +14,6 @@ set -euo pipefail
 #   "my_arg": {
 #     "type": "string" | "boolean" | "path",
 #     "description": "Help text for the user.",
-#     "required": false,
 #     "default": "some_value"
 #   }
 # }
