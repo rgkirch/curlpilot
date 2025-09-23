@@ -1,7 +1,11 @@
 # curlpilot/deps.bash
 #. ./libs/TickTick/ticktick.sh
-set -euo pipefail
+#set -euo pipefail
 #set -x
+
+# A sourced library file like deps.bash should never change the shell options of
+# its caller. This is the root cause of all the strange behavior you've been
+# seeing.
 
 #export PS4='+\e[0;33m${BASH_SOURCE##*/}:${LINENO}\e[0m '
 

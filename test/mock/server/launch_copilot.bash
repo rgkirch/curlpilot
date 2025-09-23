@@ -45,5 +45,7 @@ PORT=$(shuf -i 20000-65000 -n 1)
 ) > "$STDOUT_LOG" 2> "$STDERR_LOG" &
 SERVER_PID=$!
 
+echo "PORT: $PORT" >> "$STDERR_LOG"
 echo "$PORT"
+echo "SERVER_PID: $SERVER_PID" >> "$STDERR_LOG"
 echo "$SERVER_PID"

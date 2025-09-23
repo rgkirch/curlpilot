@@ -19,7 +19,8 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   # Arrange: Define the raw message.
   local message="Hello single JSON"
 
-  # Act: Start the server in non-streaming mode.
+  echo "run $MOCK_SERVER_SCRIPT from bats" >> err.log
+
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
     --stdout-log out.log \
     --stderr-log err.log \
@@ -27,11 +28,19 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
     --stream=false \
     --message-content "$message"
 
+  echo "exit code $?" >> err.log
+
+  echo "going to assert success from bats" >> err.log
+
   assert_success
 
   local port=${lines[0]}
   local pid=${lines[1]}
+  echo "port $port pid $pid from bats" >> err.log
+
   trap 'kill "$pid" &>/dev/null || true' RETURN
+
+  echo "going to curl localhost:$port from bats" >> err.log
 
   run curl --silent \
     --retry 10 \
@@ -39,8 +48,14 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
     --retry-delay 2 \
     "http://localhost:$port"
 
-  # Assert: Verify the response is a valid JSON object with the correct content.
+  echo "curl exit code $?" >> err.log
+
+  echo "after curl. assert success again from bats" >> err.log
+
   assert_success
+
+  echo "assert output for message $message" >> err.log
+
   assert_output --partial "\"content\":\"$message\""
 }
 

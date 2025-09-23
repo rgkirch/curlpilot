@@ -33,20 +33,29 @@ readonly PORT=$(jq --raw-output '.port' <<< "$PARSED_ARGS")
 readonly STREAM_ENABLED=$(jq --raw-output '.stream' <<< "$PARSED_ARGS")
 readonly MESSAGE_CONTENT=$(jq --raw-output '.message_content' <<< "$PARSED_ARGS")
 
-response_file=$(mktemp)
-trap 'rm -f "$response_file"' EXIT
-
-if [[ "$STREAM_ENABLED" == "true" ]]; then
+if [[ "$STREAM_ENABLED" == "false" ]]; then
+  body_file=$(mktemp)
+  trap 'rm -f "$body_file"' EXIT
+  "$(path_relative_to_here "copilot/completion_response.bash")" --message-content "$MESSAGE_CONTENT" > "$body_file"
+  content_length=$(wc -c < "$body_file")
+  response_file=$(mktemp)
+  trap 'rm -f "$body_file" "$response_file"' EXIT
+  {
+    echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: $content_length\r\n"
+    cat "$body_file"
+  } > "$response_file"
+else
+  response_file=$(mktemp)
+  trap 'rm -f "$response_file"' EXIT
   message_parts_json=$(jq --compact-output --raw-input 'split(" ")' <<< "$MESSAGE_CONTENT")
   {
     echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"
     "$(path_relative_to_here "copilot/sse_completion_response.bash")" --message-parts "$message_parts_json"
   } > "$response_file"
-else
-  {
-    echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n"
-    "$(path_relative_to_here "copilot/completion_response.bash")" --message-content "$MESSAGE_CONTENT"
-  } > "$response_file"
 fi
 
+echo "nc is listening on PORT $PORT" >> "err.log"
+
 nc --listen "$PORT" --send-only < "$response_file"
+
+echo "nc is done" >> "err.log"
