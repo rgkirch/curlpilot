@@ -1,5 +1,21 @@
 # parse_args.jq
 
+# This version replaces the simple `... | debug` filter.
+def dbg:
+  if $ENV.SCRIPT_DEBUG then
+    debug
+  else
+    .
+  end;
+
+# This version replaces the `debug(msgs)` filter.
+def dbg(msgs):
+  if $ENV.SCRIPT_DEBUG then
+    (msgs | debug | empty), .
+  else
+    .
+  end;
+
 # Recursively process the arguments array, updating the spec.
 def process_args:
   if (.args | length) == 0 then
@@ -77,9 +93,9 @@ def ensure_values:
 def substitute_stdin_values:
   with_entries(
     if .value.value == "-" then
-      debug("reading input from stdin", .) |
+      dbg("reading input from stdin", .) |
       .value.value = input |
-      debug("read input from stdin \(.value.value)", .)
+      dbg("read input from stdin \(.value.value)", .)
     else
       . # Leave the entry unchanged
     end
@@ -109,16 +125,16 @@ def extract_values:
 
 
 # --- Main execution flow ---
-debug("before process_args", {spec: $spec, args: $args}) |
+dbg("before process_args", {spec: $spec, args: $args}) |
 {spec: $spec, args: $args}
 | process_args
-| debug("before remove_metadata", .)
+| dbg("before remove_metadata", .)
 | remove_metadata
-| debug("before ensure_values", .)
+| dbg("before ensure_values", .)
 | ensure_values
-| debug("before substitute_stdin_values", .)
+| dbg("before substitute_stdin_values", .)
 | substitute_stdin_values
-| debug("before coerce_types", .)
+| dbg("before coerce_types", .)
 | coerce_types
-| debug("before extract_values", .)
+| dbg("before extract_values", .)
 | extract_values

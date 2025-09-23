@@ -10,7 +10,7 @@ load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
 load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
 
 # Path to the script we are testing.
-MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/non_blocking_copilot.bash"
+MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
 
 # ===============================================
 # ==           TEST CASES                      ==

@@ -31,11 +31,20 @@ SPEC_JSON=$(echo "$JSON_INPUT" | jq -c '.spec')
 ARGS_JSON=$(echo "$JSON_INPUT" | jq -c '.args')
 
 if echo "$ARGS_JSON" | jq --exit-status '. | index("--help")' > /dev/null; then
+  # 1. Print the human-readable help text to stderr.
   jq --null-input \
-      --slurp \
-      --raw-output \
-      --argjson spec "$SPEC_JSON" \
-      --from-file "$HELP_SCRIPT"
+     --slurp \
+     --raw-output \
+     --argjson spec "$SPEC_JSON" \
+     --from-file "$HELP_SCRIPT" >&2
+
+  # 2. Print a valid, machine-readable JSON object to stdout.
+  # An empty object is a common convention for "success, but no data."
+  echo '{"help_requested": true}'
+
+
+  # 3. Exit with a success code.
+  exit 0
 else
   jq --null-input \
       --slurp \
