@@ -22,10 +22,10 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
 
   # Act: Start the server in non-streaming mode.
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false \
-    --child-args -- \
-    --message-content "$message" \
     --stdout-log /tmp/tmp.Wmy4esIV94 \
-    --stderr-log /tmp/tmp.Wmy4esIV94
+    --stderr-log /tmp/tmp.Wmy4esIV94 \
+    --child-args -- \
+    --message-content "$message"
 
   assert_success
 
@@ -49,10 +49,10 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   # Act: Start the server. Note the '&' is removed. The server script
   # backgrounds itself, so 'run' will capture the port/PID and exit correctly.
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT"  \
-    --child-args -- \
-    --message-content "$message" \
     --stdout-log /tmp/tmp.Wmy4esIV94 \
-    --stderr-log /tmp/tmp.Wmy4esIV94
+    --stderr-log /tmp/tmp.Wmy4esIV94 \
+    --child-args -- \
+    --message-content "$message"
 
     assert_success
 
@@ -91,9 +91,9 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
     --api-endpoint "http://localhost:$port/" \
     --messages '[{"role":"user","content":"test"}]' \
-    --child-args -- \
     --stdout-log /tmp/tmp.Wmy4esIV94 \
-    --stderr-log /tmp/tmp.Wmy4esIV94
+    --stderr-log /tmp/tmp.Wmy4esIV94 \
+    --child-args --
 
   # Assert: Verify the final output matches the default message.
   assert_success
