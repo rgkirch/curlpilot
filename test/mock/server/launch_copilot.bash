@@ -28,7 +28,6 @@ readonly ARG_SPEC_JSON='{
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 
-# Handle the --help case from the parser's output.
 if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
   exit 0
 fi
