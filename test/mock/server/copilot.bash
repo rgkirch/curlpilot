@@ -1,6 +1,6 @@
 # test/mock/server/copilot.bash
 set -euo pipefail
-set -x
+#set -x
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 register_dep parse_args "parse_args.bash"
