@@ -21,7 +21,12 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   local message="Hello single JSON"
 
   # Act: Start the server in non-streaming mode.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --child-args -- --message-content "$message"
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false \
+    --child-args -- \
+    --message-content "$message" \
+    --stdout-log /tmp/tmp.Wmy4esIV94 \
+    --stderr-log /tmp/tmp.Wmy4esIV94
+
   assert_success
 
   local port=${lines[0]}
@@ -43,8 +48,13 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
 
   # Act: Start the server. Note the '&' is removed. The server script
   # backgrounds itself, so 'run' will capture the port/PID and exit correctly.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --child-args -- --message-content "$message"
-  assert_success
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT"  \
+    --child-args -- \
+    --message-content "$message" \
+    --stdout-log /tmp/tmp.Wmy4esIV94 \
+    --stderr-log /tmp/tmp.Wmy4esIV94
+
+    assert_success
 
   # Arrange: Capture port/PID and set a trap for cleanup.
   local port=${lines[0]}
@@ -61,6 +71,7 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   assert_success
   assert_output "$message"
 }
+
 
 @test "Uses default message content when flag is not provided" {
   # Arrange: The default message from the script's argument spec.
@@ -79,7 +90,10 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   # Act: Connect and parse the default (streaming) response.
   run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
     --api-endpoint "http://localhost:$port/" \
-    --messages '[{"role":"user","content":"test"}]'
+    --messages '[{"role":"user","content":"test"}]' \
+    --child-args -- \
+    --stdout-log /tmp/tmp.Wmy4esIV94 \
+    --stderr-log /tmp/tmp.Wmy4esIV94
 
   # Assert: Verify the final output matches the default message.
   assert_success
