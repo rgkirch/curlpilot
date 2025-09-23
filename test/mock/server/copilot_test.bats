@@ -21,10 +21,11 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   local message="Hello single JSON"
 
   # Act: Start the server in non-streaming mode.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false \
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
     --stdout-log /tmp/tmp.Wmy4esIV94 \
     --stderr-log /tmp/tmp.Wmy4esIV94 \
     --child-args -- \
+    --stream=false \
     --message-content "$message"
 
   assert_success
@@ -89,11 +90,11 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
 
   # Act: Connect and parse the default (streaming) response.
   run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
-    --api-endpoint "http://localhost:$port/" \
-    --messages '[{"role":"user","content":"test"}]' \
     --stdout-log /tmp/tmp.Wmy4esIV94 \
     --stderr-log /tmp/tmp.Wmy4esIV94 \
-    --child-args --
+    --child-args -- \
+    --api-endpoint "http://localhost:$port/" \
+    --messages '[{"role":"user","content":"test"}]'
 
   # Assert: Verify the final output matches the default message.
   assert_success
