@@ -1,36 +1,49 @@
-# generate_help_text.jq - Formats a spec into a help message.
+# generate_help_text.jq - Validates a spec and formats it into a help message.
 
-def generate_help($spec):
-  # Helper to format a single option line
-  def format_option:
-    .key as $key |
-    .value as $details |
-    (
-      if $details.default != null then
-        "(default: \($details.default | @json))"
-      else ""
+# Validates the spec, halting with an error if any public argument is
+# missing a string 'description'.
+def validate_spec($spec):
+  (
+    $spec
+    | to_entries
+    | .[]
+    | select(.key | startswith("_") | not)
+    | if (.value | has("description") | not) or (.value.description | type != "string") then
+        error("Argument '\(.key)' in spec is missing a string 'description'.")
+      else
+        empty
       end
-    ) as $default_text |
-    "  --\(($key | gsub("_"; "-")))\t\( $details.description ) \($default_text)";
+  ),
+  $spec
+;
 
-  # Main formatting logic
-  # FIX: Collect all string parts into a single array before joining.
-  [
-    (
-      $spec._description,
-      "",
-      "USAGE:",
-      "  script.sh [OPTIONS]",
-      "",
-      "OPTIONS:"
-    ),
-    (
-      $spec
-      | to_entries
-      | map(select(.key | startswith("_") | not))
-      | map(format_option)[]
-    )
-  ] | join("\n");
+# Formats a validated spec into a help message.
+def generate_help($spec):
+  # Only print the overall description if it exists.
+  if $spec | has("_description") then
+    $spec._description
+  else
+    empty
+  end,
+  "",
+  "USAGE:",
+  "  script.sh [OPTIONS]",
+  "",
+  "OPTIONS:",
+  # Iterate over the spec entries and format each line.
+  ( $spec
+    | to_entries
+    | .[]
+    | select(.key | startswith("_") | not)
+    |
+      "  --\(.key | gsub("_"; "-"))\t\(.value.description)" +
+      (if .value | has("default") then
+        " (default: \(.value.default | tojson))"
+      else
+        ""
+      end)
+  )
+;
 
 # --- Main execution flow ---
-generate_help($spec)
+validate_spec($spec) | generate_help(.)
