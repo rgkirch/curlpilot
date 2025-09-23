@@ -27,29 +27,29 @@ if [[ ! -f "$HELP_SCRIPT" ]]; then
 fi
 
 JSON_INPUT=$1
-SPEC_JSON=$(echo "$JSON_INPUT" | jq -c '.spec')
-ARGS_JSON=$(echo "$JSON_INPUT" | jq -c '.args')
+SPEC_JSON=$(echo "$JSON_INPUT" | jq --compact-output '.spec')
+ARGS_JSON=$(echo "$JSON_INPUT" | jq --compact-output '.args')
 
-if echo "$ARGS_JSON" | jq --exit-status '. | index("--help")' > /dev/null; then
-  # 1. Print the human-readable help text to stderr.
+# This jq filter is now smart enough to ignore --help if it comes after a '--'.
+HELP_CHECK_FILTER='( (index("--") // length) as $end | .[0:$end] | index("--help") ) != null'
+
+if echo "$ARGS_JSON" | jq --exit-status "$HELP_CHECK_FILTER" > /dev/null; then
+  # Print help text to stderr.
   jq --null-input \
      --slurp \
      --raw-output \
      --argjson spec "$SPEC_JSON" \
      --from-file "$HELP_SCRIPT" >&2
 
-  # 2. Print a valid, machine-readable JSON object to stdout.
-  # An empty object is a common convention for "success, but no data."
+  # Print an explicit JSON status object to stdout.
   echo '{"help_requested": true}'
-
-
-  # 3. Exit with a success code.
   exit 0
 else
+  # The jq script for actual parsing.
   jq --null-input \
-      --slurp \
-      --raw-input \
-      --argjson spec "$SPEC_JSON" \
-      --argjson args "$ARGS_JSON" \
-      --from-file "$MAIN_PARSER_SCRIPT"
+     --slurp \
+     --raw-input \
+     --argjson spec "$SPEC_JSON" \
+     --argjson args "$ARGS_JSON" \
+     --from-file "$MAIN_PARSER_SCRIPT"
 fi

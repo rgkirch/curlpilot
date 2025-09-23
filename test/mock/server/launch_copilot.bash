@@ -1,10 +1,11 @@
 # test/mock/server/launch_copilot.bash
 set -euo pipefail
+#set -x
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 register_dep parse_args "parse_args.bash"
 
-BLOCKING_SERVER_SCRIPT=$(path_relative_to_here "blocking_copilot.bash")
+BLOCKING_SERVER_SCRIPT=$(path_relative_to_here "copilot.bash")
 
 readonly ARG_SPEC_JSON='{
   "stdout_log": {

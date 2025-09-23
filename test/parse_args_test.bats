@@ -20,7 +20,7 @@ run_parser() {
   local spec="$1"
   shift
   local job_ticket
-  job_ticket=$(jq -n \
+  job_ticket=$(jq --null-input \
     --argjson spec "$spec" \
     '{"spec": $spec, "args": $ARGS.positional}' \
     --args -- "$@"
@@ -333,7 +333,25 @@ MAIN_SPEC='{
   run_parser "$MAIN_SPEC" --help
 
   assert_success
-  assert_output "$expected_output"
+  # The new help logic prints {} to stdout and the help text to stderr.
+  assert_output '{"help_requested": true}'
+  assert_stderr "$expected_output"
+}
+
+@test "--help is treated as a value when it appears after a -- terminator" {
+  # Arrange: A spec for an argument that can take multiple values.
+  local spec='{"message_content": {"type": "array"}}'
+  # Expected: The parser should treat "--help" as a string value for message_content.
+  local expected='{"message_content": ["--help"]}'
+
+  # Act: Run the parser.
+  run_parser "$spec" --message-content -- --help
+
+  # Assert
+  assert_success
+  assert_json_equal "$output" "$expected"
+  # Also assert that the help text was NOT printed to stderr.
+  refute_stderr --partial "USAGE:"
 }
 
 @test "Reads string value from stdin when value is '-'" {
@@ -343,7 +361,7 @@ MAIN_SPEC='{
   local expected="{\"content\": \"${stdin_data}\"}"
 
   local job_ticket
-  job_ticket=$(jq -n \
+  job_ticket=$(jq --null-input \
     --argjson spec "$spec" \
     '{"spec": $spec, "args": $ARGS.positional}' \
     --args -- --content -
@@ -364,12 +382,12 @@ MAIN_SPEC='{
 
   # Arrange: Use jq's identity filter (.) to pretty-print the compact string for stdin.
   local stdin_data
-  stdin_data=$(jq . <<< "$compact_stdin_data")
+  stdin_data=$(jq --compact-output . <<< "$compact_stdin_data")
 
   # Arrange: Use jq to safely build the final expected JSON object.
   # This is more robust than using a shell here-document.
   local expected
-  expected=$(jq -n \
+  expected=$(jq --null-input \
     --argjson stdin "$compact_stdin_data" \
     --argjson base "$expected_base_json" \
     '$base + {messages: $stdin}')

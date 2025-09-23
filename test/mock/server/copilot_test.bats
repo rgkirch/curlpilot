@@ -21,7 +21,7 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
   local message="Hello single JSON"
 
   # Act: Start the server in non-streaming mode.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --message-content "$message"
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --stream=false --child-args -- --message-content "$message"
   assert_success
 
   local port=${lines[0]}
@@ -43,7 +43,7 @@ MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
 
   # Act: Start the server. Note the '&' is removed. The server script
   # backgrounds itself, so 'run' will capture the port/PID and exit correctly.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --message-content "$message"
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" --child-args -- --message-content "$message"
   assert_success
 
   # Arrange: Capture port/PID and set a trap for cleanup.

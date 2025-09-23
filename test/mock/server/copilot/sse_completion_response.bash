@@ -1,6 +1,6 @@
 # curlpilot/test/mocks/server/copilot/sse_completion_response.bash
 set -euo pipefail
-set -x
+#set -x
 
 # This script generates a Server-Sent Events (SSE) stream to stdout.
 # It uses a predefined jq filter script and takes its parameters as CLI arguments.
