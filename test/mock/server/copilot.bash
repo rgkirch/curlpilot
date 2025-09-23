@@ -10,16 +10,34 @@ readonly ARG_SPEC_JSON='{
     "type": "number",
     "description": "Required. The port number for the server to listen on."
   },
-  "stream": { "type": "boolean", "default": true },
-  "message_content": { "type": "string", "default": "Hello from the mock server!" }
+  "stream": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, serve a streaming SSE response."
+  },
+  "message_content": {
+    "type": "string",
+    "default": "Hello from the mock server!",
+    "description": "The string content for the mock response."
+  }
 }'
 
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 
+# --- Handle --help case from the parser's output ---
+if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
+  # The parser already displayed help to stderr. We can now exit cleanly.
+  exit 0
+fi
+
+# --- Main execution path (no --help flag was found) ---
 readonly PORT=$(jq --raw-output '.port' <<< "$PARSED_ARGS")
 readonly STREAM_ENABLED=$(jq --raw-output '.stream' <<< "$PARSED_ARGS")
 readonly MESSAGE_CONTENT=$(jq --raw-output '.message_content' <<< "$PARSED_ARGS")
+
+# This script only echoes the port if it's NOT in help mode.
+echo "$PORT" >&3
 
 response_file=$(mktemp)
 trap 'rm -f "$response_file"' EXIT
@@ -37,5 +55,4 @@ else
   } > "$response_file"
 fi
 
-# Use the port that was passed in as an argument.
 nc --listen "$PORT" --send-only < "$response_file"
