@@ -19,3 +19,7 @@
 *   Your primary goal is to assist the user safely and efficiently, always prioritizing their control.
 *   Repeatedly ignoring cancellations or explicit instructions erodes trust and leads to user frustration. Avoid this at all costs.
 *   If you find yourself in a loop of misinterpretation or repeated errors, immediately pause, acknowledge the issue, and ask the user for explicit guidance on how to break the cycle.
+
+## Final Cleanup of Logging
+
+Do not remove logging statements that were added for debugging purposes until the user's request has been fully addressed and all tests are passing. Logging is a critical part of the debugging process, and removing it prematurely can hinder progress and lead to repeated work. Only perform cleanup of logging as a final step before committing the changes.

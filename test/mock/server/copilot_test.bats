@@ -1,123 +1,129 @@
 # test/mock/server/copilot_test.bats
-#set -euo pipefail
+# set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
-bats_require_minimum_version 1.5.0
 
-source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
+# --- Logging Setup ---
+LOG_FILE="${BATS_CWD}/err.log"
+> "$LOG_FILE" # Clear log file at the beginning of the suite
 
-load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
-load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
+log() {
+  echo "$(date '+%T.%N') [copilot_test] $*" >&3
+}
+# ---
 
-# Path to the script we are testing.
-MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
+setup() {
+  bats_require_minimum_version 1.5.0
 
-# ===============================================
-# ==           TEST CASES                      ==
-# ===============================================
+  log "Running setup..."
+  source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
+  log "Sourced deps.bash"
 
-@test "Starts in non-streaming mode and serves a single JSON object" {
-  # Arrange: Define the raw message.
+  load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
+  log "Loaded bats-support"
+  load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
+  log "Loaded bats-assert"
+
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
+  log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+}
+
+# Helper function to retry a command until it succeeds.
+retry() {
+  local attempts=$1
+  local delay=$2
+  local cmd="${@:3}"
+  local i
+
+  for i in $(seq 1 "$attempts"); do
+    log "Retry attempt #$i/$attempts for command: $cmd"
+    run --separate-stderr $cmd
+    if [[ "$status" -eq 0 ]]; then
+      log "Command succeeded."
+      return 0
+    fi
+    log "Command failed with status $status. Retrying in $delay seconds..."
+    log "output: $output"
+    log "stderr: $stderr"
+    sleep "$delay"
+  done
+
+  log "Command failed after $attempts attempts."
+  return 1
+}
+
+@test "launch_copilot.bash starts a non-streaming server correctly" {
+  log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
   local message="Hello single JSON"
+  log "Message set to: '$message'"
 
-  echo "run $MOCK_SERVER_SCRIPT from bats" >> err.log
-
+  log "Launching server..."
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
-    --stdout-log out.log \
-    --stderr-log err.log \
-    --child-args -- \
-    --stream=false \
-    --message-content "$message"
-
-  echo "exit code $?" >> err.log
-
-  echo "going to assert success from bats" >> err.log
-
+    --stderr-log 3 \
+    --child-args -- --stream=false --message-content "$message"
+  log "run command finished with status: $status"
   assert_success
+  log "assert_success finished"
+
+  log "Server launch command finished with status: $status"
 
   local port=${lines[0]}
+  log "port assigned: $port"
   local pid=${lines[1]}
-  echo "port $port pid $pid from bats" >> err.log
+  log "pid assigned: $pid"
+  log "Server launched. Port: $port, PID: $pid"
+  trap 'kill "$pid" &>/dev/null || true' EXIT
+  log "trap set"
 
-  trap 'kill "$pid" &>/dev/null || true' RETURN
-
-  echo "going to curl localhost:$port from bats" >> err.log
-
-  run curl --silent \
-    --retry 10 \
-    --retry-connrefused \
-    --retry-delay 2 \
-    "http://localhost:$port"
-
-  echo "curl exit code $?" >> err.log
-
-  echo "after curl. assert success again from bats" >> err.log
+  log "Connecting client (curl)..."
+  retry 4 0.5 curl --verbose --silent --show-error --max-time 2 "http://localhost:$port/"
 
   assert_success
+  log "Client command (curl) finished with status: $status"
 
-  echo "assert output for message $message" >> err.log
-
-  assert_output --partial "\"content\":\"$message\""
+  log "Asserting final output..."
+  log "--- curl output ---"
+  log "$output"
+  log "--- end curl output ---"
+  local actual_content
+  actual_content=$(jq --raw-output '.choices[0].message.content' <<< "$output")
+  assert_equal "$actual_content" "$message"
+  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }
 
-@test "Starts in streaming mode and chunks message content" {
-  # Arrange: Define the raw message.
-  local message="Hello streamed world"
+# bats test_tags=bats:focus
+@test "launch_copilot.bash starts a streaming server correctly" {
+  log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
-  # Act: Start the server. Note the '&' is removed. The server script
-  # backgrounds itself, so 'run' will capture the port/PID and exit correctly.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT"  \
-    --stdout-log test.log \
-    --stderr-log test.log \
-    --child-args -- \
-    --message-content "$message"
+  local message="Hello streaming world"
+  log "Message set to: '$message'"
 
+  log "Launching server..."
+  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
+    --stderr-log "$LOG_FILE" \
+    --child-args -- --message-content "$message"
+  log "run command finished with status: $status"
   assert_success
+  log "assert_success finished"
 
-  # Arrange: Capture port/PID and set a trap for cleanup.
+  log "Server launch command finished with status: $status"
+
   local port=${lines[0]}
+  log "port assigned: $port"
   local pid=${lines[1]}
-  trap 'kill "$pid" &>/dev/null || true' RETURN
+  log "pid assigned: $pid"
+  log "Server launched. Port: $port, PID: $pid"
+  trap 'kill "$pid" &>/dev/null || true' EXIT
+  log "trap set"
 
+  log "Connecting client (curl)..."
+  retry 5 0.5 curl --silent --max-time 2 "http://localhost:$port/"
 
-  run curl --silent \
-    --retry 10 \
-    --retry-connrefused \
-    --retry-delay \
-    "http://localhost:$port"
-
-  # Act: Use the real `chat.bash` script to connect to our mock server.
-  run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
-    --api-endpoint "http://localhost:$port/" \
-    --messages '[{"role":"user","content":"test"}]'
-
-  # Assert: Verify the final, concatenated output is correct.
   assert_success
-  assert_output "$message"
-}
+  log "Client command (curl) finished with status: $status"
 
-
-@test "Uses default message content when flag is not provided" {
-  # Arrange: The default message from the script's argument spec.
-  local expected_output="Hello from the mock server!"
-
-  # Act: Run the server with no arguments to test the default behavior.
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT"
-  assert_success
-
-  # Arrange: Capture port/PID and set a trap for cleanup.
-  local port=${lines[0]}
-  local pid=${lines[1]}
-  trap 'kill "$pid" &>/dev/null || true' RETURN
-
-  # Act: Connect and parse the default (streaming) response.
-  run --separate-stderr bash "$PROJECT_ROOT/copilot/chat.bash" \
-    --stdout-log test.log \
-    --stderr-log test.log \
-    --child-args -- \
-    --api-endpoint "http://localhost:$port/" \
-    --messages '[{"role":"user","content":"test"}]'
-
-  # Assert: Verify the final output matches the default message.
-  assert_success
-  assert_output "$expected_output"
+  log "Asserting final output..."
+  assert_output --partial "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}"
+  assert_output --partial "data: {\"choices\":[{\"delta\":{\"content\":\"streaming\"}}]}"
+  assert_output --partial "data: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}"
+  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }

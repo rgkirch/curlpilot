@@ -1,6 +1,12 @@
 # test/mock/server/copilot.bash
 set -euo pipefail
-#set -x
+set -x
+
+log() {
+  echo "$(date '+%T.%N') [copilot] $*" >&3
+}
+
+log "Script started."
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
 register_dep parse_args "parse_args.bash"
@@ -25,6 +31,8 @@ readonly ARG_SPEC_JSON='{
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 
+log "Arguments parsed: '$PARSED_ARGS'"
+
 if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
   exit 0
 fi
@@ -33,7 +41,10 @@ readonly PORT=$(jq --raw-output '.port' <<< "$PARSED_ARGS")
 readonly STREAM_ENABLED=$(jq --raw-output '.stream' <<< "$PARSED_ARGS")
 readonly MESSAGE_CONTENT=$(jq --raw-output '.message_content' <<< "$PARSED_ARGS")
 
+log "STREAM_ENABLED: $STREAM_ENABLED"
+
 if [[ "$STREAM_ENABLED" == "false" ]]; then
+  log "Generating non-streaming response."
   body_file=$(mktemp)
   trap 'rm -f "$body_file"' EXIT
   "$(path_relative_to_here "copilot/completion_response.bash")" --message-content "$MESSAGE_CONTENT" > "$body_file"
@@ -44,7 +55,9 @@ if [[ "$STREAM_ENABLED" == "false" ]]; then
     echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: $content_length\r\n"
     cat "$body_file"
   } > "$response_file"
+  log "Non-streaming response file created: $response_file"
 else
+  log "Generating streaming response."
   response_file=$(mktemp)
   trap 'rm -f "$response_file"' EXIT
   message_parts_json=$(jq --compact-output --raw-input 'split(" ")' <<< "$MESSAGE_CONTENT")
@@ -52,10 +65,14 @@ else
     echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"
     "$(path_relative_to_here "copilot/sse_completion_response.bash")" --message-parts "$message_parts_json"
   } > "$response_file"
+  log "Streaming response file created: $response_file"
 fi
 
-echo "nc is listening on PORT $PORT" >> "err.log"
+log "Starting nc server on port $PORT."
 
 nc --listen "$PORT" --send-only < "$response_file"
+#socat TCP4-LISTEN:"$PORT",fork,reuseaddr SYSTEM:"cat '$response_file'; sleep 1"
 
-echo "nc is done" >> "err.log"
+sleep 1
+
+log "nc server finished."
