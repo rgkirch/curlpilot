@@ -70,7 +70,7 @@ fi
 
 log "Starting nc server on port $PORT."
 
-nc --listen "$PORT" --send-only < "$response_file"
+nc --listen "$PORT" < "$response_file"
 #socat TCP4-LISTEN:"$PORT",fork,reuseaddr SYSTEM:"cat '$response_file'; sleep 1"
 
 sleep 1

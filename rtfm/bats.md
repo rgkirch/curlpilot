@@ -69,29 +69,60 @@ load 'test_helper/common.bash'
 
 ### Setup and Teardown
 
-Bats provides several hooks for setting up and tearing down the test environment:
+Bats provides hooks for setting up and tearing down test environments at different scopes. Understanding their execution context is critical for using them correctly.
 
 - **`setup()` and `teardown()`:** Run before and after each individual test case in a file.
 - **`setup_file()` and `teardown_file()`:** Run once per file, before the first test and after the last test.
-- **`setup_suite()` and `teardown_suite()`:** Run once for the entire test suite, defined in a separate `setup_suite.bash` file.
+
+#### `setup()` vs. `setup_file()` Execution Context
+
+A crucial difference exists between the file-level and test-level hooks, confirmed by analysis of the Bats source code:
+
+-   **`setup_file()` and `teardown_file()`** run in a **parent process** (`bats-exec-file`) for the entire test file. 
+    -   This parent process **does not** have the Bats helper functions (like `load` and `run`) loaded.
+    -   **Use Case:** Ideal for expensive, file-level setup that does not require Bats-specific helpers. For example, creating a temporary directory, starting a background service, or compiling an artifact that all tests in the file will use.
+    -   **Limitation:** Because they run in this different context, they **do not have access to Bats helper functions like `load`** or special variables like `$BATS_TEST_NAME`.
+
+-   **`setup()` and `teardown()`** run in a **separate child process** (`bats-exec-test`) for each individual test case.
+    -   This child process **does** load the Bats helper library (`test_functions.bash`), making functions like `load` and `run` available.
+    -   **Use Case:** Perfect for preparing the environment for each individual test. This is where you should use `load` to source helper scripts.
+    -   **Advantage:** They have full access to the Bats runtime environment, including all helper functions and special variables.
 
 ```bash
+# good_practices.bats
+
 setup_file() {
-  # Runs once before all tests in this file
+  # Runs once before all tests in this file.
+  # OK: Create a directory that all tests can use.
+  mkdir -p /tmp/my_test_dir
 }
 
 setup() {
-  # Runs before each test
+  # Runs before each test in a separate process where helpers are available.
+  # OK: Load helpers. This works because `setup` has access to the Bats runtime.
+  load 'test_helper/common.bash'
 }
 
 teardown() {
-  # Runs after each test
+  # Runs after each test.
+  # Clean up resources created in setup().
 }
 
 teardown_file() {
-  # Runs once after all tests in this file
+  # Runs once after all tests in this file.
+  # OK: Clean up the directory created in setup_file().
+  rm -rf /tmp/my_test_dir
+}
+
+@test "a test using a loaded helper" {
+  # my_helper_function is available here because it was loaded in setup()
+  my_helper_function
 }
 ```
+
+#### Suite-Level Setup
+
+- **`setup_suite()` and `teardown_suite()`:** Run once for the entire test suite, defined in a separate `setup_suite.bash` file. These are for global setup and teardown actions across all test files.
 
 ### Skipping Tests
 

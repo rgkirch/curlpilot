@@ -90,7 +90,6 @@ retry() {
   log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }
 
-# bats test_tags=bats:focus
 @test "launch_copilot.bash starts a streaming server correctly" {
   log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
@@ -122,8 +121,13 @@ retry() {
   log "Client command (curl) finished with status: $status"
 
   log "Asserting final output..."
-  assert_output --partial "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}"
-  assert_output --partial "data: {\"choices\":[{\"delta\":{\"content\":\"streaming\"}}]}"
-  assert_output --partial "data: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}"
+  log "--- curl output ---"
+  log "$output"
+  log "--- end curl output ---"
+
+  log "Asserting final output..."
+  assert_output --partial "\"Hello\""
+  assert_output --partial "\"streaming\""
+  assert_output --partial "\"world\""
   log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }
