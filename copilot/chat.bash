@@ -5,7 +5,7 @@ set -euo pipefail
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
 register_dep request "copilot/request.bash"
-register_dep parse_args "parse_args.bash"
+register_dep parse_args "parse_args/parse_args.bash"
 register_dep parse_response "copilot/parse_response.bash"
 register_dep config "config.bash"
 

@@ -4,7 +4,7 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
-register_dep parse_args "parse_args.bash"
+register_dep parse_args "parse_args/parse_args.bash"
 
 readonly ARG_SPEC_JSON='{
   "_description": "Parses a Copilot chat completion stream, extracting the content.",

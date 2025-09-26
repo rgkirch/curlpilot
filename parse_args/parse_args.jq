@@ -111,6 +111,12 @@ def coerce_types:
         .value |= toboolean
       elif .type == "json" then
         .value |= fromjson
+      elif .type == "output_target" then
+        if .value | test("^[0-9]+$") then
+          .value |= ("/dev/fd/" + .)
+        else
+          .
+        end
       else
         .
       end

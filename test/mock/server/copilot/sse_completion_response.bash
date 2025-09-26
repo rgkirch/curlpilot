@@ -6,7 +6,7 @@ set -euo pipefail
 # It uses a predefined jq filter script and takes its parameters as CLI arguments.
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
-register_dep parse_args "parse_args.bash"
+register_dep parse_args "parse_args/parse_args.bash"
 
 # 1. Define the schema for the command-line arguments.
 readonly ARG_SPEC_JSON='{

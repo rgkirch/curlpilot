@@ -1,28 +1,28 @@
-# test/mock/server/launch_copilot.bash
+# test/mock/server/launch_server.bash
 set -euo pipefail
 set -x
 
 log() {
-  echo "$(date '+%T.%N') [launch_copilot] $*" >&3
+  echo "$(date '+%T.%N') [launch copilot] $*" >&3
 }
 
 log "Script started."
 
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
-register_dep parse_args "parse_args.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+register_dep parse_args "parse_args/parse_args.bash"
 
-BLOCKING_SERVER_SCRIPT=$(path_relative_to_here "copilot.bash")
+BLOCKING_SERVER_SCRIPT=$(path_relative_to_here "server.bash")
 
 readonly ARG_SPEC_JSON='{
   "stdout_log": {
-    "type": "string",
+    "type": "output_target",
     "default": "/dev/null",
-    "description": "File to write the background server stdout to."
+    "description": "File path or file descriptor number for the background server stdout."
   },
   "stderr_log": {
-    "type": "string",
+    "type": "output_target",
     "default": "/dev/null",
-    "description": "File to write the background server stderr to."
+    "description": "File path or file descriptor number for the background server stderr."
   },
   "child_args": {
     "type": "json",

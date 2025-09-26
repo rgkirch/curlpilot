@@ -11,7 +11,7 @@ setup() {
   source "$PROJECT_ROOT/deps.bash"
 
   # Now you can safely call your project's functions.
-  register_dep "parse_args" "parse_args.bash"
+  register_dep "parse_args" "parse_args/parse_args.bash"
   SCRIPT_TO_TEST="${SCRIPT_REGISTRY[parse_args]}"
 }
 

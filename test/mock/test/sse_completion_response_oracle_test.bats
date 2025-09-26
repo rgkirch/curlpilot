@@ -35,7 +35,7 @@ setup() {
   # --- ARRANGE ---
   # Define test data and paths.
   local expected_output_file
-  expected_output_file="$PROJECT_ROOT/test/fixtures/sse-response.txt"
+  expected_output_file="$PROJECT_ROOT/test/fixture/sse-response.txt"
 
   # Use `fail` from bats-support for a clean pre-flight check.
   [ -f "$expected_output_file" ] || fail "Golden file not found: $expected_output_file"

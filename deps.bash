@@ -83,7 +83,33 @@ register_dep() {
     final_path="${!override_var_name}"
   fi
 
-  SCRIPT_REGISTRY["$key"]="$(resolve_path "$final_path")"
+  local resolved_path
+  resolved_path=$(resolve_path "$final_path")
+
+  # Check if the final resolved file exists.
+  if [[ ! -f "$resolved_path" ]]; then
+    {
+      echo "---"
+      echo "ERROR: Dependency Registration Failed"
+      echo "  in script: $0"
+      echo
+      echo "File not found for dependency key: '$key'"
+      echo "Attempted to resolve path: '$resolved_path'"
+      echo
+      echo "Debugging Info:"
+      echo "  - Original Path: '$original_path'"
+      if [[ "$final_path" != "$original_path" ]]; then
+        echo "  - Overridden by:   '$override_var_name'"
+        echo "  - Override Value:  '$final_path'"
+      else
+        echo "  - No override was used."
+      fi
+      echo "---"
+    } >&2
+    exit 1
+  fi
+
+  SCRIPT_REGISTRY["$key"]="$resolved_path"
 }
 
 exec_dep() {

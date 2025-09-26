@@ -2,12 +2,8 @@
 # set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
 
-# --- Logging Setup ---
-LOG_FILE="${BATS_CWD}/err.log"
-> "$LOG_FILE" # Clear log file at the beginning of the suite
-
 log() {
-  echo "$(date '+%T.%N') [copilot_test] $*" >&3
+  echo "$(date '+%T.%N') [copilot server test] $*" >&3
 }
 # ---
 
@@ -23,7 +19,7 @@ setup() {
   load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
   log "Loaded bats-assert"
 
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/launch_copilot.bash"
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot/launch_server.bash"
   log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
 
@@ -98,7 +94,8 @@ retry() {
 
   log "Launching server..."
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
-    --stderr-log "$LOG_FILE" \
+    --stdout-log 3 \
+    --stderr-log 3 \
     --child-args -- --message-content "$message"
   log "run command finished with status: $status"
   assert_success

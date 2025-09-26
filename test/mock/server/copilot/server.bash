@@ -1,15 +1,15 @@
-# test/mock/server/copilot.bash
+# test/mock/server/server.bash
 set -euo pipefail
-set -x
+#set -x
+
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+register_dep parse_args "parse_args/parse_args.bash"
 
 log() {
-  echo "$(date '+%T.%N') [copilot] $*" >&3
+  echo "$(date '+%T.%N') [copilot server] $*" >&3
 }
 
 log "Script started."
-
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../deps.bash"
-register_dep parse_args "parse_args.bash"
 
 readonly ARG_SPEC_JSON='{
   "port": {
@@ -47,7 +47,7 @@ if [[ "$STREAM_ENABLED" == "false" ]]; then
   log "Generating non-streaming response."
   body_file=$(mktemp)
   trap 'rm -f "$body_file"' EXIT
-  "$(path_relative_to_here "copilot/completion_response.bash")" --message-content "$MESSAGE_CONTENT" > "$body_file"
+  "$(path_relative_to_here "completion_response.bash")" --message-content "$MESSAGE_CONTENT" > "$body_file"
   content_length=$(wc -c < "$body_file")
   response_file=$(mktemp)
   trap 'rm -f "$body_file" "$response_file"' EXIT
@@ -59,11 +59,14 @@ if [[ "$STREAM_ENABLED" == "false" ]]; then
 else
   log "Generating streaming response."
   response_file=$(mktemp)
+  log "response_file $response_file"
   trap 'rm -f "$response_file"' EXIT
   message_parts_json=$(jq --compact-output --raw-input 'split(" ")' <<< "$MESSAGE_CONTENT")
+  log "message parts $message_parts_json"
+  log "path_relative_to_here $(path_relative_to_here "sse_completion_response.bash")"
   {
     echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"
-    "$(path_relative_to_here "copilot/sse_completion_response.bash")" --message-parts "$message_parts_json"
+    "$(path_relative_to_here "sse_completion_response.bash")" --message-parts "$message_parts_json"
   } > "$response_file"
   log "Streaming response file created: $response_file"
 fi
@@ -72,7 +75,5 @@ log "Starting nc server on port $PORT."
 
 nc --listen "$PORT" < "$response_file"
 #socat TCP4-LISTEN:"$PORT",fork,reuseaddr SYSTEM:"cat '$response_file'; sleep 1"
-
-sleep 1
 
 log "nc server finished."

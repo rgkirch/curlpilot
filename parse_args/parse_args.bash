@@ -14,7 +14,7 @@ fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 MAIN_PARSER_SCRIPT="$SCRIPT_DIR/parse_args.jq"
-HELP_SCRIPT="$SCRIPT_DIR/generate_help_text.jq"
+HELP_SCRIPT="$SCRIPT_DIR/../generate_help_text.jq"
 
 if [[ ! -f "$MAIN_PARSER_SCRIPT" ]]; then
     echo "Error: The required script 'parse_args.jq' was not found in the same directory." >&2
