@@ -81,5 +81,3 @@ log "parsing the response"
 
 # 6. If the request was successful, parse the response body using the --response flag.
 exec_dep parse_response --response "$(cat "$RESPONSE_BODY_FILE")"
-
-echo

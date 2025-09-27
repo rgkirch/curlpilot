@@ -61,7 +61,14 @@ else
   response_file=$(mktemp)
   log "response_file $response_file"
   trap 'rm -f "$response_file"' EXIT
-  message_parts_json=$(jq --compact-output --raw-input 'split(" ")' <<< "$MESSAGE_CONTENT")
+  message_parts_json=$(jq --compact-output --raw-input '
+    split(" ")
+    | . as $words
+    | [
+        range(0; $words | length)
+        | if . < ($words | length) - 1 then $words[.] + " " else $words[.] end
+      ]
+  ' <<< "$MESSAGE_CONTENT")
   log "message parts $message_parts_json"
   {
     echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"

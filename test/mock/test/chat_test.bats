@@ -72,6 +72,8 @@ retry() {
   local pid=${lines[1]}
   log "Server launched. Port: $port, PID: $pid"
 
+  trap 'kill "$pid" &>/dev/null || true' EXIT
+
   # Allow the server to start
   sleep 1
 
@@ -98,19 +100,14 @@ retry() {
   log "Request body assertion passed."
 
   log "Asserting final output..."
-  assert_output --partial "Hello"
-  assert_output --partial "streaming"
-  assert_output --partial "chat"
+  assert_output "Hello streaming chat"
 
   log "Pausing to allow server process to terminate..."
   sleep 1
 
   log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 
-  kill "$pid" &>/dev/null || true
 
-  # A better marker for the start of the test
-  echo "CHAT_TEST_MARKER" > /dev/null
 
 }
 
