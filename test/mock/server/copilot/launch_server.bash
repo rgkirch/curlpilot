@@ -52,7 +52,7 @@ PORT=$(shuf -i 20000-65000 -n 1)
 log "Launching blocking server script: $BLOCKING_SERVER_SCRIPT on port $PORT"
 (
   exec bash "$BLOCKING_SERVER_SCRIPT" --port "$PORT" "${child_args_array[@]}"
-) > "$STDOUT_LOG" 2> "$STDERR_LOG" &
+) > "$STDOUT_LOG" 2> "$STDERR_LOG" 3>&- &
 SERVER_PID=$!
 log "Server launched with PID: $SERVER_PID"
 
@@ -62,3 +62,5 @@ echo "SERVER_PID: $SERVER_PID" >> "$STDERR_LOG"
 echo "$SERVER_PID"
 
 log "Script finished."
+
+echo "LAUNCH_SERVER_MARKER" > /dev/null

@@ -5,12 +5,6 @@ set -euo pipefail
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
 register_dep parse_args "parse_args/parse_args.bash"
 
-log() {
-  echo "$(date '+%T.%N') [copilot server] $*" >&3
-}
-
-log "Script started."
-
 readonly ARG_SPEC_JSON='{
   "port": {
     "type": "number",
@@ -27,6 +21,12 @@ readonly ARG_SPEC_JSON='{
     "description": "The string content for the mock response."
   }
 }'
+
+log() {
+  echo "$(date '+%T.%N') [copilot server] $*" >&2
+}
+
+log "Script started."
 
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
@@ -70,9 +70,17 @@ else
   log "Streaming response file created: $response_file"
 fi
 
-log "Starting nc server on port $PORT."
+log "Starting socat server on port $PORT."
 
-nc --listen "$PORT" < "$response_file"
-#socat TCP4-LISTEN:"$PORT",fork,reuseaddr SYSTEM:"cat '$response_file'; sleep 1"
+REQUEST_LOG_FILE="$BATS_TEST_TMPDIR/request.log"
+log "Request log will be at: $REQUEST_LOG_FILE"
+HANDLER_SCRIPT="$(path_relative_to_here "handle_request.sh")"
 
-log "nc server finished."
+trap 'echo "[copilot server] trap caught exit"' EXIT
+
+socat -T30
+TCP4-LISTEN:"$PORT",reuseaddr EXEC:"bash '$HANDLER_SCRIPT' '$REQUEST_LOG_FILE' '$response_file'"
+
+log "socat server finished."
+
+echo "SERVER_MARKER" > /dev/null

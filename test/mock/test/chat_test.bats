@@ -54,6 +54,7 @@ retry() {
 }
 
 @test "chat.bash correctly processes a streaming response" {
+  log "BATS_TEST_TMPDIR: $BATS_TEST_TMPDIR"
   log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
   local message="Hello streaming chat"
@@ -61,8 +62,8 @@ retry() {
 
   log "Launching server..."
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
-    --stdout-log 1 \
-    --stderr-log 2 \
+    --stdout-log "$BATS_TEST_TMPDIR/out.log" \
+    --stderr-log "$BATS_TEST_TMPDIR/out.log" \
     --child-args -- --message-content "$message"
   assert_success
   log "Server launch command finished with status: $status"
@@ -100,8 +101,16 @@ retry() {
   assert_output --partial "Hello"
   assert_output --partial "streaming"
   assert_output --partial "chat"
+
+  log "Pausing to allow server process to terminate..."
+  sleep 1
+
   log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 
   kill "$pid" &>/dev/null || true
+
+  # A better marker for the start of the test
+  echo "CHAT_TEST_MARKER" > /dev/null
+
 }
 
