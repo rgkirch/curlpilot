@@ -99,6 +99,10 @@ retry() {
   assert_file_contains "$request_log_file" "Say hello"
   log "Request body assertion passed."
 
+  log "Asserting auth header was passed..."
+  assert_file_contains "$request_log_file" "Authorization: Bearer mock_token"
+  log "Auth header assertion passed."
+
   log "Asserting final output..."
   assert_output "Hello streaming chat"
 

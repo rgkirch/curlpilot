@@ -16,7 +16,7 @@ run_with_setup() {
   source "$PROJECT_ROOT/deps.bash"
 
   # Register the specific dependency needed for this test suite.
-  register_dep sse_generator "$PROJECT_ROOT/test/mocks/server/copilot/sse_completion_response.bash"
+  register_dep sse_generator "$PROJECT_ROOT/test/mock/server/copilot/sse_completion_response.bash"
 
   # Execute the command that was passed as arguments to this function.
   "$@"

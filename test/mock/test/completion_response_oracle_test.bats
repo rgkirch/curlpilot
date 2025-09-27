@@ -25,7 +25,7 @@ run_with_setup() {
   source "$PROJECT_ROOT/deps.bash"
 
   # Second, populate the registry just like the original setup() did
-  register_dep mock_completion "$PROJECT_ROOT/test/mocks/server/copilot/completion_response.bash"
+  register_dep mock_completion "$PROJECT_ROOT/test/mock/server/copilot/completion_response.bash"
 
   # Finally, execute the actual command that was passed as arguments to this function
   "$@"

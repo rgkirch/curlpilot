@@ -118,13 +118,13 @@ retry() {
   log "Client command (curl) finished with status: $status"
 
   log "Asserting final output..."
-  log "--- curl output ---"
+  log "--- curl output for streaming test ---"
   log "$output"
-  log "--- end curl output ---"
+  log "--- end of curl output for streaming test ---"
 
   log "Asserting final output..."
-  assert_output --partial "\"Hello\""
-  assert_output --partial "\"streaming\""
+  assert_output --partial "\"Hello \""
+  assert_output --partial "\"streaming \""
   assert_output --partial "\"world\""
   log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }
