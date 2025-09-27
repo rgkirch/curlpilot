@@ -2,6 +2,10 @@
 set -euo pipefail
 #set -x
 
+log() {
+  echo "$(date '+%T.%N') [request] $*" >&3
+}
+
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
 register_dep auth "copilot/auth.bash"
@@ -48,6 +52,7 @@ fi
 
 curl_args=(
   -sS -X POST
+  --max-time 5
   "$API_ENDPOINT"
   -H "Content-Type: application/json"
   -H "Authorization: Bearer ${COPILOT_SESSION_TOKEN}"
@@ -69,5 +74,7 @@ if [[ -n "$STATUS_FILE" ]]; then
   "errormsg": "%%{errormsg}"
 }' "$STATUS_FILE")")
 fi
+
+log "running curl with args ${curl_args[@]}"
 
 curl "${curl_args[@]}"

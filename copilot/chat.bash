@@ -2,6 +2,10 @@
 set -euo pipefail
 #set -x
 
+log() {
+  echo "$(date '+%T.%N') [chat] $*" >&3
+}
+
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
 register_dep request "copilot/request.bash"
@@ -56,6 +60,8 @@ RESPONSE_BODY_FILE="$TEMP_DIR/response.body"
 # 3. Set a trap to ensure the entire temporary directory is cleaned up on exit.
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
+log "making the request"
+
 # 4. Execute the request, providing the --status-file flag and saving the body.
 echo "$PARSED_ARGS" \
   | jq --compact-output '{model, stream_enabled: .stream, messages}' \
@@ -70,6 +76,8 @@ if [[ "$HTTP_CODE" -ne 200 ]]; then
   cat "$RESPONSE_BODY_FILE" >&2
   exit 1
 fi
+
+log "parsing the response"
 
 # 6. If the request was successful, parse the response body using the --response flag.
 exec_dep parse_response --response "$(cat "$RESPONSE_BODY_FILE")"

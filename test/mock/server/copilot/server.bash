@@ -63,7 +63,6 @@ else
   trap 'rm -f "$response_file"' EXIT
   message_parts_json=$(jq --compact-output --raw-input 'split(" ")' <<< "$MESSAGE_CONTENT")
   log "message parts $message_parts_json"
-  log "path_relative_to_here $(path_relative_to_here "sse_completion_response.bash")"
   {
     echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"
     "$(path_relative_to_here "sse_completion_response.bash")" --message-parts "$message_parts_json"
