@@ -14,9 +14,20 @@ fi
 
 TOKEN_FILE="$CURLPILOT_CONFIG_DIR/token.txt"
 
+GEMINI_SETTINGS_FILE="$CURLPILOT_CONFIG_DIR/gemini_settings.json"
+if [[ ! -f "$GEMINI_SETTINGS_FILE" ]]; then
+  echo '{}' > "$GEMINI_SETTINGS_FILE"
+fi
+
 COPILOT_SETTINGS_FILE="$CURLPILOT_CONFIG_DIR/copilot_settings.json"
 if [[ ! -f "$COPILOT_SETTINGS_FILE" ]]; then
   echo '{}' > "$COPILOT_SETTINGS_FILE"
 fi
 
-cat "$COPILOT_SETTINGS_FILE"
+copilot_json=$(cat "$COPILOT_SETTINGS_FILE")
+gemini_json=$(cat "$GEMINI_SETTINGS_FILE")
+
+jq --null-input \
+  --argjson copilot "$copilot_json" \
+  --argjson gemini "$gemini_json"\
+  '{copilot: $copilot, gemini: $gemini}'

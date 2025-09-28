@@ -1,0 +1,40 @@
+{
+  "response": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Why did the scarecrow win an award?\n\nBecause he was outstanding in his field!"
+            }
+          ]
+        },
+        "finishReason": "STOP",
+        "avgLogprobs": -0.60702006022135413
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 5,
+      "candidatesTokenCount": 18,
+      "totalTokenCount": 47,
+      "trafficType": "PROVISIONED_THROUGHPUT",
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 5
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 18
+        }
+      ],
+      "thoughtsTokenCount": 24
+    },
+    "modelVersion": "gemini-2.5-flash",
+    "createTime": "2025-09-28T17:12:15.395998Z",
+    "responseId": "b2zZaN6VGKmPl7oPlsaamAg"
+  }
+}

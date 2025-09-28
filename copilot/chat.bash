@@ -12,28 +12,28 @@ register_dep parse_response "copilot/parse_response.bash"
 register_dep config "config.bash"
 
 readonly ARG_SPEC_JSON=$(echo "$(exec_dep config)" | jq '
-{
-  "_description": "Sends a message history to the GitHub Copilot chat API and streams the response.",
-  "model": {
-    "type": "string",
-    "description": "Specify the AI model to use.",
-    "default": (.model // "gpt-4.1")
-  },
-  "api_endpoint": {
-    "type": "string",
-    "description": "Specify the API endpoint for the chat service.",
-    "default": (.api_endpoint // "https://api.githubcopilot.com/chat/completions")
-  },
-  "stream": {
-    "type": "boolean",
-    "description": "Enable or disable streaming responses.",
-    "default": (.stream_enabled // true)
-  },
-  "messages": {
-    "type": "json",
-    "description": "A JSON array of messages for the chat."
+  {
+    "_description": "Sends a message history to the GitHub Copilot chat API and streams the response.",
+    "model": {
+      "type": "string",
+      "description": "Specify the AI model to use.",
+      "default": (.copilot.model // "gpt-4.1")
+    },
+    "api_endpoint": {
+      "type": "string",
+      "description": "Specify the API endpoint for the chat service.",
+      "default": (.copilot.api_endpoint // "https://api.githubcopilot.com/chat/completions")
+    },
+    "stream": {
+      "type": "boolean",
+      "description": "Enable or disable streaming responses.",
+      "default": (.copilot.stream_enabled // true)
+    },
+    "messages": {
+      "type": "json",
+      "description": "A JSON array of messages for the chat."
+    }
   }
-}
 ')
 
 REQUEST_TICKET_JSON="$(jq --null-input \
