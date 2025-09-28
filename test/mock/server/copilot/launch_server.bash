@@ -1,15 +1,12 @@
 # test/mock/server/launch_server.bash
 set -euo pipefail
-set -x
-
-log() {
-  echo "$(date '+%T.%N') [launch copilot] $*" >&3
-}
-
-log "Script started."
+#set -x
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+
 register_dep parse_args "parse_args/parse_args.bash"
+
+log "Script started."
 
 BLOCKING_SERVER_SCRIPT=$(path_relative_to_here "server.bash")
 
@@ -40,9 +37,14 @@ if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
   exit 0
 fi
 
-readonly STDOUT_LOG=$(jq --raw-output '.stdout_log' <<< "$PARSED_ARGS")
-readonly STDERR_LOG=$(jq --raw-output '.stderr_log' <<< "$PARSED_ARGS")
-readonly CHILD_ARGS_JSON=$(jq --compact-output '.child_args' <<< "$PARSED_ARGS")
+STDOUT_LOG=$(jq --raw-output '.stdout_log' <<< "$PARSED_ARGS")
+readonly STDOUT_LOG
+
+STDERR_LOG=$(jq --raw-output '.stderr_log' <<< "$PARSED_ARGS")
+readonly STDERR_LOG
+
+CHILD_ARGS_JSON=$(jq --compact-output '.child_args' <<< "$PARSED_ARGS")
+readonly CHILD_ARGS_JSON
 
 child_args_array=()
 mapfile -t child_args_array < <(jq --raw-output '.[]' <<< "$CHILD_ARGS_JSON")
@@ -52,15 +54,13 @@ PORT=$(shuf -i 20000-65000 -n 1)
 log "Launching blocking server script: $BLOCKING_SERVER_SCRIPT on port $PORT"
 (
   exec bash "$BLOCKING_SERVER_SCRIPT" --port "$PORT" "${child_args_array[@]}"
-) > "$STDOUT_LOG" 2> "$STDERR_LOG" 3>&- &
+) > "$STDOUT_LOG" 2> "$STDERR_LOG" &
 SERVER_PID=$!
 log "Server launched with PID: $SERVER_PID"
 
-echo "PORT: $PORT" >> "$STDERR_LOG"
+log "PORT: $PORT"
 echo "$PORT"
-echo "SERVER_PID: $SERVER_PID" >> "$STDERR_LOG"
+log "SERVER_PID: $SERVER_PID"
 echo "$SERVER_PID"
 
 log "Script finished."
-
-echo "LAUNCH_SERVER_MARKER" > /dev/null

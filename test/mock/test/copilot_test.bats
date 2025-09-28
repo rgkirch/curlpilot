@@ -2,16 +2,14 @@
 # set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
 
-log() {
-  echo "$(date '+%T.%N') [copilot server test] $*" >&3
-}
+
 # ---
 
 setup() {
   bats_require_minimum_version 1.5.0
 
-  log "Running setup..."
   source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
+  log "Running setup..."
   log "Sourced deps.bash"
 
   load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"

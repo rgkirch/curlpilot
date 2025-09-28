@@ -22,9 +22,7 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
-log() {
-  echo "$(date '+%T.%N') [copilot server] $*" >&2
-}
+
 
 log "Script started."
 
@@ -83,10 +81,6 @@ REQUEST_LOG_FILE="$BATS_TEST_TMPDIR/request.log"
 log "Request log will be at: $REQUEST_LOG_FILE"
 HANDLER_SCRIPT="$(path_relative_to_here "handle_request.sh")"
 
-trap 'echo "[copilot server] trap caught exit"' EXIT
-
 socat -T30 TCP4-LISTEN:"$PORT",reuseaddr EXEC:"bash '$HANDLER_SCRIPT' '$REQUEST_LOG_FILE' '$response_file'"
 
 log "socat server finished."
-
-echo "SERVER_MARKER" > /dev/null

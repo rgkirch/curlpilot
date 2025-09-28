@@ -2,16 +2,14 @@
 # set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
 
-log() {
-  echo "$(date '+%T.%N') [chat test] $*" >&3
-}
+
 # ---
 
 setup() {
   bats_require_minimum_version 1.5.0
 
-  log "Running setup..."
   source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
+  log "Running setup..."
   log "Sourced deps.bash"
 
   mock_dep "copilot/auth.bash" "test/mock/stub/success/auth.bash"

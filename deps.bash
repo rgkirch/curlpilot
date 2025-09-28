@@ -1,7 +1,8 @@
 # curlpilot/deps.bash
 #. ./libs/TickTick/ticktick.sh
-#set -euo pipefail
-#set -x
+#scripts intended to be sourced should not change the environment of the caller. so, don't set -euox pipefail
+
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/logging.bash"
 
 # A sourced library file like deps.bash should never change the shell options of
 # its caller. This is the root cause of all the strange behavior you've been

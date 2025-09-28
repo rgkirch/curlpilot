@@ -2,9 +2,7 @@
 set -euo pipefail
 #set -x
 
-log() {
-  echo "$(date '+%T.%N') [chat] $*" >&3
-}
+
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
