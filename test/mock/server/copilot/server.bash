@@ -79,7 +79,7 @@ log "Starting socat server on port $PORT."
 
 REQUEST_LOG_FILE="$BATS_TEST_TMPDIR/request.log"
 log "Request log will be at: $REQUEST_LOG_FILE"
-HANDLER_SCRIPT="$(path_relative_to_here "handle_request.sh")"
+HANDLER_SCRIPT="$(path_relative_to_here "../handle_request.sh")"
 
 socat -T30 TCP4-LISTEN:"$PORT",reuseaddr EXEC:"bash '$HANDLER_SCRIPT' '$REQUEST_LOG_FILE' '$response_file'"
 

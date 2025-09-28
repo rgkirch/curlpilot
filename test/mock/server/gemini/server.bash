@@ -22,8 +22,6 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
-
-
 log "Script started."
 
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
@@ -35,9 +33,11 @@ if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
   exit 0
 fi
 
-readonly PORT=$(jq --raw-output '.port' <<< "$PARSED_ARGS")
-readonly STREAM_ENABLED=$(jq --raw-output '.stream' <<< "$PARSED_ARGS")
-readonly MESSAGE_CONTENT=$(jq --raw-output '.message_content' <<< "$PARSED_ARGS")
+PORT=$(jq --raw-output '.port' <<< "$PARSED_ARGS")
+readonly PORT
+
+MESSAGE_CONTENT=$(jq --raw-output '.message_content' <<< "$PARSED_ARGS")
+readonly MESSAGE_CONTENT
 
 log "Generating streaming response."
 response_file=$(mktemp)
@@ -55,7 +55,7 @@ log "Starting socat server on port $PORT."
 
 REQUEST_LOG_FILE="$BATS_TEST_TMPDIR/request.log"
 log "Request log will be at: $REQUEST_LOG_FILE"
-HANDLER_SCRIPT="$(path_relative_to_here "handle_request.sh")"
+HANDLER_SCRIPT="$(path_relative_to_here "../handle_request.sh")"
 
 socat -T30 TCP4-LISTEN:"$PORT",reuseaddr EXEC:"bash '$HANDLER_SCRIPT' '$REQUEST_LOG_FILE' '$response_file'"
 

@@ -1,8 +1,8 @@
 help:
     @just --list
 
-test:
-    @./run_tests.bash
+test *ARGS:
+    @./run_tests.bash {{ARGS}}
 
 copilot-review-diff:
     @./scripts/review.bash
