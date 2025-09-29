@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Assuming this file is in the same directory structure
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../../deps.bash"
 
 register_dep parse_args "parse_args/parse_args.bash"
 

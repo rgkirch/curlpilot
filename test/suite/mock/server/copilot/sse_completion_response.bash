@@ -5,7 +5,7 @@ set -euo pipefail
 # This script generates a Server-Sent Events (SSE) stream to stdout.
 # It uses a predefined jq filter script and takes its parameters as CLI arguments.
 
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../../deps.bash"
 
 log "deps loaded"
 

@@ -4,11 +4,11 @@ set -euo pipefail
 
 bats_require_minimum_version 1.5.0
 
-export PROJECT_ROOT
-PROJECT_ROOT="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"
+source "$(dirname "$BATS_TEST_FILENAME")/../../../../deps.bash"
+source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
-load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
-load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
+#log "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
+#log "PROJECT_ROOT $PROJECT_ROOT"
 
 # This setup() function runs before each test.
 setup() {
@@ -25,7 +25,7 @@ run_with_setup() {
   source "$PROJECT_ROOT/deps.bash"
 
   # Second, populate the registry just like the original setup() did
-  register_dep mock_completion "$PROJECT_ROOT/test/mock/server/copilot/completion_response.bash"
+  register_dep mock_completion "$PROJECT_ROOT/test/suite/mock/server/copilot/completion_response.bash"
 
   # Finally, execute the actual command that was passed as arguments to this function
   "$@"
@@ -45,7 +45,8 @@ assert_json_oracle() {
   local filters_to_check
   filters_to_check=$(jq -r 'keys[]' <<< "$oracle_json")
 
-  for filter in $filters_to_check; do
+  for filter in $filters_to_check;
+  do
     # Get the expected value as a compact JSON literal (e.g., "hello", 50, true).
     local expected_value
     expected_value=$(jq --compact-output --arg f "$filter" '.[$f]' <<< "$oracle_json")

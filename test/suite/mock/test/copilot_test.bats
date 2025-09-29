@@ -8,16 +8,11 @@
 setup() {
   bats_require_minimum_version 1.5.0
 
-  source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
-  log "Running setup..."
+  source "$(dirname "$BATS_TEST_FILENAME")/../../../../deps.bash"
   log "Sourced deps.bash"
+  source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
-  load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
-  log "Loaded bats-support"
-  load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
-  log "Loaded bats-assert"
-
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot/launch_server.bash"
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/suite/mock/server/copilot/launch_server.bash"
   log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
 

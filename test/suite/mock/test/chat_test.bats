@@ -1,29 +1,21 @@
 # test/mock/server/copilot_test.bats
 # set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
-
-
-# ---
-
 setup() {
-  bats_require_minimum_version 1.5.0
+  source "$(dirname "$BATS_TEST_FILENAME")/../../../../deps.bash"
+  log "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
+  source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
-  source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
+  log "Loaded test helper"
+
   log "Running setup..."
   log "Sourced deps.bash"
 
-  mock_dep "copilot/auth.bash" "test/mock/stub/success/auth.bash"
-  mock_dep "config.bash" "test/mock/stub/success/config.bash"
+  mock_dep "copilot/auth.bash" "test/suite/mock/stub/success/auth.bash"
+  mock_dep "config.bash" "test/suite/mock/stub/success/config.bash"
   log "Dependencies mocked."
 
-  load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
-  log "Loaded bats-support"
-  load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
-  log "Loaded bats-assert"
-  load "$PROJECT_ROOT/test/test_helper/bats-file/load.bash"
-  log "Loaded bats-file"
-
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/mock/server/copilot/launch_server.bash"
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/test/suite/mock/server/copilot/launch_server.bash"
   log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
 

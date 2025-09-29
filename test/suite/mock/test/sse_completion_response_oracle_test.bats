@@ -6,17 +6,10 @@ setup_file(){
 }
 
 setup() {
-  source "$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash"
+  source "$(dirname "$BATS_TEST_FILENAME")/../../../../deps.bash"
   log "Sourced deps.bash"
 
-  load "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
-  log "Loaded bats-support"
-
-  load "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
-  log "Loaded bats-assert"
-
-
-  log "sse generater registered"
+  source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
   log "Setup complete"
 }
@@ -24,7 +17,7 @@ setup() {
 
 @test "Generates an SSE stream that matches the expected output" {
   local expected_output_file
-  expected_output_file="$PROJECT_ROOT/test/fixture/copilot/sse-response.txt"
+  expected_output_file="$PROJECT_ROOT/test/suite/fixture/copilot/sse-response.txt"
 
   [ -f "$expected_output_file" ] || fail "Golden file not found: $expected_output_file"
 
@@ -36,8 +29,8 @@ setup() {
   log "expected output file $expected_output_file"
 
   cmd="
-    source \"$(dirname "$BATS_TEST_FILENAME")/../../../deps.bash\"
-    register_dep sse_generator \"test/mock/server/copilot/sse_completion_response.bash\"
+    source \"$(dirname "$BATS_TEST_FILENAME")/../../../../deps.bash\"
+    register_dep sse_generator \"test/suite/mock/server/copilot/sse_completion_response.bash\"
     exec_dep sse_generator \
     --message-parts '$message_parts' \
     --prompt-tokens \"$prompt_tokens\" \

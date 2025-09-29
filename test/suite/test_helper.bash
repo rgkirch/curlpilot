@@ -2,11 +2,12 @@
 
 bats_require_minimum_version 1.5.0
 
-export PROJECT_ROOT
-PROJECT_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+export SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-source "$PROJECT_ROOT/test/test_helper/bats-support/load.bash"
-source "$PROJECT_ROOT/test/test_helper/bats-assert/load.bash"
+source "$PROJECT_ROOT/test/bats/bats-support/load.bash"
+source "$PROJECT_ROOT/test/bats/bats-assert/load.bash"
+source "$PROJECT_ROOT/test/bats/bats-file/load.bash"
 
 
 
