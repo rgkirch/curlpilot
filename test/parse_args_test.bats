@@ -325,7 +325,7 @@ MAIN_SPEC='{
     "OPTIONS:" \
     "  --model\tThe model to use. (default: \"gpt-default\")" \
     "  --stream\tEnable streaming responses. (default: true)" \
-    "  --api-key\tThe API key for authentication. " \
+    "  --api-key\tThe API key for authentication." \
     "  --retries\tNumber of retries on failure. (default: 3)" \
     "  --messages\tA JSON array of messages. (default: [])"
 )

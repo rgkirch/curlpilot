@@ -6,6 +6,9 @@ set -euo pipefail
 # It uses a predefined jq filter script and takes its parameters as CLI arguments.
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../deps.bash"
+
+log "deps loaded"
+
 register_dep parse_args "parse_args/parse_args.bash"
 
 # 1. Define the schema for the command-line arguments.
@@ -35,7 +38,12 @@ job_ticket_json=$(jq --null-input \
   '{spec: $spec, args: $ARGS.positional}' \
   --args -- "$@")
 
-exec_dep parse_args "$job_ticket_json" | \
-    jq --compact-output \
-        --raw-output \
-        --from-file "$(dirname "$0")"/sse_completion_response.jq
+log "job ticket json: $job_ticket_json"
+
+A="$(exec_dep parse_args "$job_ticket_json")"
+
+log "A: $A"
+
+jq --compact-output \
+  --raw-output \
+  --from-file "$(dirname "$0")"/sse_completion_response.jq <<< "$A"

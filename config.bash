@@ -2,6 +2,8 @@
 set -euo pipefail
 #set -x
 
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/logging.bash"
+
 if [[ -z "${HOME:-}" ]]; then
   echo "Error: HOME environment variable is not set." >&2
   exit 1
@@ -27,7 +29,10 @@ fi
 copilot_json=$(cat "$COPILOT_SETTINGS_FILE")
 gemini_json=$(cat "$GEMINI_SETTINGS_FILE")
 
-jq --null-input \
+T="$(jq --null-input \
   --argjson copilot "$copilot_json" \
   --argjson gemini "$gemini_json"\
-  '{copilot: $copilot, gemini: $gemini}'
+  '{copilot: $copilot, gemini: $gemini}')"
+
+log "T $T"
+echo "$T"

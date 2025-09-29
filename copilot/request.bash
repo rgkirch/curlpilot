@@ -2,8 +2,6 @@
 set -euo pipefail
 #set -x
 
-
-
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
 
 register_dep auth "copilot/auth.bash"
@@ -29,11 +27,16 @@ job_ticket_json=$(jq -n \
   --args -- "$@")
 
 readonly PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
-readonly STATUS_FILE=$(echo "$PARSED_ARGS" | jq --raw-output '.status_file // empty')
-readonly REQUEST_BODY=$(echo "$PARSED_ARGS" | jq --compact-output '.body')
+readonly STATUS_FILE=$(jq --raw-output '.status_file // empty' <<< "$PARSED_ARGS")
+readonly REQUEST_BODY=$(jq --compact-output '.body' <<< "$PARSED_ARGS")
 
 CONFIG_JSON=$(exec_dep config)
-API_ENDPOINT=$(echo "$CONFIG_JSON" | jq --raw-output '.copilot.api_endpoint')
+
+log "CONFIG_JSON $CONFIG_JSON"
+
+API_ENDPOINT=$(jq --raw-output '.copilot.api_endpoint' <<< "$CONFIG_JSON")
+
+log "API_ENDPOINT $API_ENDPOINT"
 
 if [[ -z "$API_ENDPOINT" || "$API_ENDPOINT" == "null" ]]; then
   echo "Error: Failed to get API endpoint from config." >&2
