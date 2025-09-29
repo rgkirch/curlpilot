@@ -1,17 +1,17 @@
 [submodule "test/bats"]
-	path = test/bats
+	path = test/bats/bats
 	url = https://github.com/bats-core/bats-core.git
 [submodule "test/test_helper/bats-support"]
-	path = test/test_helper/bats-support
+	path = test/bats/bats-support
 	url = https://github.com/bats-core/bats-support.git
 [submodule "test/test_helper/bats-assert"]
-	path = test/test_helper/bats-assert
+	path = test/bats/bats-assert
 	url = https://github.com/bats-core/bats-assert.git
 [submodule "test/test/test_helper/bats-file"]
-	path = test/test_helper/bats-file
+	path = test/bats/bats-file
 	url = https://github.com/bats-core/bats-file.git
 [submodule "test/test/test_helper/bats-mock"]
-	path = test/test_helper/bats-mock
+	path = test/bats/bats-mock
 	url = https://github.com/buildkite-plugins/bats-mock.git
 [submodule "libs/TickTick"]
 	path = libs/TickTick
