@@ -6,7 +6,7 @@ This directory contains scripts for interacting with the Copilot API.
 ## `deps.bash`
 
 ``` bash
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../deps.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 ```
 
 ## `login.bash`

@@ -2,7 +2,7 @@
 #. ./libs/TickTick/ticktick.sh
 #scripts intended to be sourced should not change the environment of the caller. so, don't set -euox pipefail
 
-source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/logging.bash"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/src/logging.bash"
 
 # A sourced library file like deps.bash should never change the shell options of
 # its caller. This is the root cause of all the strange behavior you've been
@@ -64,13 +64,13 @@ _get_override_var_name() {
 
   local sanitized_path
   # The original logic is preserved to avoid collisions (e.g. 'foo/bar' vs 'foo_bar')
-  sanitized_path=$(echo "$relative_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g')
+  sanitized_path=$(echo "$relative_path" | tr 'a-z' 'A-Z' | sed -e 's/\//__/g' -e 's/\./_/g' -e 's/[^a-zA-Z0-9_]/_/g')
   echo "CPO_$sanitized_path"
 }
 
 register_dep() {
   local key="$1"
-  local original_path="$2"
+  local original_path="src/$2"
   local final_path="$original_path"
 
   if [[ -v SCRIPT_REGISTRY["$key"] ]]; then
@@ -136,7 +136,7 @@ exec_dep() {
   local base_path
   base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
     local output_schema_path="${base_path}.output.schema.json"
-  local validator_path="$PROJECT_ROOT/schema_validator.bash"
+  local validator_path="$PROJECT_ROOT/src/schema_validator.bash"
 
   if [[ -f "$output_schema_path" ]]; then
     if [[ ! -f "$validator_path" ]]; then
@@ -188,8 +188,8 @@ get_script_registry() {
 # @param1 The original, real path to the dependency (e.g., "copilot/auth.bash").
 # @param2 The path to the mock script to use instead.
 mock_dep() {
-  local original_path="$1"
-  local mock_path="$2"
+  local original_path="src/$1"
+  local mock_path="test/$2"
 
   # 1. Validate that the real dependency file actually exists.
   #    This is the key improvement that catches refactoring errors.

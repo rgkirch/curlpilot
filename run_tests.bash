@@ -4,14 +4,12 @@ set -euo pipefail
 # Get the directory containing this script.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-BATS_EXECUTABLE="$PROJECT_ROOT/test/bats/bats/bin/bats"
+BATS_EXECUTABLE="$PROJECT_ROOT/libs/bats/bin/bats"
 
 # Initialize variables
 CURLPILOT_LOG_TARGET=0
 BATS_ARGS=()
 
-# Parse arguments: find --verbose for this script,
-# and collect everything else for bats.
 for arg in "$@"; do
   if [[ "$arg" == "--verbose" ]]; then
     CURLPILOT_LOG_TARGET=3
@@ -27,5 +25,5 @@ if [ ! -x "$BATS_EXECUTABLE" ]; then
 fi
 
 # Run bats with all the collected arguments.
-echo "Running command: CURLPILOT_LOG_TARGET=$CURLPILOT_LOG_TARGET \"$BATS_EXECUTABLE\" --timing \"${BATS_ARGS[@]}\""
+echo "Running command: CURLPILOT_LOG_TARGET=$CURLPILOT_LOG_TARGET '$BATS_EXECUTABLE' --timing '${BATS_ARGS[@]}'"
 CURLPILOT_LOG_TARGET=$CURLPILOT_LOG_TARGET "$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}"
