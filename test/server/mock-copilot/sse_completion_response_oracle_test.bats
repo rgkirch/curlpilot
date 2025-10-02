@@ -39,8 +39,6 @@ setup() {
 
   log "cmd: $cmd"
 
-  echo "START_MALAISE" > /dev/null
-
   run bash -c "$cmd"
 
   assert_success
@@ -51,5 +49,4 @@ setup() {
 
   log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 
-  echo "END_MALAISE" > /dev/null
 }

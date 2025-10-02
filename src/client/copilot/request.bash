@@ -17,6 +17,12 @@ readonly ARG_SPEC_JSON='{
     "type": "path",
     "description": "File to write the final status JSON to.",
     "default": null
+  },
+  "verbose": {
+    "name": "verbose",
+    "type": "bool",
+    "help": "Enable verbose output, including the full curl command.",
+    "default": false
   }
 }'
 
@@ -29,6 +35,7 @@ job_ticket_json=$(jq -n \
 readonly PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 readonly STATUS_FILE=$(jq --raw-output '.status_file // empty' <<< "$PARSED_ARGS")
 readonly REQUEST_BODY=$(jq --compact-output '.body' <<< "$PARSED_ARGS")
+readonly VERBOSE=$(jq --raw-output '.verbose' <<< "$PARSED_ARGS")
 
 CONFIG_JSON=$(exec_dep config)
 
@@ -51,6 +58,8 @@ if [[ -z "$COPILOT_SESSION_TOKEN" || "$COPILOT_SESSION_TOKEN" == "null" ]]; then
   exit 1
 fi
 
+readonly REQUEST_ID=$(uuidgen)
+
 curl_args=(
   -sS -X POST
   --max-time 5
@@ -58,7 +67,7 @@ curl_args=(
   -H "Content-Type: application/json"
   -H "Authorization: Bearer ${COPILOT_SESSION_TOKEN}"
   -H "Openai-Intent: conversation-panel"
-  -H "X-Request-Id: $(uuidgen)"
+  -H "X-Request-Id: $REQUEST_ID"
   -H "Vscode-Sessionid: some-session-id"
   -H "Vscode-Machineid: some-machine-id"
   -H "Copilot-Integration-Id: vscode-chat"
@@ -66,6 +75,11 @@ curl_args=(
   -H "Editor-Version: emacs/29.1"
   -d "$REQUEST_BODY"
 )
+
+if [[ "$VERBOSE" == "true" ]]; then
+  curl_args+=(--verbose)
+  printf '%s' "$curl_args" >&2
+fi
 
 if [[ -n "$STATUS_FILE" ]]; then
   curl_args+=(--write-out "$(printf '%%output{%s}

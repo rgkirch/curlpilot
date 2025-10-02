@@ -297,3 +297,45 @@ This section will be expanded to cover the following helper libraries:
 - **`fail <message>`**: Displays an error message and fails the test.
 - **Output Formatting**: Provides functions for creating formatted, human-readable output for assertions, including two-column and multi-line formats.
 - **`batslib_is_caller`**: Allows restricting a helper function to be called only from specific locations (e.g., only from `teardown`).
+
+## Special variables
+
+There are several global variables you can use to introspect on Bats tests:
+
+    `$BATS_RUN_COMMAND` is the run command used in your test case.
+
+    `$BATS_TEST_FILENAME` is the fully expanded path to the Bats test file.
+
+    `$BATS_TEST_DIRNAME` is the directory in which the Bats test file is located.
+
+    `$BATS_TEST_NAMES` is an array of function names for each test case.
+
+    `$BATS_TEST_NAME` is the name of the function containing the current test case.
+
+    `BATS_TEST_NAME_PREFIX` will be prepended to the description of each test on stdout and in reports.
+
+    `$BATS_TEST_DESCRIPTION` is the description of the current test case.
+
+    `BATS_TEST_RETRIES` is the maximum number of additional attempts that will be made on a failed test before it is finally considered failed. The default of 0 means the test must pass on the first attempt.
+
+    `BATS_TEST_TIMEOUT` is the number of seconds after which a test (including setup) will be aborted and marked as failed. Updates to this value in setup() or @test/** cannot change the running timeout countdown, so the latest useful update location is setup_file().
+
+    `$BATS_TEST_NUMBER` is the (1-based) index of the current test case in the test file.
+
+    `$BATS_SUITE_TEST_NUMBER` is the (1-based) index of the current test case in the test suite (over all files).
+
+    `$BATS_TEST_TAGS` the tags of the current test.
+
+    `$BATS_TMPDIR` is the base temporary directory used by bats to create its temporary files / directories. (default: $TMPDIR. If $TMPDIR is not set, /tmp is used.)
+
+    `$BATS_RUN_TMPDIR` is the location to the temporary directory used by bats to store all its internal temporary files during the tests. (default: $BATS_TMPDIR/bats-run-$BATS_ROOT_PID-XXXXXX)
+
+    `$BATS_FILE_EXTENSION` (default: bats) specifies the extension of test files that should be found when running a suite (via bats [-r] suite_folder/)
+
+    `$BATS_SUITE_TMPDIR` is a temporary directory common to all tests of a suite. Could be used to create files required by multiple tests.
+
+    `$BATS_FILE_TMPDIR` is a temporary directory common to all tests of a test file. Could be used to create files required by multiple tests in the same test file.
+
+    `$BATS_TEST_TMPDIR` is a temporary directory unique for each test. Could be used to create files required only for specific tests.
+
+    `$BATS_VERSION` is the version of Bats running the test.

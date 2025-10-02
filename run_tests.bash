@@ -6,10 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 BATS_EXECUTABLE="$PROJECT_ROOT/libs/bats/bin/bats"
 
-# Initialize variables
-CURLPILOT_LOG_TARGET=0
+# Initialize variables, respecting any pre-existing environment variable.
+CURLPILOT_LOG_TARGET="${CURLPILOT_LOG_TARGET:-0}"
 BATS_ARGS=()
 
+# Allow the --verbose flag to override the log target.
 for arg in "$@"; do
   if [[ "$arg" == "--verbose" ]]; then
     CURLPILOT_LOG_TARGET=3

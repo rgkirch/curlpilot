@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 register_dep parse_args "parse_args/parse_args.bash"
 
-source "$(resolve_path config.bash)"
+source "$(resolve_path src/config.bash)"
 
 JOB_TICKET_JSON=$(jq --null-input \
   '{spec: $spec, args: $ARGS.positional}' \

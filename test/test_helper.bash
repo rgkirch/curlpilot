@@ -9,8 +9,6 @@ source "$PROJECT_ROOT/libs/bats-support/load.bash"
 source "$PROJECT_ROOT/libs/bats-assert/load.bash"
 source "$PROJECT_ROOT/libs/bats-file/load.bash"
 
-
-
 # --- CUSTOM ASSERTION ---
 # Asserts that two JSON strings are semantically equal.
 assert_json_equal() {
@@ -30,4 +28,20 @@ assert_json_equal() {
     echo "$sorted_actual" >&3
     return 1
   fi
+}
+
+# --- TRACING HELPER ---
+# Enables the curlpilot tracing feature for a test, directing all trace
+# files into the unique temporary directory created by Bats for that test.
+enable_tracing() {
+  # Gracefully fail if not run inside a Bats test.
+  if [[ -z "${BATS_TEST_TMPDIR:-}" ]]; then
+    echo "Error: enable_tracing() must be called from within a Bats test case." >&2
+    return 1
+  fi
+
+  export CURLPILOT_TRACE_DIR="$BATS_TEST_TMPDIR"
+
+  # Log the trace directory to fd 3 for debugging in test output.
+  echo "Tracing enabled. Directory: $CURLPILOT_TRACE_DIR" >&3
 }

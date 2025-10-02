@@ -20,7 +20,7 @@ log() {
   local message
   # BASH_SOURCE[1] gives the path to the caller's script.
   message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[1]}")] $*"
-
+  #echo "CURLPILOT_LOG_TARGET $CURLPILOT_LOG_TARGET" >&2
   # Determine the log target and write the message.
   case "${CURLPILOT_LOG_TARGET}" in
     2)

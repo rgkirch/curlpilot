@@ -3,7 +3,7 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
-register_dep login "copilot/login.bash"
+register_dep login "client/copilot/login.bash"
 
 LOGIN_JSON=$(exec_dep login)
 

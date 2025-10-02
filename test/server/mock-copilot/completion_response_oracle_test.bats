@@ -7,28 +7,20 @@ bats_require_minimum_version 1.5.0
 source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
 source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
+
 #log "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
 #log "PROJECT_ROOT $PROJECT_ROOT"
 
-# This setup() function runs before each test.
 setup() {
-  # Make the helper function available to the `run` command's subshell.
-  # The `export -f` command makes a function definition available to child processes.
-  export -f run_with_setup
+  enable_tracing
+  export -f mock_completion
+  log "exported run_with_setup"
 }
 
-# --- Test Runner Helper ---
-# This function is designed to be called by `run`. It sets up the necessary
-# environment inside the `run` subshell and then executes its arguments.
-run_with_setup() {
-  # First, load the functions from deps.bash into the subshell
-  source "$PROJECT_ROOT/deps.bash"
-
-  # Second, populate the registry just like the original setup() did
+mock_completion() {
+  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
   register_dep mock_completion "server/mock-copilot/completion_response.bash"
-
-  # Finally, execute the actual command that was passed as arguments to this function
-  "$@"
+  exec_dep mock_completion "$@"
 }
 
 # --- Custom Assertion Helper ---
@@ -74,7 +66,7 @@ assert_json_oracle() {
   }'
 
   # The `run` command executes the script and captures its output.
-  run --separate-stderr run_with_setup exec_dep mock_completion
+  run --separate-stderr mock_completion
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -86,7 +78,7 @@ assert_json_oracle() {
     ".usage.completion_tokens": 50
   }'
 
-  run --separate-stderr run_with_setup exec_dep mock_completion --message-content "Hello, world!"
+  run --separate-stderr mock_completion --message-content "Hello, world!"
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -98,7 +90,7 @@ assert_json_oracle() {
     ".usage.completion_tokens": 500
   }'
 
-  run --separate-stderr run_with_setup exec_dep mock_completion --message-content "test" --completion-tokens 500
+  run --separate-stderr mock_completion --message-content "test" --completion-tokens 500
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -109,7 +101,7 @@ assert_json_oracle() {
     ".usage.prompt_tokens": 123
   }'
 
-  run --separate-stderr run_with_setup exec_dep mock_completion --prompt-tokens 123
+  run --separate-stderr mock_completion --prompt-tokens 123
 
   assert_success
   assert_json_oracle "$output" "$expected"
@@ -122,7 +114,7 @@ assert_json_oracle() {
     ".usage.prompt_tokens": 88
   }'
 
-  run --separate-stderr run_with_setup exec_dep mock_completion --message-content "Full override" --completion-tokens 77 --prompt-tokens 88
+  run --separate-stderr mock_completion --message-content "Full override" --completion-tokens 77 --prompt-tokens 88
 
   assert_success
   assert_json_oracle "$output" "$expected"
