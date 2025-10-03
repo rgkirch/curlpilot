@@ -43,6 +43,8 @@ _main_parse() {
       fi
   done
 
+  log "PARSED_VALUES_JSON $PARSED_VALUES_JSON"
+
   echo "$PARSED_VALUES_JSON"
 }
 

@@ -46,7 +46,7 @@ setup() {
   export API_ENDPOINT="http://localhost:$port/"
 
   # Run chat.bash. The API endpoint is now handled by the exported variable and the mocked config.
-  run bash "$PROJECT_ROOT/src/client/copilot/chat.bash" \
+  run --separate-stderr bash "$PROJECT_ROOT/src/client/copilot/chat.bash" \
     --messages '[{"role": "user", "content": "Say hello"}]'
 
   log "chat.bash finished with status: $status"
@@ -68,6 +68,6 @@ setup() {
   log "Asserting final output..."
   assert_output "Hello streaming chat"
 
-    log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
+  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 
 }

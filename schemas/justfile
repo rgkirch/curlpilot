@@ -21,11 +21,15 @@ extract: setup create-chat-completion-request
 create-chat-completion-request:
     #!/usr/bin/bash
 
-    echo "==> Extracting and dereferencing ChatCompletionRequest schema..."
+    echo "==> Extracting, dereferencing, and patching ChatCompletionRequest schema..."
 
-    # 1. Dereference the main spec and pipe to jq to extract the specific schema
+    # This is now a three-stage pipeline:
+    # 1. Dereference the main spec.
+    # 2. Pipe to jq to extract the specific schema object.
+    # 3. Pipe to jq again to apply the modernization patch from your new script.
     npx --yes json-refs resolve openapi.documented.yml | \
-      jq '.components.schemas.CreateChatCompletionRequest' > \
+      jq '.components.schemas.CreateChatCompletionRequest' | \
+      jq -f patch01.jq > \
       extracted/chat_completion_request.schema.json
 
     echo "    -> Saved to extracted/chat_completion_request.schema.json"

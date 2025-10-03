@@ -23,7 +23,7 @@ try {
   const valid = validate(data);
 
   if (valid) {
-    console.log('✅ Data is valid!');
+    console.error('✅ Data is valid!');
   } else {
     console.error('❌ Data is invalid:');
     console.error(validate.errors);

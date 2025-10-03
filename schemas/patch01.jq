@@ -1,14 +1,30 @@
-# Recursively walk the schema and transform OpenAPI 3.0's `nullable: true`
-# into the modern JSON Schema `type: ["...", "null"]` syntax.
+# In schemas/patch01.jq
+
+# Recursively walk the schema and transform all instances of `nullable: true`
+# into the modern JSON Schema syntax.
 walk(
-  if type == "object" and .nullable == true and has("type") then
-    # If .type is already an array, add "null" to it.
-    # Otherwise, create a new array with the original type and "null".
-    .type |= (if type == "array" then . + ["null"] | unique else [., "null"] end)
-    # Delete the old "nullable" key.
+  if type == "object" and .nullable == true then
+    (
+      # Case 1: The object has an explicit "type" key.
+      if has("type") then
+        .type |= (if type == "array" then . + ["null"] | unique else [., "null"] end)
+
+      # Case 2: The object uses "anyOf" to define its types.
+      # Add a simple {"type": "null"} schema to the list.
+      elif has("anyOf") then
+        .anyOf += [{"type": "null"}]
+
+      # Case 3: The object uses "oneOf" (for completeness).
+      elif has("oneOf") then
+        .oneOf += [{"type": "null"}]
+
+      else
+        .
+      end
+    )
+    # In all cases where we made a change, delete the old "nullable" key.
     | del(.nullable)
   else
-    # Leave other objects unchanged.
     .
   end
 )
