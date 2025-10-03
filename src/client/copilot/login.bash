@@ -3,8 +3,9 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 register_dep parse_args "parse_args/parse_args.bash"
+register_dep config "config.bash"
 
-source "$(resolve_path src/config.bash)"
+CONFIG_JSON="$(exec_dep config)"
 
 JOB_TICKET_JSON=$(jq --null-input \
   '{spec: $spec, args: $ARGS.positional}' \
@@ -19,6 +20,7 @@ JOB_TICKET_JSON=$(jq --null-input \
 PARSED_ARGS_JSON=$(exec_dep parse_args "$JOB_TICKET_JSON")
 FORCE_REFRESH=$(jq --raw-output '.refresh_session_token' <<< "$PARSED_ARGS_JSON")
 
+CURLPILOT_CONFIG_DIR=$(jq -r '.config_dir' <<< "$CONFIG_JSON")
 GITHUB_PAT_FILE="$CURLPILOT_CONFIG_DIR/github_pat.txt"
 TOKEN_FILE="$CURLPILOT_CONFIG_DIR/token.json"
 

@@ -1,0 +1,4 @@
+* make a test that calls --help for all scripts or make parse args validate everything about the job spec
+:PROPERTIES:
+:CREATED-AT: [2025-10-02 16:14:14]
+:END:

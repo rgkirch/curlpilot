@@ -1,5 +1,7 @@
 set positional-arguments
 
+mod schemas
+
 help:
     @just --list
 

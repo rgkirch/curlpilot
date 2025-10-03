@@ -1,0 +1,31 @@
+# The default recipe will now show the help message.
+default: help
+
+# Displays a list of available recipes.
+help:
+    @echo "Available recipes:"
+    @echo "  help                            - Show this help message"
+    @echo "  setup                           - Create the output directory for extracted schemas"
+    @echo "  extract                         - Extract all necessary schemas (runs setup first)"
+    @echo "  create-chat-completion-request  - Extracts the schema for chat completion requests"
+
+# Creates the necessary directories for schema extraction.
+setup:
+    @echo "==> Creating output directory..."
+    @mkdir -p extracted
+
+# Meta-recipe to extract all schemas. It now depends on the 'setup' recipe.
+extract: setup create-chat-completion-request
+
+# Recipe to extract the CreateChatCompletionRequest schema, written as a shell script.
+create-chat-completion-request:
+    #!/usr/bin/bash
+
+    echo "==> Extracting and dereferencing ChatCompletionRequest schema..."
+
+    # 1. Dereference the main spec and pipe to jq to extract the specific schema
+    npx --yes json-refs resolve openapi.documented.yml | \
+      jq '.components.schemas.CreateChatCompletionRequest' > \
+      extracted/chat_completion_request.schema.json
+
+    echo "    -> Saved to extracted/chat_completion_request.schema.json"

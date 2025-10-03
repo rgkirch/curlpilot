@@ -1,0 +1,5 @@
+- [ ] file editing
+- [ ] tool use (mcp)
+- [ ] conversation
+- [ ] embedding
+- [ ] ollama

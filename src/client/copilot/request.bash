@@ -19,9 +19,8 @@ readonly ARG_SPEC_JSON='{
     "default": null
   },
   "verbose": {
-    "name": "verbose",
-    "type": "bool",
-    "help": "Enable verbose output, including the full curl command.",
+    "type": "boolean",
+    "description": "Enable verbose output, including the full curl command.",
     "default": false
   }
 }'
@@ -32,7 +31,11 @@ job_ticket_json=$(jq -n \
   '{spec: $spec, args: $ARGS.positional}' \
   --args -- "$@")
 
-readonly PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
+if ! PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json"); then
+    echo "Error: Failed to parse arguments. Aborting." >&2
+    exit 1
+fi
+
 readonly STATUS_FILE=$(jq --raw-output '.status_file // empty' <<< "$PARSED_ARGS")
 readonly REQUEST_BODY=$(jq --compact-output '.body' <<< "$PARSED_ARGS")
 readonly VERBOSE=$(jq --raw-output '.verbose' <<< "$PARSED_ARGS")
@@ -51,7 +54,9 @@ if [[ -z "$API_ENDPOINT" || "$API_ENDPOINT" == "null" ]]; then
 fi
 
 AUTH_JSON=$(exec_dep auth)
-COPILOT_SESSION_TOKEN=$(echo "$AUTH_JSON" | jq --raw-output '.session_token')
+COPILOT_SESSION_TOKEN=$(jq --raw-output '.session_token' <<< "$AUTH_JSON")
+
+log "COPILOT_SESSION_TOKEN: $COPILOT_SESSION_TOKEN"
 
 if [[ -z "$COPILOT_SESSION_TOKEN" || "$COPILOT_SESSION_TOKEN" == "null" ]]; then
   echo "Error: Failed to get auth token." >&2
@@ -78,7 +83,11 @@ curl_args=(
 
 if [[ "$VERBOSE" == "true" ]]; then
   curl_args+=(--verbose)
-  printf '%s' "$curl_args" >&2
+  json_args=$(printf '%s\n' "${curl_args[@]}" | jq -R . | jq -s .)
+
+  echo "--- To re-run command, copy and paste below ---" >&2
+  jq -r "@sh" <<< "$json_args" >&2
+  echo "----------------------------------------------" >&2
 fi
 
 if [[ -n "$STATUS_FILE" ]]; then
