@@ -265,17 +265,7 @@ MAIN_SPEC='{
   run_parser "$spec" --command --version --version
 
   assert_failure
-
-  # 1. Define the exact error you expect.
-  local expected_error="jq: error (at <unknown>): Non-boolean argument --command requires a value"
-
-  # 2. Filter the actual stderr to remove debug lines.
-  #    The 'grep -v' command excludes lines matching the pattern.
-  local filtered_stderr
-  filtered_stderr=$(echo "$stderr" | grep -v '\["DEBUG:"')
-
-  # 3. Assert that the filtered output is exactly what you expect.
-  [ "$filtered_stderr" = "$expected_error" ]
+  assert_stderr --partial "jq: error (at <unknown>): Non-boolean argument --command requires a value"
 }
 
 @test "Fails when a non-numeric value is provided for a number type" {
@@ -398,4 +388,56 @@ MAIN_SPEC='{
   # Assert
   assert_success
   assert_json_equal "$output" "$expected"
+}
+
+# ===============================================
+# ==      SCHEMA VALIDATION TEST CASES         ==
+# ===============================================
+
+@test "Schema validation succeeds for valid JSON" {
+  # Arrange: Override the real validator with our mock for this test
+  mock_dep "schema_validator.bash" "mock/schema_validator.bash"
+
+  # Arrange: A spec for a 'body' argument that references our test schema
+  local spec_with_schema='{
+    "body": {
+      "type": "json",
+      "schema": "test/fixture/body_schema.json"
+    }
+  }'
+
+  local valid_json_body='{"model": "gpt-4", "messages": []}'
+  local expected="{\"body\": ${valid_json_body}}"
+
+  # Act: Run the parser
+  run_parser "$spec_with_schema" --body="$valid_json_body"
+
+  # Assert
+  assert_success
+  assert_json_equal "$output" "$expected"
+  assert_stderr --partial "Mock validator: Success!"
+}
+
+@test "Schema validation fails for invalid JSON" {
+  # Arrange: Override the real validator with our mock
+  mock_dep "schema_validator.bash" "mock/schema_validator.bash"
+
+  # Arrange: A spec for a 'body' argument that references our test schema
+  local spec_with_schema='{
+    "body": {
+      "type": "json",
+      "schema": "test/fixture/body_schema.json"
+    }
+  }'
+
+  # This JSON is "invalid" according to our mock's simple rule
+  local invalid_json_body='{"model": "this data is invalid", "messages": []}'
+
+  # Act: Run the parser, expecting it to fail
+  run_parser "$spec_with_schema" --body="$invalid_json_body"
+
+  # Assert
+  assert_failure
+  assert_stderr --partial "Error: Schema validation failed for argument --body"
+  assert_stderr --partial "Mock validator: Input contains the word 'invalid'. Failing."
 }

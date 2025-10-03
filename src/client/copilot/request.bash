@@ -11,7 +11,8 @@ register_dep config "config.bash"
 readonly ARG_SPEC_JSON='{
   "body": {
     "type": "json",
-    "description": "The JSON request body."
+    "schema": "extracted/chat_completion_request.schema.json"
+    "description": "The JSON request body.",
   },
   "status_file": {
     "type": "path",

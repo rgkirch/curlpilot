@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generic Output Schema for parse_args.jq",
+  "description": "Describes the generic structure of the JSON object produced by the parse_args.jq script. The script generates an object where keys correspond to the argument names defined in the input spec, and the values are the final, type-coerced results.",
+  "type": "object",
+  "additionalProperties": {
+    "description": "The value of a parsed argument after it has been processed and type-coerced. It can be any valid JSON type (string, number, boolean, object, array, or null) depending on the 'type' specified for it in the argument spec.",
+    "oneOf": [
+      {
+        "type": "string"
+      },
+      {
+        "type": "number"
+      },
+      {
+        "type": "boolean"
+      },
+      {
+        "type": "object",
+        "additionalProperties": true
+      },
+      {
+        "type": "array"
+      },
+      {
+        "type": "null"
+      }
+    ]
+  },
+  "examples": [
+    {
+      "port": 8080,
+      "stream": true,
+      "message_content": "Hello from the mock server!"
+    },
+    {
+      "body": {
+        "model": "gpt-4",
+        "messages": [
+          {
+            "role": "user",
+            "content": "What is the capital of France?"
+          }
+        ]
+      },
+      "status_file": "/tmp/api_status.json",
+      "verbose": true
+    }
+  ]
+}

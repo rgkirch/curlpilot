@@ -245,6 +245,7 @@ get_script_registry() {
 }
 
 mock_dep() {
+  #export PS4="+[$$] \${BASH_SOURCE##*/}:\${LINENO} "
   local original_path="src/$1"
   local mock_path="test/$2"
 
