@@ -2,8 +2,6 @@
 set -euo pipefail
 #set -x
 
-
-
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
 register_dep request "client/copilot/request.bash"

@@ -22,7 +22,7 @@ if [[ -n "${CURLPILOT_TRACE_DIR:-}" ]]; then
   # If CURLPILOT_TRACE_ROOT_PID is not set, this is the root of a new trace.
   if [[ -z "${CURLPILOT_TRACE_ROOT_PID:-}" ]]; then
     # Create an isolated subdirectory named after our own Process ID.
-    local pid_dir="${CURLPILOT_TRACE_DIR}/$$"
+    pid_dir="${CURLPILOT_TRACE_DIR}/$$"
     mkdir -p "$pid_dir"
 
     # Re-export the trace directory to point to our isolated subdirectory.
