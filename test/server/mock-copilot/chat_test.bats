@@ -7,13 +7,11 @@ setup_file(){
 
 setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
+  log "Sourced deps.bash"
   log "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
   source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
   log "Loaded test helper"
-
-  log "Running setup..."
-  log "Sourced deps.bash"
 
   mock_dep "client/copilot/auth.bash" "mock/stub/success/auth.bash"
   mock_dep "config.bash" "mock/stub/success/config.bash"
@@ -31,8 +29,8 @@ setup() {
 
   log "Launching server..."
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
-    --stdout-log 2 \
-    --stderr-log 2 \
+    --stdout-log ${CURLPILOT_LOG_TARGET:-2} \
+    --stderr-log ${CURLPILOT_LOG_TARGET:-2} \
     --child-args -- --message-content "$message"
   assert_success
   log "Server launch command finished with status: $status"
@@ -51,7 +49,7 @@ setup() {
   run bash "$PROJECT_ROOT/src/client/copilot/chat.bash" \
     --messages '[{"role": "user", "content": "Say hello"}]'
 
-    log "chat.bash finished with status: $status"
+  log "chat.bash finished with status: $status"
   log "--- chat.bash output ---"
   log "$output"
   log "--- end chat.bash output ---"

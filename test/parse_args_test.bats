@@ -402,7 +402,7 @@ MAIN_SPEC='{
   local spec_with_schema='{
     "body": {
       "type": "json",
-      "schema": "test/fixture/body_schema.json"
+      "schema": "test/fixtures/body_schema.json"
     }
   }'
 
@@ -426,7 +426,7 @@ MAIN_SPEC='{
   local spec_with_schema='{
     "body": {
       "type": "json",
-      "schema": "test/fixture/body_schema.json"
+      "schema": "test/fixtures/body_schema.json"
     }
   }'
 

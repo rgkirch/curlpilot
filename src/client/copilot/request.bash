@@ -7,12 +7,13 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 register_dep auth "client/copilot/auth.bash"
 register_dep parse_args "parse_args/parse_args.bash"
 register_dep config "config.bash"
+log "dependencies registered"
 
 readonly ARG_SPEC_JSON='{
   "body": {
     "type": "json",
-    "schema": "extracted/chat_completion_request.schema.json"
-    "description": "The JSON request body.",
+    "schema": "schemas/extracted/chat_completion_request.schema.json",
+    "description": "The JSON request body."
   },
   "status_file": {
     "type": "path",
@@ -26,16 +27,23 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
+log "ARG_SPEC_JSON $ARG_SPEC_JSON"
+log "args $@"
+
 job_ticket_json=$(jq -n \
   --argjson spec "$ARG_SPEC_JSON" \
   --compact-output \
   '{spec: $spec, args: $ARGS.positional}' \
   --args -- "$@")
 
+log "$$ $? job_ticket_json $job_ticket_json"
+
 if ! PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json"); then
     echo "Error: Failed to parse arguments. Aborting." >&2
     exit 1
 fi
+
+log "$$ $? PARSED_ARGS $PARSED_ARGS"
 
 readonly STATUS_FILE=$(jq --raw-output '.status_file // empty' <<< "$PARSED_ARGS")
 readonly REQUEST_BODY=$(jq --compact-output '.body' <<< "$PARSED_ARGS")

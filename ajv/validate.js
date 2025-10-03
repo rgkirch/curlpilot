@@ -18,7 +18,7 @@ try {
   const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 
   // Validate
-  const ajv = new Ajv();
+  const ajv = new Ajv({ strict: false });
   const validate = ajv.compile(schema);
   const valid = validate(data);
 

@@ -13,7 +13,9 @@ BATS_ARGS=()
 # Allow the --verbose flag to override the log target.
 for arg in "$@"; do
   if [[ "$arg" == "--verbose" ]]; then
-    CURLPILOT_LOG_TARGET=3
+    export CURLPILOT_LOG_TARGET=3
+    echo "setting CURLPILOT_LOG_TARGET=3" >&2
+    BATS_ARGS+=(--verbose-run)
   else
     BATS_ARGS+=("$arg")
   fi

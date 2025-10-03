@@ -17,7 +17,7 @@ setup() {
 
 @test "Generates an SSE stream that matches the expected output" {
   local expected_output_file
-  expected_output_file="$PROJECT_ROOT/test/fixture/copilot/sse-response.txt"
+  expected_output_file="$PROJECT_ROOT/test/fixtures/copilot/sse-response.txt"
 
   [ -f "$expected_output_file" ] || fail "Golden file not found: $expected_output_file"
 
