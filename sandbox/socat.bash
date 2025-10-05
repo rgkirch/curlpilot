@@ -10,41 +10,42 @@ cd "$DEMO_DIR"
 echo "📂 Demo running in: $DEMO_DIR"
 echo "---"
 
-# 1. Create the handler script that socat will run.
-#    This script's output will be captured in server.log.
+# 1. Create the handler script.
 cat > handler.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[HANDLER] ✅ Connection received, handler is now running."
+# socat makes the parent PID available in this environment variable.
+echo "[HANDLER] ✅ Connection received. Parent socat listener PID is $SOCAT_PPID."
 
-# Read the first line of the HTTP request from stdin to prove we got it
+# Read the request from stdin
 read -r request_line
 echo "[HANDLER] ➡️  Read from client: '$request_line'"
 
-# Send a valid HTTP response back to the client via stdout.
-# The blank line (\r\n\r\n) is crucial to separate headers from the body.
-echo -e "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 13\r\n\r\nHello, socat!"
+# Send a valid HTTP response back to the client via stdout
+echo -e "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 21\r\n\r\nHello from the handler!"
 
-echo "[HANDLER] ⬅️  Sending response and exiting."
+echo "[HANDLER] ⬅️  Response sent. Now terminating the parent listener..."
+
+# This is the key: after handling the one request, we kill the parent.
+# This allows the user's main script's `for` loop to continue.
+kill "$SOCAT_PPID"
 EOF
 
 chmod +x handler.sh
 
 # 2. Start the server
 PORT=$(shuf -i 20000-65000 -n 1)
-echo "[MAIN] 🚀 Starting single-shot socat server on port $PORT..."
+echo "[MAIN] 🚀 Starting socat server on port $PORT..."
 
-# CORRECTED INVOCATION:
-# - No 'fork': socat will handle ONE connection and then exit.
-# - socat's stdio (-) is piped to our handler script.
-# - The entire pipeline runs in the background.
-{ socat TCP-LISTEN:"$PORT",reuseaddr - | ./handler.sh; } > server.log 2>&1 &
-PIPELINE_PID=$!
+# THE WORKING INVOCATION:
+# - 'fork': Waits for a connection before running EXEC in a child process.
+# - The handler script will kill the parent socat process when it's done.
+socat TCP-LISTEN:"$PORT",reuseaddr,fork EXEC:./handler.sh > server.log 2>&1 &
+SOCAT_PID=$!
 
-# Give the server a moment to start listening
 sleep 0.5
-echo "[MAIN] PID of server pipeline is $PIPELINE_PID"
+echo "[MAIN] PID of main socat listener is $SOCAT_PID"
 echo "---"
 
 # 3. Run the client
@@ -54,10 +55,10 @@ echo "[MAIN] 💻 Curl response: '$RESPONSE'"
 echo "---"
 
 # 4. Show the results
-echo "[MAIN] Server should have exited automatically after one request."
-wait "$PIPELINE_PID" 2>/dev/null || true # Wait for the background job to complete
+echo "[MAIN] The handler should have killed the server. Waiting for it to exit..."
+wait "$SOCAT_PID" 2>/dev/null || true # Wait for the background job to complete
 
-echo "[MAIN] 📄 Server log (server.log) now shows the handler's output:"
+echo "[MAIN] 📄 Server log (server.log):"
 echo "------------------------------------------------------------------"
 cat server.log
 echo "------------------------------------------------------------------"
