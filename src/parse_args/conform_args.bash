@@ -8,6 +8,7 @@
 # json may contain .schema (path to schema file or embedded JSON object) -> optional validation via schema_validator (if present)
 
 set -euo pipefail
+#set -x
 
 SOURCE_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 source "$SOURCE_DIR/.deps.bash"
@@ -15,6 +16,8 @@ source "$SOURCE_DIR/.deps.bash"
 if [[ -f "$SOURCE_DIR/schema_validator.bash" ]]; then
   register_dep schema_validator "parse_args/schema_validator.bash"
 fi
+
+log "args $@"
 
 usage() {
   echo "Usage: $0 --spec-json '<json>' --parsed-json '<json>'" >&2
@@ -34,20 +37,26 @@ while (( $# )); do
   shift || true
 done
 
+log "SPEC_JSON $SPEC_JSON and PARSED_JSON $PARSED_JSON"
+
 [[ -n "$SPEC_JSON" && -n "$PARSED_JSON" ]] || usage
 
+log "insane 1"
 # Quick sanity checks
 if ! echo "$SPEC_JSON" | jq -e . >/dev/null 2>&1; then
-  echo "conform_args: spec is not valid JSON" >&2; exit 1; fi
+  error "conform_args: spec is not valid JSON" >&2; exit 1; fi
 if ! echo "$PARSED_JSON" | jq -e . >/dev/null 2>&1; then
-  echo "conform_args: parsed args is not valid JSON" >&2; exit 1; fi
+  error "conform_args: parsed args is not valid JSON" >&2; exit 1; fi
 
+log "insane 2"
 # Build output object incrementally.
 OUTPUT='{}'
 ERRORS=()
 
+log "insane 3"
 # Iterate spec keys preserving insertion order
 while IFS= read -r key; do
+  log "procesing key $key"
   spec_entry=$(echo "$SPEC_JSON" | jq -c --arg k "$key" '.[$k]')
   type=$(echo "$spec_entry" | jq -r '.type')
   has_default=$(echo "$spec_entry" | jq 'has("default")')
@@ -191,4 +200,8 @@ if (( ${#ERRORS[@]} )); then
   exit 1
 fi
 
-echo "$OUTPUT" | jq -c '.'
+log "OUTPUT $OUTPUT"
+
+log "$(jq '.' <<<"$OUTPUT")"
+
+jq -c '.' <<<"$OUTPUT"

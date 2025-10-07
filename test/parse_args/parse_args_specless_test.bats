@@ -118,9 +118,19 @@ _assert_key_true() {
   _assert_key_string "$parsed" foo bar
 }
 
-@test "help" {
-  run bash "$PARSER" --foo "$(jq . <<<'{"foo": ["bar", "baz"]}')"
+@test "value is a simple JSON array string" {
+  local json_val='["bar", "baz"]'
+  run bash "$PARSER" --foo "$json_val"
   assert_success
-  parsed="$output"
-  _assert_???
+  _assert_key_string "$output" foo "$json_val"
+}
+
+@test "value is a JSON object string with newlines" {
+  # Create a multi-line JSON string as the value
+  local json_val
+  json_val=$(jq . <<<'{"key1": "value1", "key2": ["a", "b"]}')
+
+  run bash "$PARSER" --data "$json_val"
+  assert_success
+  _assert_key_string "$output" data "$json_val"
 }

@@ -1,12 +1,13 @@
-#!/bin/bash
-# This script is executed by socat for each incoming connection.
-# It safely reads and logs an entire HTTP request (headers and body)
-# before sending a response, thus avoiding deadlocks.
-set -euo pipefail
+# src/server/handle_request.bash
+#set -euo pipefail
+
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
 # Arguments passed from socat EXEC
 REQUEST_LOG_FILE="$1"
+log "REQUEST_LOG_FILE $REQUEST_LOG_FILE"
 RESPONSE_FILE="$2"
+log "RESPONSE_FILE $RESPONSE_FILE"
 
 # Ensure log file is empty for the new request
 > "$REQUEST_LOG_FILE"

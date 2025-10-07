@@ -1,6 +1,7 @@
 # src/server/canned-responses.bash
 
-#set -euo pipefail
+set -euo pipefail
+#set -x
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
@@ -16,23 +17,35 @@ readonly ARG_SPEC_JSON='{
   "responses": {
     "type": "json",
     "description": "JSON array of file paths containing full HTTP responses (headers+body)."
+  },
+  "request_dir": {
+    "type": "string",
+    "default": null,
+    "description": "Optional. Directory to store request logs. If not provided, requests are not logged."
   }
 }'
 
-PARSED=$(exec_dep parse_args "$@")
-CONFORMED=$(exec_dep conform_args --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
+for a in "$@"; do
+  log "arg $a"
+done
 
+PARSED=$(exec_dep parse_args "$@")
+log "PARSED $PARSED"
+CONFORMED=$(exec_dep conform_args --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
 log "CONFORMED $CONFORMED"
 
 PORT=$(jq -r '.port' <<< "$CONFORMED")
 RESPONSES_JSON=$(jq -c '.responses' <<< "$CONFORMED")
+REQUEST_DIR=$(jq -r '.request_dir // ""' <<< "$CONFORMED")
+
+log "RESPONSES_JSON $RESPONSES_JSON"
 
 if [[ -z "$RESPONSES_JSON" || "$RESPONSES_JSON" == "null" ]]; then
   echo "No responses provided" >&2
   exit 1
 fi
 
-mapfile -t RESPONSE_FILES < <(jq -r '.[]' <<< "$RESPONSES_JSON")
+mapfile -d $'\0' -t RESPONSE_FILES < <(jq --raw-output0 '.[]' <<< "$RESPONSES_JSON")
 for f in "${RESPONSE_FILES[@]}"; do
   if [[ ! -f "$f" ]]; then
     echo "Response file not found: $f" >&2
@@ -40,21 +53,49 @@ for f in "${RESPONSE_FILES[@]}"; do
   fi
 done
 
-REQUEST_DIR="${BATS_TEST_TMPDIR:-$(mktemp -d)}/requests"
-mkdir -p "$REQUEST_DIR"
+if [[ -n "$REQUEST_DIR" ]]; then
+  mkdir -p "$REQUEST_DIR"
+fi
 PROJECT_ROOT=$(get_project_root)
 
 # Serve each response sequentially, one connection per file. After last, exit.
 req_index=0
 for resp in "${RESPONSE_FILES[@]}"; do
-  request_log_file="$REQUEST_DIR/request.$req_index.log"
+  
+  if [[ -n "$REQUEST_DIR" ]]; then
+    request_log_file="$REQUEST_DIR/request.$req_index.log"
+  else
+    request_log_file="/dev/null"
+  fi
+  
   log "starting listener index=$req_index resp=$resp port=$PORT log=$request_log_file"
-  # Use pipeline form so handler starts only after client connects
-  socat -v -T30 TCP4-LISTEN:"$PORT",reuseaddr - \
-    | bash -c "set -euo pipefail; source '$PROJECT_ROOT/deps.bash'; log 'handler start index=$req_index resp=$resp'; register_dep handle_request 'server/handle_request.bash'; exec_dep handle_request '$request_log_file' '$resp'; rc=$?; log 'handler done index=$req_index rc='$rc''; exit $rc" || log "socat/handler pipeline exited non-zero index=$req_index code=$?"
+
+  # Create a temporary, dedicated handler script for this specific request.
+  handler_script_path="$(mktemp)"
+  cat > "$handler_script_path" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+# Source the project's dependencies to make 'exec_dep' and 'log' available.
+source "$PROJECT_ROOT/deps.bash"
+# Register the dependency so exec_dep can find it.
+register_dep handle_request "server/handle_request.bash"
+
+log "handler starting for request $req_index"
+# Execute the actual handler with the correct arguments for this loop iteration.
+exec_dep handle_request "$request_log_file" "$resp"
+log "handler finished for request $req_index"
+EOF
+  chmod +x "$handler_script_path"
+
+  # Use the robust single-shot server pattern.
+  log ">>> About to run socat for index $req_index"
+  socat -T5 TCP4-LISTEN:"$PORT",reuseaddr,shut-down \
+    "SYSTEM:$handler_script_path"
+  SOCAT_EXIT_CODE=$?
+  log "<<< socat for index $req_index finished with exit code $SOCAT_EXIT_CODE"
+  
+  rm "$handler_script_path"
+
   log "finished listener index=$req_index resp=$resp"
   ((++req_index))
 done
-
-echo "$REQUEST_DIR"
-

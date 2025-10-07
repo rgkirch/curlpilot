@@ -1,37 +1,58 @@
 # logging.bash
-# scripts intended to be sourced should not change the environment of the caller. so, don't set -euox pipefail
+# Provides intelligent logging functions with multiple levels.
 
-# Centralized logging function for curlpilot scripts.
-#
-# Usage:
-#   log "My log message"
-#
-# Behavior is controlled by the CURLPILOT_LOG_TARGET environment variable:
-# - If CURLPILOT_LOG_TARGET is "2", logs are sent to stderr.
-# - If CURLPILOT_LOG_TARGET is "3", logs are sent to file descriptor 3.
-# - If unset or any other value, logging is disabled.
+# Determine the log target file descriptor automatically.
+# If a Bats test variable is set, log to fd 3, otherwise log to stderr (fd 2).
+LOG_FD=2
+if [[ -n "${BATS_TEST_FILENAME:-}" ]]; then
+  LOG_FD=3
+fi
 
-log() {
-  # Do nothing if logging is not configured.
-  if [[ -z "${CURLPILOT_LOG_TARGET:-}" ]]; then
-    return 0
+# Define standard log levels as numeric values for comparison.
+readonly LOG_LEVEL_FATAL=0
+readonly LOG_LEVEL_ERROR=1
+readonly LOG_LEVEL_WARN=2
+readonly LOG_LEVEL_INFO=3
+readonly LOG_LEVEL_DEBUG=4
+readonly LOG_LEVEL_TRACE=5
+
+# Read the configured log level from the environment. Default to INFO.
+# Convert the string level (e.g., "INFO") to its numeric value.
+declare -i configured_level
+case "${CURLPILOT_LOG_LEVEL:-INFO}" in
+  FATAL) configured_level=$LOG_LEVEL_FATAL ;;
+  ERROR) configured_level=$LOG_LEVEL_ERROR ;;
+  WARN)  configured_level=$LOG_LEVEL_WARN ;;
+  INFO)  configured_level=$LOG_LEVEL_INFO ;;
+  DEBUG) configured_level=$LOG_LEVEL_DEBUG ;;
+  TRACE) configured_level=$LOG_LEVEL_TRACE ;;
+  *)     configured_level=$LOG_LEVEL_INFO ;;
+esac
+
+# Internal logging function that all public functions call.
+_log() {
+  local level_num=$1
+  local level_name=$2
+  shift 2
+  
+  # Only log if the message's level is at or above the configured level.
+  if (( level_num <= configured_level )); then
+    local message
+    # BASH_SOURCE[2] is used because this internal function adds a level to the call stack.
+    message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
+    echo "$message" >&"$LOG_FD"
   fi
+}
 
-  local message
-  # BASH_SOURCE[1] gives the path to the caller's script.
-  message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[1]}")] $*"
-  #echo "CURLPILOT_LOG_TARGET $CURLPILOT_LOG_TARGET" >&2
-  # Determine the log target and write the message.
-  case "${CURLPILOT_LOG_TARGET}" in
-    2)
-      echo "$message" >&2
-      ;;
-    3)
-      echo "$message" >&3
-      ;;
-    *)
-      # Invalid or disabled target, so do nothing.
-      return 0
-      ;;
-  esac
+# Public logging functions for each level.
+fatal() { _log $LOG_LEVEL_FATAL "FATAL" "$@"; }
+error() { _log $LOG_LEVEL_ERROR "ERROR" "$@"; }
+warn()  { _log $LOG_LEVEL_WARN  "WARN"  "$@"; }
+info()  { _log $LOG_LEVEL_INFO  "INFO"  "$@"; }
+debug() { _log $LOG_LEVEL_DEBUG "DEBUG" "$@"; }
+trace() { _log $LOG_LEVEL_TRACE "TRACE" "$@"; }
+
+# Alias log() to info() for backward compatibility and general use.
+log() {
+  info "$@"
 }

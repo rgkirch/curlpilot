@@ -6,7 +6,7 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
 register_dep parse_args "parse_args/parse_args_specless.bash"
 register_dep conform_args "parse_args/conform_args.bash"
-register_dep serialize_args "parse_args/serialize_args.bash"
+register_dep unform "parse_args/unform.bash"
 
 # Spec for launcher itself + child server
 readonly ARG_SPEC_JSON='{
@@ -15,12 +15,10 @@ readonly ARG_SPEC_JSON='{
   "stderr_log": {"type": "path", "default": "/dev/null", "description": "Stderr log target for child."},
   "port": {"type": "integer", "description": "Port to listen on (random if omitted)."},
   "responses": {"type": "json", "description": "JSON array of response file paths (passed through)."},
-  "request_dir": {"type": "string", "description": "Directory for request logs (passed through)."}
+  "request_dir": {"type": "string", "default": null, "description": "Directory for request logs (passed through)."}
 }'
 
-for a in "$@"; do
-  log "arg $a"
-done
+log "args $@"
 
 # 1. Specless parse of raw args
 PARSED=$(exec_dep parse_args "$@")
@@ -55,7 +53,13 @@ fi
 [[ -f "$SERVER_SCRIPT" ]] || { echo "Server script not found: $SERVER_SCRIPT" >&2; exit 1; }
 
 # 5. Filter launcher-specific args from the original parsed JSON
-CHILD_ARGS_JSON=$(jq 'del(.server_script)' <<< "$PARSED")
+CHILD_ARGS_JSON=$(jq 'del(.server_script)' <<< "$CONFORMED")
+
+log "CHILD_ARGS_JSON $CHILD_ARGS_JSON"
+
+CHILD_ARGS_JSON=$(exec_dep unform --spec-json "$ARG_SPEC_JSON" --parsed-json "$CHILD_ARGS_JSON")
+
+log "CHILD_ARGS_JSON $CHILD_ARGS_JSON"
 
 # 7. Safely load the JSON array string into a bash array
 CHILD_ARGS=()
