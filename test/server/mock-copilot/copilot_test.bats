@@ -12,7 +12,7 @@ setup() {
   log "Sourced deps.bash"
   source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/mock-copilot/launch_server.bash"
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
   log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
 

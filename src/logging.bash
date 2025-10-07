@@ -1,6 +1,12 @@
 # logging.bash
 # Provides intelligent logging functions with multiple levels.
 
+
+if [[ -n "${_LOGGING_BASH_SOURCED:-}" ]]; then
+  return 0
+fi
+readonly _LOGGING_BASH_SOURCED=1
+
 # Determine the log target file descriptor automatically.
 # If a Bats test variable is set, log to fd 3, otherwise log to stderr (fd 2).
 LOG_FD=2
@@ -9,16 +15,15 @@ if [[ -n "${BATS_TEST_FILENAME:-}" ]]; then
 fi
 
 # Define standard log levels as numeric values for comparison.
-readonly LOG_LEVEL_FATAL=0
-readonly LOG_LEVEL_ERROR=1
-readonly LOG_LEVEL_WARN=2
-readonly LOG_LEVEL_INFO=3
-readonly LOG_LEVEL_DEBUG=4
-readonly LOG_LEVEL_TRACE=5
+LOG_LEVEL_FATAL=0
+LOG_LEVEL_ERROR=1
+LOG_LEVEL_WARN=2
+LOG_LEVEL_INFO=3
+LOG_LEVEL_DEBUG=4
+LOG_LEVEL_TRACE=5
 
 # Read the configured log level from the environment. Default to INFO.
 # Convert the string level (e.g., "INFO") to its numeric value.
-declare -i configured_level
 case "${CURLPILOT_LOG_LEVEL:-INFO}" in
   FATAL) configured_level=$LOG_LEVEL_FATAL ;;
   ERROR) configured_level=$LOG_LEVEL_ERROR ;;

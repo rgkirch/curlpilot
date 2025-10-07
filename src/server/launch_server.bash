@@ -34,9 +34,8 @@ if [[ "$has_port" != "true" ]]; then
   log "PARSED $PARSED"
 fi
 
-# 3. Conform against spec
-CONFORMED=$(bash "$(resolve_path src/parse_args/conform_args.bash)" --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
-
+# 3. Conform against spec to get defaults and typed values for the launcher's own use.
+CONFORMED=$(exec_dep conform_args --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
 log "CONFORMED $CONFORMED"
 
 PORT=$(jq -r '.port' <<< "$CONFORMED")
@@ -52,16 +51,16 @@ else
 fi
 [[ -f "$SERVER_SCRIPT" ]] || { echo "Server script not found: $SERVER_SCRIPT" >&2; exit 1; }
 
-# 5. Filter launcher-specific args from the original parsed JSON
-CHILD_ARGS_JSON=$(jq 'del(.server_script)' <<< "$CONFORMED")
+# 5. Unform the conformed object to get a stringified version with defaults.
+UNFORMED=$(exec_dep unform --spec-json "$ARG_SPEC_JSON" --parsed-json "$CONFORMED")
 
-log "CHILD_ARGS_JSON $CHILD_ARGS_JSON"
+# 6. Merge the unformed object (with defaults) back into the original parsed object.
+MERGED=$(jq -s '.[0] * .[1]' <(echo "$PARSED") <(echo "$UNFORMED"))
 
-CHILD_ARGS_JSON=$(exec_dep unform --spec-json "$ARG_SPEC_JSON" --parsed-json "$CHILD_ARGS_JSON")
+# 7. Filter launcher-specific args from the merged object.
+CHILD_ARGS_JSON=$(jq 'del(.server_script)' <<< "$MERGED")
 
-log "CHILD_ARGS_JSON $CHILD_ARGS_JSON"
-
-# 7. Safely load the JSON array string into a bash array
+# 8. Serialize the final JSON and safely load into a bash array.
 CHILD_ARGS=()
 mapfile -d $'\0' -t CHILD_ARGS < <(jq --raw-output0 'to_entries | map("--" + .key, .value) | flatten | .[]' <<< "$CHILD_ARGS_JSON")
 

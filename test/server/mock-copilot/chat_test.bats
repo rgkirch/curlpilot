@@ -17,7 +17,7 @@ setup() {
   mock_dep "config.bash" "mock/stub/success/config.bash"
   log "Dependencies mocked."
 
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/mock-copilot/launch_server.bash"
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
   log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
 
