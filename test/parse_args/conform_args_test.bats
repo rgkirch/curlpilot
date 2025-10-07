@@ -75,11 +75,32 @@ _run_conform() {
 @test "json must be valid" {
   _run_conform "$_spec_base" '{"cfg":"not json","flag":true}'
   assert_failure
-  [[ "$output" == *"value is not valid JSON"* ]] || fail "Expected json validity error"
+  [[ "$output" == *"value contains malformed JSON"* ]] || fail "Expected json validity error"
 }
 
 @test "unknown keys ignored" {
   _run_conform "$_spec_base" '{"flag":true,"cfg":"{\"a\":1}","extra":"value"}'
   assert_success
   echo "$output" | jq -e 'has("extra") | not' >/dev/null || fail "Unexpected inclusion of unknown key"
+}
+
+@test "json type default fails if it IS a string" {
+  # This spec is now invalid because the default for a json type must be native JSON.
+  spec=$(echo "$_spec_base" | jq '.cfg.default = "{\"a\":1}"')
+
+  _run_conform "$spec" '{"flag":true}'
+
+  assert_failure
+  [[ "$output" == *"default in spec must be native JSON"* ]] || fail "Expected error for stringy JSON default"
+}
+
+@test "json type default succeeds if it is native JSON" {
+  # This spec is valid. The default for 'cfg' is a native JSON object.
+  spec=$(echo "$_spec_base" | jq '.cfg.default = {"a":1}')
+
+  _run_conform "$spec" '{"flag":true}'
+
+  assert_success
+  # Check that the native default was correctly applied.
+  echo "$output" | jq -e '.cfg.a == 1' >/dev/null || fail "Native JSON default was not applied correctly"
 }
