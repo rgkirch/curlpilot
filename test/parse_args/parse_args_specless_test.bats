@@ -5,7 +5,7 @@ setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/../test_helper.bash"
   register_dep parse_args_specless "parse_args/parse_args_specless.bash"
   PARSER=$(resolve_path src/parse_args/parse_args_specless.bash)
-  log "PARSER $PARSER"
+  log_debug "PARSER $PARSER"
 }
 
 _assert_key_string() {
@@ -104,7 +104,7 @@ _assert_key_true() {
 
 # @test "long separated value with newlines" {
 #   multiline_val='"[\n  \"/tmp/bats-run-52tUAo/test/1/r1.http\",\n  \"/tmp/bats-run-52tUAo/test/1/r2.http\"\n]"'
-#   log '"[\n  \"/tmp/bats-run-52tUAo/test/1/r1.http\",\n  \"/tmp/bats-run-52tUAo/test/1/r2.http\"\n]"'
+#   log_debug '"[\n  \"/tmp/bats-run-52tUAo/test/1/r1.http\",\n  \"/tmp/bats-run-52tUAo/test/1/r2.http\"\n]"'
 #   run bash "$PARSER" "\"--responses\"" "$multiline_val" "\"--request_dir\"" "/tmp/bats-run-q9sMj1/test/1/requests" "\"--stdout_log\"" "\"3\"" "--stderr_log" "\"3\"" "--port" 64799
 #   assert_success
 #   _assert_key_string "$output" responses "$multiline_val"

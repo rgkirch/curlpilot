@@ -51,7 +51,7 @@ RESPONSE_BODY_FILE="$TEMP_DIR/response.body"
 # 3. Set a trap to ensure the entire temporary directory is cleaned up on exit.
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-log "making the request"
+log_debug "making the request"
 
 # 4. Execute the request, providing the --status-file flag and saving the body.
 AUTH_INFO=$(exec_dep auth)
@@ -92,7 +92,7 @@ if [[ "$HTTP_CODE" -ne 200 ]]; then
   exit 1
 fi
 
-log "parsing the response"
+log_debug "parsing the response"
 
 # 6. If the request was successful, parse the response body using the --response flag.
 exec_dep parse_response --response "$(cat "$RESPONSE_BODY_FILE")"

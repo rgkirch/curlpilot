@@ -5,9 +5,9 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
 # Arguments passed from socat EXEC
 REQUEST_LOG_FILE="$1"
-log "REQUEST_LOG_FILE $REQUEST_LOG_FILE"
+log_debug "REQUEST_LOG_FILE $REQUEST_LOG_FILE"
 RESPONSE_FILE="$2"
-log "RESPONSE_FILE $RESPONSE_FILE"
+log_debug "RESPONSE_FILE $RESPONSE_FILE"
 
 # Ensure log file is empty for the new request
 > "$REQUEST_LOG_FILE"

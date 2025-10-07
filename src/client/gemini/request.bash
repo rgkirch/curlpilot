@@ -55,6 +55,6 @@ if [[ -n "$STATUS_FILE" ]]; then
 }' "$STATUS_FILE")")
 fi
 
-log "running curl with args ${curl_args[@]}"
+log_debug "running curl with args ${curl_args[@]}"
 
 curl "${curl_args[@]}"

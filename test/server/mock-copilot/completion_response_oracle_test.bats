@@ -8,13 +8,13 @@ source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
 source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
 
-#log "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
-#log "PROJECT_ROOT $PROJECT_ROOT"
+#log_debug "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
+#log_debug "PROJECT_ROOT $PROJECT_ROOT"
 
 setup() {
   enable_tracing
   export -f mock_completion
-  log "exported run_with_setup"
+  log_debug "exported run_with_setup"
 }
 
 mock_completion() {

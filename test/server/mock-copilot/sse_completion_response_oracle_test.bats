@@ -7,11 +7,11 @@ setup_file(){
 
 setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  log "Sourced deps.bash"
+  log_debug "Sourced deps.bash"
 
   source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
-  log "Setup complete"
+  log_debug "Setup complete"
 }
 
 
@@ -26,7 +26,7 @@ setup() {
   local created_ts=1757366620
   local id="chatcmpl-CDdcq1c8DjPBjsa8MlM7oQS2Vx8L9"
 
-  log "expected output file $expected_output_file"
+  log_debug "expected output file $expected_output_file"
 
   cmd="
     source '$(dirname "$BATS_TEST_FILENAME")/.deps.bash'
@@ -37,16 +37,16 @@ setup() {
     --created '$created_ts' \
     --id '$id'"
 
-  log "cmd: $cmd"
+  log_debug "cmd: $cmd"
 
   run bash -c "$cmd"
 
   assert_success
 
-  log "ran sse generator"
+  log_debug "ran sse generator"
 
   assert_equal "$output" "$(cat "$expected_output_file")"
 
-  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
+  log_debug "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 
 }

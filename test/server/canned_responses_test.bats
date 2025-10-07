@@ -28,7 +28,7 @@ _launch_canned() {
   local request_dir="$BATS_TEST_TMPDIR/requests"
   mkdir -p "$request_dir"
 
-  log "responses_json $responses_json"
+  log_debug "responses_json $responses_json"
 
   readarray -t out < <(bash "$LAUNCH" --server_script "$SERVER_SCRIPT" --responses "$responses_json" --request-dir "$request_dir" --stdout_log "3" --stderr_log "3")
   PORT="${out[0]}"
@@ -49,7 +49,7 @@ _wait_down() {
   _make_response "$resp2" world
   responses_json=$(jq -nc --arg a "$resp1" --arg b "$resp2" '[$a,$b]')
 
-  log "responses_json $responses_json"
+  log_debug "responses_json $responses_json"
 
   # _launch_canned will handle creating the directory and passing it to the server.
   _launch_canned "$responses_json"
@@ -60,12 +60,12 @@ _wait_down() {
   sleep 1
   curl --silent --show-error --fail http://127.0.0.1:"$PORT"/ > "$BATS_TEST_TMPDIR/body1" || fail "curl 1 failed"
   assert_equal "hello" "$(cat "$BATS_TEST_TMPDIR/body1")"
-  log "test got \"hello\" back"
+  log_debug "test got \"hello\" back"
   
   sleep 1
   curl --silent --show-error --fail http://127.0.0.1:"$PORT"/ > "$BATS_TEST_TMPDIR/body2" || fail "curl 2 failed"
   assert_equal "world" "$(cat "$BATS_TEST_TMPDIR/body2")"
-  log "got \"world\" back"
+  log_debug "got \"world\" back"
   
   _wait_down "$PID" || fail "Server still running after two responses"
   

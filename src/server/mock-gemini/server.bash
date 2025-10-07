@@ -22,12 +22,12 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
-log "Script started."
+log_debug "Script started."
 
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 
-log "Arguments parsed: '$PARSED_ARGS'"
+log_debug "Arguments parsed: '$PARSED_ARGS'"
 
 if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
   exit 0
@@ -39,24 +39,24 @@ readonly PORT
 MESSAGE_CONTENT=$(jq --raw-output '.message_content' <<< "$PARSED_ARGS")
 readonly MESSAGE_CONTENT
 
-log "Generating streaming response."
+log_debug "Generating streaming response."
 response_file=$(mktemp)
-log "response_file $response_file"
+log_debug "response_file $response_file"
 trap 'rm -f "$response_file"' EXIT
 
-log "MESSAGE_CONTENT $MESSAGE_CONTENT"
+log_debug "MESSAGE_CONTENT $MESSAGE_CONTENT"
 {
   echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n"
   "$(path_relative_to_here "generate_content_response.bash")" --text "$MESSAGE_CONTENT"
 } > "$response_file"
-log "Streaming response file created: $response_file"
+log_debug "Streaming response file created: $response_file"
 
-log "Starting socat server on port $PORT."
+log_debug "Starting socat server on port $PORT."
 
 REQUEST_LOG_FILE="$BATS_TEST_TMPDIR/request.log"
-log "Request log will be at: $REQUEST_LOG_FILE"
+log_debug "Request log will be at: $REQUEST_LOG_FILE"
 HANDLER_SCRIPT="$(path_relative_to_here "../handle_request.bash")"
 
 socat -T30 TCP4-LISTEN:"$PORT",reuseaddr EXEC:"bash '$HANDLER_SCRIPT' '$REQUEST_LOG_FILE' '$response_file'"
 
-log "socat server finished."
+log_debug "socat server finished."

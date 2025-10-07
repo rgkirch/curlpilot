@@ -7,41 +7,71 @@ setup_file(){
 
 setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  log "Sourced deps.bash"
-  log "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
+  log_trace "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
   source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
-  log "Loaded test helper"
+  log_trace "Loaded test helper"
 
   mock_dep "client/copilot/auth.bash" "mock/stub/success/auth.bash"
   mock_dep "config.bash" "mock/stub/success/config.bash"
-  log "Dependencies mocked."
+  register_dep sse_generator "server/mock-copilot/sse_completion_response.bash"
+  log_trace "Dependencies mocked."
 
   export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
-  log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+  log_debug "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+}
+
+
+sse_generator() {
+  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
+  register_dep sse_generator "server/mock-copilot/sse_completion_response.bash"
+  exec_dep sse_generator "$@"
+}
+
+
+_make_response() {
+  local path="$1" body="$2"
+  local len=${#body}
+  cat > "$path" <<EOF
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Connection: close
+Content-Length: $len
+
+$body
+EOF
 }
 
 @test "chat.bash correctly processes a streaming response" {
-  log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
+  log_debug "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
-  local message="Hello streaming chat"
-  log "Message set to: '$message'"
+  # 1. Generate the mock SSE body using the dedicated script.
+  local message_parts='["Hello ", "streaming ", "chat"]'
+  local response_body
+  response_body=$(sse_generator --message-parts "$message_parts")
 
-  log "Launching server..."
+  # 2. Create a full HTTP response file.
+  local response_file="$BATS_TEST_TMPDIR/response.http"
+  _make_response "$response_file" "$response_body"
+  local responses_json
+  responses_json=$(jq -n --arg p "$response_file" '[$p]')
+
+  log_debug "Launching server..."
+  # 3. Launch the canned server with the generated response file.
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
-    --stdout-log ${CURLPILOT_LOG_TARGET:-2} \
-    --stderr-log ${CURLPILOT_LOG_TARGET:-2} \
-    --child-args -- --message-content "$message"
+    --stdout-log 3 \
+    --stderr-log 3 \
+    --responses "$responses_json"
   assert_success
-  log "Server launch command finished with status: $status"
+  log_debug "Server launch command finished with status: $status"
 
   local port=${lines[0]}
   local pid=${lines[1]}
-  log "Server launched. Port: $port, PID: $pid"
+  log_debug "Server launched. Port: $port, PID: $pid"
 
   trap 'kill "$pid" &>/dev/null || true' EXIT
 
-  log "Running chat.bash client..."
+  log_debug "Running chat.bash client..."
   # Export the API_ENDPOINT so the stubbed config.bash can access it.
   export API_ENDPOINT="http://localhost:$port/"
 
@@ -49,25 +79,25 @@ setup() {
   run --separate-stderr bash "$PROJECT_ROOT/src/client/copilot/chat.bash" \
     --messages '[{"role": "user", "content": "Say hello"}]'
 
-  log "chat.bash finished with status: $status"
-  log "--- chat.bash output ---"
-  log "$output"
-  log "--- end chat.bash output ---"
+  log_debug "chat.bash finished with status: $status"
+  log_debug "--- chat.bash output ---"
+  log_debug "$output"
+  log_debug "--- end chat.bash output ---"
 
   assert_success
 
-  log "Asserting request body was received by server..."
+  log_debug "Asserting request body was received by server..."
   request_log_file="$BATS_TEST_TMPDIR/request.log"
   assert_file_contains "$request_log_file" "Say hello"
-  log "Request body assertion passed."
+  log_debug "Request body assertion passed."
 
-  log "Asserting auth header was passed..."
+  log_debug "Asserting auth header was passed..."
   assert_file_contains "$request_log_file" "Authorization: Bearer mock_token"
-  log "Auth header assertion passed."
+  log_debug "Auth header assertion passed."
 
-  log "Asserting final output..."
+  log_debug "Asserting final output..."
   assert_output "Hello streaming chat"
 
-  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
+  log_debug "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 
 }

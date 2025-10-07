@@ -115,7 +115,7 @@ EOL
 @test "No arguments shows usage message" {
   run node "$VALIDATE_SCRIPT_PATH"
 
-  log "VALIDATE_SCRIPT_PATH: VALIDATE_SCRIPT_PATH"
+  log_debug "VALIDATE_SCRIPT_PATH: VALIDATE_SCRIPT_PATH"
   assert_failure
   assert_output --partial "Usage: node validate.js"
 }

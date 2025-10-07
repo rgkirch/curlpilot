@@ -18,25 +18,25 @@ readonly ARG_SPEC_JSON='{
   "request_dir": {"type": "string", "default": null, "description": "Directory for request logs (passed through)."}
 }'
 
-log "args $@"
+log_debug "args $@"
 
 # 1. Specless parse of raw args
 PARSED=$(exec_dep parse_args "$@")
 
-log "PARSED $PARSED"
+log_debug "PARSED $PARSED"
 
 # 2. Inject random port if absent
 has_port=$(jq 'has("port")' <<< "$PARSED")
 if [[ "$has_port" != "true" ]]; then
-  log "adding random port"
+  log_debug "adding random port"
   rp=$(shuf -i 20000-65000 -n 1)
   PARSED=$(jq --argjson p "$rp" '. + {port: $p}' <<< "$PARSED")
-  log "PARSED $PARSED"
+  log_debug "PARSED $PARSED"
 fi
 
 # 3. Conform against spec to get defaults and typed values for the launcher's own use.
 CONFORMED=$(exec_dep conform_args --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
-log "CONFORMED $CONFORMED"
+log_debug "CONFORMED $CONFORMED"
 
 PORT=$(jq -r '.port' <<< "$CONFORMED")
 SERVER_SCRIPT_RAW=$(jq -r '.server_script' <<< "$CONFORMED")
@@ -64,14 +64,14 @@ CHILD_ARGS_JSON=$(jq 'del(.server_script)' <<< "$MERGED")
 CHILD_ARGS=()
 mapfile -d $'\0' -t CHILD_ARGS < <(jq --raw-output0 'to_entries | map("--" + .key, .value) | flatten | .[]' <<< "$CHILD_ARGS_JSON")
 
-log "CHILD_ARGS ${CHILD_ARGS[*]}"
+log_debug "CHILD_ARGS ${CHILD_ARGS[*]}"
 
 for arg in "${CHILD_ARGS[@]}"; do
-  log "child arg $arg"
+  log_debug "child arg $arg"
 done
 
 
-log "Launching $SERVER_SCRIPT on $PORT"
+log_debug "Launching $SERVER_SCRIPT on $PORT"
 (
   exec bash "$SERVER_SCRIPT" "${CHILD_ARGS[@]}"
 ) >"$STDOUT_LOG" 2>"$STDERR_LOG" &
@@ -80,7 +80,7 @@ PID=$!
 # Passive readiness loop (avoid consuming a connection)
 for i in {1..100}; do
   if ! kill -0 "$PID" 2>/dev/null; then
-    log "Child exited prematurely"; break
+    log_debug "Child exited prematurely"; break
   fi
   if command -v ss >/dev/null 2>&1; then
     if ss -ltn "( sport = :$PORT )" 2>/dev/null | grep -q ":$PORT"; then

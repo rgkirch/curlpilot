@@ -6,7 +6,7 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
 register_dep parse_args "parse_args/parse_args.bash"
 
-log "Script started."
+log_debug "Script started."
 
 BLOCKING_SERVER_SCRIPT=$(path_relative_to_here "server.bash")
 
@@ -31,7 +31,7 @@ readonly ARG_SPEC_JSON='{
 job_ticket_json=$(jq --null-input --argjson spec "$ARG_SPEC_JSON" '{spec: $spec, args: $ARGS.positional}' --args -- "$@")
 PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json")
 
-log "Arguments parsed: '$PARSED_ARGS'"
+log_debug "Arguments parsed: '$PARSED_ARGS'"
 
 if [[ $(jq --raw-output '.help_requested' <<< "$PARSED_ARGS") == "true" ]]; then
   exit 0
@@ -51,16 +51,16 @@ mapfile -t child_args_array < <(jq --raw-output '.[]' <<< "$CHILD_ARGS_JSON")
 
 PORT=$(shuf -i 20000-65000 -n 1)
 
-log "Launching blocking server script: $BLOCKING_SERVER_SCRIPT on port $PORT"
+log_debug "Launching blocking server script: $BLOCKING_SERVER_SCRIPT on port $PORT"
 (
   exec bash "$BLOCKING_SERVER_SCRIPT" --port "$PORT" "${child_args_array[@]}"
 ) > "$STDOUT_LOG" 2> "$STDERR_LOG" &
 SERVER_PID=$!
-log "Server launched with PID: $SERVER_PID"
+log_debug "Server launched with PID: $SERVER_PID"
 
-log "PORT: $PORT"
+log_debug "PORT: $PORT"
 echo "$PORT"
-log "SERVER_PID: $SERVER_PID"
+log_debug "SERVER_PID: $SERVER_PID"
 echo "$SERVER_PID"
 
-log "Script finished."
+log_debug "Script finished."

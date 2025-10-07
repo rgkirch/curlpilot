@@ -26,19 +26,19 @@ readonly ARG_SPEC_JSON='{
 }'
 
 for a in "$@"; do
-  log "arg $a"
+  log_debug "arg $a"
 done
 
 PARSED=$(exec_dep parse_args "$@")
-log "PARSED $PARSED"
+log_debug "PARSED $PARSED"
 CONFORMED=$(exec_dep conform_args --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
-log "CONFORMED $CONFORMED"
+log_debug "CONFORMED $CONFORMED"
 
 PORT=$(jq -r '.port' <<< "$CONFORMED")
 RESPONSES_JSON=$(jq -c '.responses' <<< "$CONFORMED")
 REQUEST_DIR=$(jq -r '.request_dir // ""' <<< "$CONFORMED")
 
-log "RESPONSES_JSON $RESPONSES_JSON"
+log_debug "RESPONSES_JSON $RESPONSES_JSON"
 
 if [[ -z "$RESPONSES_JSON" || "$RESPONSES_JSON" == "null" ]]; then
   echo "No responses provided" >&2
@@ -68,7 +68,7 @@ for resp in "${RESPONSE_FILES[@]}"; do
     request_log_file="/dev/null"
   fi
   
-  log "starting listener index=$req_index resp=$resp port=$PORT log=$request_log_file"
+  log_debug "starting listener index=$req_index resp=$resp port=$PORT log=$request_log_file"
 
   # Create a temporary, dedicated handler script for this specific request.
   handler_script_path="$(mktemp)"
@@ -80,22 +80,22 @@ source "$PROJECT_ROOT/deps.bash"
 # Register the dependency so exec_dep can find it.
 register_dep handle_request "server/handle_request.bash"
 
-log "handler starting for request $req_index"
+log_debug "handler starting for request $req_index"
 # Execute the actual handler with the correct arguments for this loop iteration.
 exec_dep handle_request "$request_log_file" "$resp"
-log "handler finished for request $req_index"
+log_debug "handler finished for request $req_index"
 EOF
   chmod +x "$handler_script_path"
 
   # Use the robust single-shot server pattern.
-  log ">>> About to run socat for index $req_index"
+  log_debug ">>> About to run socat for index $req_index"
   socat -T5 TCP4-LISTEN:"$PORT",reuseaddr,shut-down \
     "SYSTEM:$handler_script_path"
   SOCAT_EXIT_CODE=$?
-  log "<<< socat for index $req_index finished with exit code $SOCAT_EXIT_CODE"
+  log_debug "<<< socat for index $req_index finished with exit code $SOCAT_EXIT_CODE"
   
   rm "$handler_script_path"
 
-  log "finished listener index=$req_index resp=$resp"
+  log_debug "finished listener index=$req_index resp=$resp"
   ((++req_index))
 done

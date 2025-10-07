@@ -126,7 +126,7 @@ register_dep() {
       exit 1
     else
       # If it's the same path, it's a benign re-registration. Issue a warning.
-      log "Warning: Dependency '$key' was registered multiple times with the same path."
+      log_debug "Warning: Dependency '$key' was registered multiple times with the same path."
       return 0
     fi
   fi
@@ -195,7 +195,7 @@ exec_dep() (
     local trace_base_name="${child_trace_id}.${key}"
     output_file="${CURLPILOT_TRACE_DIR}/${trace_base_name}.output"
 
-    log "Executing dep '$key' with TRACE_ID=$child_trace_id"
+    log_debug "Executing dep '$key' with TRACE_ID=$child_trace_id"
     exec_cmd=(env "CURLPILOT_TRACE_ID=${child_trace_id}" "CURLPILOT_TRACE_NAME=${key}" "${exec_cmd[@]}")
   else
     output_file=$(mktemp)

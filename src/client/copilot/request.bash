@@ -7,7 +7,7 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 register_dep auth "client/copilot/auth.bash"
 register_dep parse_args "parse_args/parse_args.bash"
 register_dep config "config.bash"
-log "dependencies registered"
+log_debug "dependencies registered"
 
 readonly ARG_SPEC_JSON='{
   "body": {
@@ -27,8 +27,8 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
-log "ARG_SPEC_JSON $ARG_SPEC_JSON"
-log "args $@"
+log_debug "ARG_SPEC_JSON $ARG_SPEC_JSON"
+log_debug "args $@"
 
 job_ticket_json=$(jq -n \
   --argjson spec "$ARG_SPEC_JSON" \
@@ -36,14 +36,14 @@ job_ticket_json=$(jq -n \
   '{spec: $spec, args: $ARGS.positional}' \
   --args -- "$@")
 
-log "$$ $? job_ticket_json $job_ticket_json"
+log_debug "$$ $? job_ticket_json $job_ticket_json"
 
 if ! PARSED_ARGS=$(exec_dep parse_args "$job_ticket_json"); then
     echo "Error: Failed to parse arguments. Aborting." >&2
     exit 1
 fi
 
-log "$$ $? PARSED_ARGS $PARSED_ARGS"
+log_debug "$$ $? PARSED_ARGS $PARSED_ARGS"
 
 readonly STATUS_FILE=$(jq --raw-output '.status_file // empty' <<< "$PARSED_ARGS")
 readonly REQUEST_BODY=$(jq --compact-output '.body' <<< "$PARSED_ARGS")
@@ -51,11 +51,11 @@ readonly VERBOSE=$(jq --raw-output '.verbose' <<< "$PARSED_ARGS")
 
 CONFIG_JSON=$(exec_dep config)
 
-log "CONFIG_JSON $CONFIG_JSON"
+log_debug "CONFIG_JSON $CONFIG_JSON"
 
 API_ENDPOINT=$(jq --raw-output '.copilot.api_endpoint' <<< "$CONFIG_JSON")
 
-log "API_ENDPOINT $API_ENDPOINT"
+log_debug "API_ENDPOINT $API_ENDPOINT"
 
 if [[ -z "$API_ENDPOINT" || "$API_ENDPOINT" == "null" ]]; then
   echo "Error: Failed to get API endpoint from config." >&2
@@ -65,7 +65,7 @@ fi
 AUTH_JSON=$(exec_dep auth)
 COPILOT_SESSION_TOKEN=$(jq --raw-output '.session_token' <<< "$AUTH_JSON")
 
-log "COPILOT_SESSION_TOKEN: $COPILOT_SESSION_TOKEN"
+log_debug "COPILOT_SESSION_TOKEN: $COPILOT_SESSION_TOKEN"
 
 if [[ -z "$COPILOT_SESSION_TOKEN" || "$COPILOT_SESSION_TOKEN" == "null" ]]; then
   echo "Error: Failed to get auth token." >&2
@@ -108,6 +108,6 @@ if [[ -n "$STATUS_FILE" ]]; then
 }' "$STATUS_FILE")")
 fi
 
-log "running curl with args ${curl_args[@]}"
+log_debug "running curl with args ${curl_args[@]}"
 
 curl "${curl_args[@]}"

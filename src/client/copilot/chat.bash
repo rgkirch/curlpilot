@@ -60,13 +60,13 @@ RESPONSE_BODY_FILE="$TEMP_DIR/response.body"
 # 3. Set a trap to ensure the entire temporary directory is cleaned up on exit.
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-log "$$ $? making the request"
+log_debug "$$ $? making the request"
 
 echo "$PARSED_ARGS" \
   | jq --compact-output '{model, stream_enabled: .stream, messages}' \
   | exec_dep request --body - --status-file "$STATUS_FILE" > "$RESPONSE_BODY_FILE"
 
-log "$$ $? made the request"
+log_debug "$$ $? made the request"
 
 HTTP_CODE=$(jq -r '.http_code' "$STATUS_FILE")
 
@@ -77,7 +77,7 @@ if [[ "$HTTP_CODE" -ne 200 ]]; then
   exit 1
 fi
 
-log "parsing the response"
+log_debug "parsing the response"
 
 # 6. If the request was successful, parse the response body using the --response flag.
 exec_dep parse_response --response "$(cat "$RESPONSE_BODY_FILE")"

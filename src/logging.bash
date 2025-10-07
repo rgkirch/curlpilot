@@ -43,21 +43,15 @@ _log() {
   # Only log if the message's level is at or above the configured level.
   if (( level_num <= configured_level )); then
     local message
-    # BASH_SOURCE[2] is used because this internal function adds a level to the call stack.
     message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
     echo "$message" >&"$LOG_FD"
   fi
 }
 
 # Public logging functions for each level.
-fatal() { _log $LOG_LEVEL_FATAL "FATAL" "$@"; }
-error() { _log $LOG_LEVEL_ERROR "ERROR" "$@"; }
-warn()  { _log $LOG_LEVEL_WARN  "WARN"  "$@"; }
-info()  { _log $LOG_LEVEL_INFO  "INFO"  "$@"; }
-debug() { _log $LOG_LEVEL_DEBUG "DEBUG" "$@"; }
-trace() { _log $LOG_LEVEL_TRACE "TRACE" "$@"; }
-
-# Alias log() to info() for backward compatibility and general use.
-log() {
-  info "$@"
-}
+log_fatal() { _log $LOG_LEVEL_FATAL "FATAL" "$@"; }
+log_error() { _log $LOG_LEVEL_ERROR "ERROR" "$@"; }
+log_warn()  { _log $LOG_LEVEL_WARN  "WARN"  "$@"; }
+log_info()  { _log $LOG_LEVEL_INFO  "INFO"  "$@"; }
+log_debug() { _log $LOG_LEVEL_DEBUG "DEBUG" "$@"; }
+log_trace() { _log $LOG_LEVEL_TRACE "TRACE" "$@"; }

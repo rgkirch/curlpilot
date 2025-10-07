@@ -7,7 +7,7 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
-log "deps loaded"
+log_debug "deps loaded"
 
 register_dep parse_args "parse_args/parse_args.bash"
 
@@ -38,11 +38,11 @@ job_ticket_json=$(jq --null-input \
   '{spec: $spec, args: $ARGS.positional}' \
   --args -- "$@")
 
-log "job ticket json: $job_ticket_json"
+log_debug "job ticket json: $job_ticket_json"
 
 A="$(exec_dep parse_args "$job_ticket_json")"
 
-log "A: $A"
+log_debug "A: $A"
 
 jq --compact-output \
   --raw-output \

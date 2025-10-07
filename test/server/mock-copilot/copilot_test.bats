@@ -9,11 +9,30 @@ setup() {
   bats_require_minimum_version 1.5.0
 
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  log "Sourced deps.bash"
+  log_debug "Sourced deps.bash"
   source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
   export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
-  log "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+  log_debug "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+}
+
+_make_copilot_response() {
+  local path="$1"
+  local message_content="$2"
+
+  local json_body
+  json_body=$(jq -nc --arg msg "$message_content" \
+    '{choices: [{message: {content: $msg}}]}')
+  
+  local len=${#json_body}
+  cat > "$path" <<EOF
+HTTP/1.1 200 OK
+Content-Type: application/json
+Connection: close
+Content-Length: $len
+
+$json_body
+EOF
 }
 
 # Helper function to retry a command until it succeeds.
@@ -24,100 +43,110 @@ retry() {
   local i
 
   for i in $(seq 1 "$attempts"); do
-    log "Retry attempt #$i/$attempts for command: $cmd"
+    log_debug "Retry attempt #$i/$attempts for command: $cmd"
     run --separate-stderr $cmd
     if [[ "$status" -eq 0 ]]; then
-      log "Command succeeded."
+      log_debug "Command succeeded."
       return 0
     fi
-    log "Command failed with status $status. Retrying in $delay seconds..."
-    log "output: $output"
-    log "stderr: $stderr"
+    log_debug "Command failed with status $status. Retrying in $delay seconds..."
+    log_debug "output: $output"
+    log_debug "stderr: $stderr"
     sleep "$delay"
   done
 
-  log "Command failed after $attempts attempts."
+  log_debug "Command failed after $attempts attempts."
   return 1
 }
 
 @test "launch_copilot.bash starts a non-streaming server correctly" {
-  log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
+  log_debug "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
   local message="Hello single JSON"
-  log "Message set to: '$message'"
+  log_debug "Message set to: '$message'"
 
-  log "Launching server..."
+  local response_file="$BATS_TEST_TMPDIR/response.http"
+  _make_copilot_response "$response_file" "$message"
+  local responses_json
+  responses_json=$(jq -n --arg p "$response_file" '[$p]')
+
+  log_debug "Launching server..."
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
     --stderr-log 3 \
-    --child-args -- --stream=false --message-content "$message"
-  log "run command finished with status: $status"
+    --stream=false --responses "$responses_json"
+  log_debug "run command finished with status: $status"
   assert_success
-  log "assert_success finished"
+  log_debug "assert_success finished"
 
-  log "Server launch command finished with status: $status"
+  log_debug "Server launch command finished with status: $status"
 
   local port=${lines[0]}
-  log "port assigned: $port"
+  log_debug "port assigned: $port"
   local pid=${lines[1]}
-  log "pid assigned: $pid"
-  log "Server launched. Port: $port, PID: $pid"
+  log_debug "pid assigned: $pid"
+  log_debug "Server launched. Port: $port, PID: $pid"
   trap 'kill "$pid" &>/dev/null || true' EXIT
-  log "trap set"
+  log_debug "trap set"
 
-  log "Connecting client (curl)..."
+  log_debug "Connecting client (curl)..."
   retry 4 0.5 curl --verbose --silent --show-error --max-time 2 "http://localhost:$port/"
 
   assert_success
-  log "Client command (curl) finished with status: $status"
+  log_debug "Client command (curl) finished with status: $status"
 
-  log "Asserting final output..."
-  log "--- curl output ---"
-  log "$output"
-  log "--- end curl output ---"
+  log_debug "Asserting final output..."
+  log_debug "--- curl output ---"
+  log_debug "$output"
+  log_debug "--- end curl output ---"
   local actual_content
   actual_content=$(jq --raw-output '.choices[0].message.content' <<< "$output")
   assert_equal "$actual_content" "$message"
-  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
+  log_debug "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }
 
 @test "launch_copilot.bash starts a streaming server correctly" {
-  log "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
+  log_debug "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
-  local message="Hello streaming world"
-  log "Message set to: '$message'"
+  local message_content="Hello streaming world"
+  log_debug "Message set to: '$message_content'"
 
-  log "Launching server..."
+  local response_file="$BATS_TEST_TMPDIR/response.http"
+  _make_copilot_response "$response_file" "$message_content"
+  local responses_json
+  responses_json=$(jq -n --arg p "$response_file" '[$p]')
+
+  log_debug "Launching server..."
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
     --stdout-log 3 \
     --stderr-log 3 \
-    --child-args -- --message-content "$message"
-  log "run command finished with status: $status"
+    --responses "$responses_json"
+  log_debug "run command finished with status: $status"
   assert_success
-  log "assert_success finished"
+  log_debug "assert_success finished"
 
-  log "Server launch command finished with status: $status"
+  log_debug "Server launch command finished with status: $status"
 
   local port=${lines[0]}
-  log "port assigned: $port"
+  log_debug "port assigned: $port"
   local pid=${lines[1]}
-  log "pid assigned: $pid"
-  log "Server launched. Port: $port, PID: $pid"
+  log_debug "pid assigned: $pid"
+  log_debug "Server launched. Port: $port, PID: $pid"
   trap 'kill "$pid" &>/dev/null || true' EXIT
-  log "trap set"
+  log_debug "trap set"
 
-  log "Connecting client (curl)..."
+  log_debug "Connecting client (curl)..."
   retry 5 0.5 curl --silent --max-time 2 "http://localhost:$port/"
 
   assert_success
-  log "Client command (curl) finished with status: $status"
+  log_debug "Client command (curl) finished with status: $status"
 
-  log "Asserting final output..."
-  log "--- curl output for streaming test ---"
-  log "$output"
-  log "--- end of curl output for streaming test ---"
+  log_debug "Asserting final output..."
+  log_debug "--- curl output for streaming test ---"
+  log_debug "$output"
+  log_debug "--- end of curl output for streaming test ---"
 
-  log "Asserting final output..."
-  assert_output --partial "\"Hello \""
-  assert_output --partial "\"streaming \""
-  assert_output --partial "\"world\""
-  log "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
+  log_debug "Asserting final output..."
+  local actual_content
+  actual_content=$(jq --raw-output '.choices[0].message.content' <<< "$output")
+  assert_equal "$actual_content" "$message_content"
+  log_debug "--- Test '$BATS_TEST_DESCRIPTION' finished ---"
 }

@@ -29,7 +29,7 @@ fi
 copilot_json=$(cat "$COPILOT_SETTINGS_FILE")
 gemini_json=$(cat "$GEMINI_SETTINGS_FILE")
 
-log "CURLPILOT_CONFIG_DIR: $CURLPILOT_CONFIG_DIR"
+log_debug "CURLPILOT_CONFIG_DIR: $CURLPILOT_CONFIG_DIR"
 
 T="$(jq --null-input \
   --argjson copilot "$copilot_json" \
@@ -37,5 +37,5 @@ T="$(jq --null-input \
   --arg config_dir "$CURLPILOT_CONFIG_DIR" \
   '{copilot: $copilot, gemini: $gemini, config_dir: $config_dir}')"
 
-log "T $T"
+log_debug "T $T"
 echo "$T"
