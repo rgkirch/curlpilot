@@ -23,7 +23,7 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
-trace "sourced deps"
+log_trace "sourced deps"
 
 _die() { echo "parse_args_specless error: $*" >&2; exit 1; }
 
@@ -50,16 +50,16 @@ args=("$@")
 len=${#args[@]}
 i=0
 
-debug "args[*]=(${args[*]}) len=$len"
+log_debug "args[*]=(${args[*]}) len=$len"
 
 while (( i < len )); do
-  trace "loop i=$i order_size=${#order[@]} order=(${order[*]})"
+  log_trace "loop i=$i order_size=${#order[@]} order=(${order[*]})"
   tok="${args[$i]}"
   if [[ "$tok" == --* ]]; then
-    trace "processing long opt token='$tok' i=$i"
+    log_trace "processing long opt token='$tok' i=$i"
     # Long option
     if [[ "$tok" == --*=* ]]; then
-      trace "equals form detected token='$tok'"
+      log_trace "equals form detected token='$tok'"
       key_part=${tok%%=*}
       val_part=${tok#*=}
       key_name=${key_part#--}
@@ -79,13 +79,13 @@ while (( i < len )); do
     [[ -v KV[$norm] ]] && _die "duplicate key: --$key_name"
     # Look ahead for value
     if (( i + 1 < len )); then
-      trace "lookahead next='${args[$((i+1))]}' for key=$key_name"
+      log_trace "lookahead next='${args[$((i+1))]}' for key=$key_name"
       next="${args[$((i+1))]}"
       if [[ "$next" == -* ]]; then
         # Treat as boolean flag (user must use equals form for dash-leading value)
         KV[$norm]="$BOOL_SENTINEL"
         order+=("$norm")
-        trace "added flag $norm; order=(${order[*]})"
+        log_trace "added flag $norm; order=(${order[*]})"
         ((++i))
         continue
       else
@@ -122,7 +122,7 @@ while (( i < len )); do
   fi
 done
 
-debug "loop done order_size=${#order[@]} order=(${order[*]})"
+log_debug "loop done order_size=${#order[@]} order=(${order[*]})"
 
 json='{}'
 for k in "${order[@]}"; do
@@ -134,6 +134,6 @@ for k in "${order[@]}"; do
   fi
 done
 
-debug "json $json"
+log_debug "json $json"
 
 echo "$json"

@@ -35,11 +35,9 @@ if [[ -n "${CURLPILOT_TRACE_DIR:-}" ]]; then
   # Initialize trace IDs and names if they are not already set for this process.
   if [[ -z "${CURLPILOT_TRACE_ID:-}" ]]; then
     export CURLPILOT_TRACE_ID
-    CURLPILOT_TRACE_ID=$(printf "%0${CURLPILOT_TRACE_PADDING:-0}d" "1")
-  fi
-  if [[ -z "${CURLPILOT_TRACE_NAME:-}" ]]; then
     export CURLPILOT_TRACE_NAME
     CURLPILOT_TRACE_NAME=$(basename "$0" .bash)
+    CURLPILOT_TRACE_ID="1_${CURLPILOT_TRACE_NAME}"
   fi
 fi
 
@@ -126,7 +124,7 @@ register_dep() {
       exit 1
     else
       # If it's the same path, it's a benign re-registration. Issue a warning.
-      log_debug "Warning: Dependency '$key' was registered multiple times with the same path."
+      log_warn "Warning: Dependency '$key' was registered multiple times with the same path."
       return 0
     fi
   fi
@@ -147,7 +145,7 @@ register_dep() {
   SCRIPT_REGISTRY["$key"]="$new_resolved_path"
 }
 
-exec_dep() (
+exec_dep() {
   #set -euox pipefail
   #export PS4="+[$$] \${BASH_SOURCE##*/}:\${LINENO} "
   if ! declare -p SCRIPT_REGISTRY >/dev/null 2>&1; then
@@ -186,16 +184,27 @@ exec_dep() (
   exec_cmd=(bash "$script_path" "$@")
 
   if [[ -n "${CURLPILOT_TRACE_DIR:-}" ]]; then
-    _CURLPILOT_EXEC_DEP_COUNTER=$((_CURLPILOT_EXEC_DEP_COUNTER + 1))
+    # Use a file-based counter within the parent's trace directory for robustness across subshells.
+    parent_trace_path="${CURLPILOT_TRACE_DIR}/$(echo "$CURLPILOT_TRACE_ID" | tr '.' '/')"
+    mkdir -p "$parent_trace_path"
+    counter_file="${parent_trace_path}/.counter"
+    
+    child_num=$(cat "$counter_file" 2>/dev/null || echo 0)
+    child_num=$((child_num + 1))
+    echo "$child_num" > "$counter_file"
 
-    local child_id_part
-    child_id_part=$(printf "%0${CURLPILOT_TRACE_PADDING:-0}d" "$_CURLPILOT_EXEC_DEP_COUNTER")
-    child_trace_id="${CURLPILOT_TRACE_ID}.${child_id_part}"
+    child_trace_id="${CURLPILOT_TRACE_ID}.${child_num}_${key}"
 
-    local trace_base_name="${child_trace_id}.${key}"
-    output_file="${CURLPILOT_TRACE_DIR}/${trace_base_name}.output"
+    # Create a hierarchical path from the new, named trace ID
+    local trace_path="${CURLPILOT_TRACE_DIR}/$(echo "$child_trace_id" | tr '.' '/')"
+    mkdir -p "$trace_path"
 
-    log_debug "Executing dep '$key' with TRACE_ID=$child_trace_id"
+    # Save the request arguments as JSON
+    jq -n --arg key "$key" --args -- "$@" '{$key: $ARGS.positional}' > "${trace_path}/request.json"
+
+    output_file="${trace_path}/response.json"
+
+    log_trace "Executing dep '$key' in TRACE_PATH=$trace_path"
     exec_cmd=(env "CURLPILOT_TRACE_ID=${child_trace_id}" "CURLPILOT_TRACE_NAME=${key}" "${exec_cmd[@]}")
   else
     output_file=$(mktemp)
@@ -238,7 +247,7 @@ exec_dep() (
   fi
 
   cat "$output_file"
-)
+}
 
 get_script_registry() {
   declare -p SCRIPT_REGISTRY

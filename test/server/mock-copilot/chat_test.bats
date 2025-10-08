@@ -18,7 +18,7 @@ setup() {
   log_trace "Dependencies mocked."
 
   export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
-  log_debug "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+  log_info "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
 
 
@@ -43,6 +43,7 @@ EOF
 }
 
 @test "chat.bash correctly processes a streaming response" {
+  enable_tracing
   log_debug "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
   # 1. Generate the mock SSE body using the dedicated script.

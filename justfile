@@ -2,6 +2,8 @@ set positional-arguments
 
 mod schemas
 
+# find . -type f -not -name .counter | sort | xargs head
+
 help:
     @just --list
 

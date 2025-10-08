@@ -7,8 +7,6 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
-log_debug "deps loaded"
-
 register_dep parse_args "parse_args/parse_args.bash"
 
 # 1. Define the schema for the command-line arguments.
