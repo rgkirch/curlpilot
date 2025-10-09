@@ -1,11 +1,8 @@
 #!/usr/bin/env bats
 
-setup() {
-  # Source the real helpers, which will define the REAL project root.
-  source "$(dirname "$BATS_TEST_FILENAME")/test_helper.bash"
+source "$(dirname "$BATS_TEST_FILENAME")/test_helper.bash"
 
-  # Source the script-under-test using the correct wrapper.
-  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
+_setup() {
 
   # Create a sandbox for our temporary scripts.
   SANDBOX_DIR="$BATS_TEST_TMPDIR/sandbox"
@@ -21,13 +18,6 @@ setup() {
   # existence check on the original file passes.
   mkdir -p "$PROJECT_ROOT/src"
 }
-
-teardown() {
-  echo "--- Teardown File Dump For Test: '$BATS_TEST_DESCRIPTION' ---" >&3
-  find "$BATS_TEST_TMPDIR" -type f -print0 | xargs -0 head &> /dev/fd/3 || true
-}
-
-# --- Sandboxed Helper Functions ---
 
 create_sandboxed_dep() {
   local name="$1"
