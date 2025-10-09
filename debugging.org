@@ -1,0 +1,3 @@
+#+begin_src bash
+export PS4='+\e[0;33m${BASH_SOURCE##*/}:${LINENO}\e[0m '
+#+end_src

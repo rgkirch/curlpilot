@@ -1,49 +1,38 @@
 # curlpilot/deps.bash
-#. ./libs/TickTick/ticktick.sh
 
 # A sourced library file like deps.bash should never change the shell options of its caller. So, don't set -euox pipefail.
 
-#export PS4='+\e[0;33m${BASH_SOURCE##*/}:${LINENO}\e[0m '
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/src/logging.bash"
 
-# The directory containing this script is now officially the PROJECT_ROOT.
 PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 # --- Tracing Initialization ---
-# If tracing is enabled via "true", create a base temporary directory.
-if [[ "${CURLPILOT_TRACE_DIR:-}" == "true" ]]; then
-  export CURLPILOT_TRACE_DIR
-  CURLPILOT_TRACE_DIR="$(mktemp -d -t curlpilot-trace.XXXXXX)"
-  echo "CURLPILOT tracing enabled. Base log directory: ${CURLPILOT_TRACE_DIR}" >&2
-fi
-
-# If tracing is enabled, ensure the environment is isolated for this process tree.
-if [[ -n "${CURLPILOT_TRACE_DIR:-}" ]]; then
-  # If CURLPILOT_TRACE_ROOT_PID is not set, this is the root of a new trace.
-  if [[ -z "${CURLPILOT_TRACE_ROOT_PID:-}" ]]; then
-    # Create an isolated subdirectory named after our own Process ID.
-    pid_dir="${CURLPILOT_TRACE_DIR}/$$"
-    mkdir -p "$pid_dir"
-
-    # Re-export the trace directory to point to our isolated subdirectory.
-    export CURLPILOT_TRACE_DIR="$pid_dir"
-
-    # Export our PID as the root for all children to see.
-    export CURLPILOT_TRACE_ROOT_PID="$$"
+# Initialize a root trace directory once per (test) run.
+if [[ "${CURLPILOT_TRACE:-}" == "true" && -z "${CURLPILOT_TRACE_ROOT_DIR:-}" ]]; then
+  if [[ -n "${BATS_TEST_TMPDIR:-}" ]]; then
+    export CURLPILOT_TRACE_ROOT_DIR
+    CURLPILOT_TRACE_ROOT_DIR="$(mktemp -d "${BATS_TEST_TMPDIR%/}/curlpilot-trace.${BATS_ROOT_PID:-$$}.XXXXXX")"
+  else
+    export CURLPILOT_TRACE_ROOT_DIR
+    CURLPILOT_TRACE_ROOT_DIR="$(mktemp -d -t curlpilot-trace.XXXXXX)"
   fi
-
-  # Initialize trace IDs and names if they are not already set for this process.
-  if [[ -z "${CURLPILOT_TRACE_ID:-}" ]]; then
-    export CURLPILOT_TRACE_ID
-    export CURLPILOT_TRACE_NAME
-    CURLPILOT_TRACE_NAME=$(basename "$0" .bash)
-    CURLPILOT_TRACE_ID="1_${CURLPILOT_TRACE_NAME}"
-  fi
+  log_info "CURLPILOT tracing enabled. Base log directory: ${CURLPILOT_TRACE_ROOT_DIR}"
 fi
-
-# Counter for child processes spawned by exec_dep from the current context.
-_CURLPILOT_EXEC_DEP_COUNTER=0
+# Per-process base trace path (adds PID to avoid collisions)
+if [[ -n "${CURLPILOT_TRACE_ROOT_DIR:-}" && -z "${CURLPILOT_TRACE_PATH:-}" ]]; then
+  export CURLPILOT_TRACE_PATH="${CURLPILOT_TRACE_ROOT_DIR}/$(basename "$0" .bash).pid$$"
+  mkdir -p "$CURLPILOT_TRACE_PATH"
+fi
 # --- End Tracing Initialization ---
+
+_increment_counter() {
+  local counter_file="$1"
+  local child_num
+  child_num=$(cat "$counter_file" 2>/dev/null || echo 0)
+  child_num=$((child_num + 1))
+  echo "$child_num" > "$counter_file"
+  echo "$child_num"
+}
 
 
 if ! declare -p SCRIPT_REGISTRY > /dev/null 2>&1; then
@@ -97,7 +86,6 @@ register_dep() {
   local original_path="src/$2"
   local final_path="$original_path"
 
-  # First, determine what the final path for this registration attempt will be.
   local override_var_name
   override_var_name=$(_get_override_var_name "$original_path")
   if [[ -n "${!override_var_name-}" ]]; then
@@ -106,11 +94,9 @@ register_dep() {
   local new_resolved_path
   new_resolved_path=$(resolve_path "$final_path")
 
-  # Now, check if this key has been registered before.
   if [[ -v SCRIPT_REGISTRY["$key"] ]]; then
     local existing_path="${SCRIPT_REGISTRY[$key]}"
 
-    # If the new path is different from the old one, it's a fatal error.
     if [[ "$new_resolved_path" != "$existing_path" ]]; then
       {
         echo "---"
@@ -123,13 +109,11 @@ register_dep() {
       } >&2
       exit 1
     else
-      # If it's the same path, it's a benign re-registration. Issue a warning.
       log_warn "Warning: Dependency '$key' was registered multiple times with the same path."
       return 0
     fi
   fi
 
-  # This is a new registration. Check if the file exists before adding it.
   if [[ ! -f "$new_resolved_path" ]]; then
     {
       echo "---"
@@ -141,21 +125,50 @@ register_dep() {
     exit 1
   fi
 
-  # Add the new, validated dependency to the registry.
   SCRIPT_REGISTRY["$key"]="$new_resolved_path"
 }
 
+_validate_stream() {
+  local stream_name="$1"
+  local captured_file="$2"
+  local schema_file="$3"
+  local validator_path="$4"
+  local key="$5"
+  local trace_path="$6" # Can be empty
+
+  if [[ ! -f "$schema_file" ]]; then
+    return 0 # No schema, no validation needed.
+  fi
+
+  set +e
+  local validation_errors
+  validation_errors=$(cat "$captured_file" | bash "$validator_path" "$schema_file" 2>&1)
+  local validation_code=$?
+  set -e
+
+  if [[ $validation_code -ne 0 ]]; then
+    echo "Error: The '${stream_name}' of '$key' failed schema validation." >&2
+    echo "Schema: $schema_file" >&2
+    echo "--- Validation Errors ---" >&2
+    echo "$validation_errors" >&2
+    echo "--- Invalid Output (${stream_name}) ---" >&2
+    cat "$captured_file" >&2
+    if [[ -n "$trace_path" ]]; then
+        echo "$validation_errors" > "${trace_path}/${stream_name}_validation_errors"
+    fi
+    return 1
+  fi
+  return 0
+}
+
 exec_dep() {
-  #set -euox pipefail
-  #export PS4="+[$$] \${BASH_SOURCE##*/}:\${LINENO} "
+  # --- Initial Checks ---
   if ! declare -p SCRIPT_REGISTRY >/dev/null 2>&1; then
     echo "Error (deps.bash): SCRIPT_REGISTRY is not defined." >&2
     exit 1
   fi
-
   local key="$1"
   local script_path="${SCRIPT_REGISTRY[$key]}"
-
   if [[ -z "$script_path" ]]; then
     echo "Error: No script registered for key '$key'" >&2
     return 1
@@ -166,87 +179,75 @@ exec_dep() {
   fi
   shift
 
-  local base_path
-  base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
-  local output_schema_path="${base_path}.output.schema.json"
+  # --- UNIFIED SETUP ---
+  local trace_path=""
+  local stdout_file stderr_file
+  local exec_cmd exit_code
+  local base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
   local validator_path="$PROJECT_ROOT/src/schema_validator.bash"
+  local stdout_schema_path="${base_path}.stdout.schema.json"
+  local stderr_schema_path="${base_path}.stderr.schema.json"
 
-  if [[ -f "$output_schema_path" ]]; then
-    if [[ ! -f "$validator_path" ]]; then
-      echo "Error: A schema file was found, but the validator is missing or not executable at '$validator_path'." >&2
-      return 1
-    fi
-  fi
-
-  local output_file
-  local exec_cmd
-  local child_trace_id=""
-  exec_cmd=(bash "$script_path" "$@")
-
-  if [[ -n "${CURLPILOT_TRACE_DIR:-}" ]]; then
-    # Use a file-based counter within the parent's trace directory for robustness across subshells.
-    parent_trace_path="${CURLPILOT_TRACE_DIR}/$(echo "$CURLPILOT_TRACE_ID" | tr '.' '/')"
-    mkdir -p "$parent_trace_path"
-    counter_file="${parent_trace_path}/.counter"
-    
-    child_num=$(cat "$counter_file" 2>/dev/null || echo 0)
-    child_num=$((child_num + 1))
-    echo "$child_num" > "$counter_file"
-
-    child_trace_id="${CURLPILOT_TRACE_ID}.${child_num}_${key}"
-
-    # Create a hierarchical path from the new, named trace ID
-    local trace_path="${CURLPILOT_TRACE_DIR}/$(echo "$child_trace_id" | tr '.' '/')"
+  if [[ -n "${CURLPILOT_TRACE_PATH:-}" ]]; then
+    # Setup for TRACING MODE (persistent files)
+    trace_path="$CURLPILOT_TRACE_PATH/$(_increment_counter "$CURLPILOT_TRACE_PATH"/.counter)_$key"
     mkdir -p "$trace_path"
+    stdout_file="${trace_path}/stdout"
+    stderr_file="${trace_path}/stderr"
+    exec_cmd=(env "CURLPILOT_TRACE_PATH=${trace_path}" bash "$script_path" "$@")
 
-    # Save the request arguments as JSON
-    jq -n --arg key "$key" --args -- "$@" '{$key: $ARGS.positional}' > "${trace_path}/request.json"
-
-    output_file="${trace_path}/response.json"
-
-    log_trace "Executing dep '$key' in TRACE_PATH=$trace_path"
-    exec_cmd=(env "CURLPILOT_TRACE_ID=${child_trace_id}" "CURLPILOT_TRACE_NAME=${key}" "${exec_cmd[@]}")
+    # Write metadata
+    jq -n --arg key "$key" --arg script_path "$script_path" \
+      --arg cwd "$(pwd)" --arg pid "$$" --arg ppid "$PPID" \
+      --arg timestamp "$(date -Iseconds)" \
+      '{key:$key,script_path:$script_path,cwd:$cwd,pid:$pid,ppid:$ppid,timestamp:$timestamp}' \
+      > "${trace_path}/meta.json"
+    jq --null-input --args -- "$@" '$ARGS.positional' > "${trace_path}/args.json"
+    log_debug "Executing dep '$key' with streaming trace to: $trace_path"
   else
-    output_file=$(mktemp)
-    trap "rm -f '$output_file'" RETURN
+    # Setup for NON-TRACING MODE (temporary files)
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+    trap "rm -f '$stdout_file' '$stderr_file'" RETURN
+    exec_cmd=(bash "$script_path" "$@")
   fi
 
+  local stdout_pipe stderr_pipe
+  stdout_pipe=$(mktemp -u); stderr_pipe=$(mktemp -u)
+  mkfifo "$stdout_pipe" "$stderr_pipe"
+  trap 'rm -f "$stdout_pipe" "$stderr_pipe"' EXIT
+
+  tee "$stdout_file" < "$stdout_pipe" &
+  tee "$stderr_file" < "$stderr_pipe" >&2 &
 
   set +e
-  "${exec_cmd[@]}" > "$output_file"
-  local exit_code=$?
+  "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
+  exit_code=$?
   set -e
+  wait # Wait for tee processes to finish
+
+  if [[ -n "$trace_path" ]]; then
+    echo "$exit_code" > "${trace_path}/exit_code"
+  fi
 
   if [[ $exit_code -ne 0 ]]; then
-    cat "$output_file" >&2
+    log_error "Dependency '$key' exited with code $exit_code (trace: ${trace_path:-N/A})"
     return $exit_code
   fi
 
-  if [[ -f "$output_schema_path" ]]; then
-    set +e
-    local validation_errors
-    validation_errors=$(cat "$output_file" | bash "$validator_path" "$output_schema_path" 2>&1)
-    local validation_code=$?
-    set -e
-    if [[ $validation_code -ne 0 ]]; then
-      if [[ -n "$child_trace_id" ]]; then
-        local trace_base_name="${child_trace_id}.${key}"
-        local error_file="${CURLPILOT_TRACE_DIR}/${trace_base_name}.validation_errors"
-        echo "$validation_errors" > "$error_file"
-        echo "Validation errors for '$key' saved to: $error_file" >&2
-      fi
-
-      echo "Error: Output of '$key' ($script_path) failed output schema validation." >&2
-      echo "Schema: $output_schema_path" >&2
-      echo "--- Validation Errors ---" >&2
-      echo "$validation_errors" >&2
-      echo "--- Invalid Output ---" >&2
-      cat "$output_file" >&2
-      return 1
-    fi
+  local all_validations_passed=true
+  if ! _validate_stream "stdout" "$stdout_file" "$stdout_schema_path" "$validator_path" "$key" "$trace_path"; then
+    all_validations_passed=false
+  fi
+  if ! _validate_stream "stderr" "$stderr_file" "$stderr_schema_path" "$validator_path" "$key" "$trace_path"; then
+    all_validations_passed=false
   fi
 
-  cat "$output_file"
+  if ! $all_validations_passed; then
+    return 1
+  fi
+
+  return 0
 }
 
 get_script_registry() {

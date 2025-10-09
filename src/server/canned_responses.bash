@@ -25,20 +25,16 @@ readonly ARG_SPEC_JSON='{
   }
 }'
 
-for a in "$@"; do
-  log_debug "arg $a"
-done
-
 PARSED=$(exec_dep parse_args "$@")
 log_debug "PARSED $PARSED"
 CONFORMED=$(exec_dep conform_args --spec-json "$ARG_SPEC_JSON" --parsed-json "$PARSED")
-log_debug "CONFORMED $CONFORMED"
+log_trace "CONFORMED $CONFORMED"
 
 PORT=$(jq -r '.port' <<< "$CONFORMED")
 RESPONSES_JSON=$(jq -c '.responses' <<< "$CONFORMED")
 REQUEST_DIR=$(jq -r '.request_dir // ""' <<< "$CONFORMED")
 
-log_debug "RESPONSES_JSON $RESPONSES_JSON"
+log_trace "RESPONSES_JSON $RESPONSES_JSON"
 
 if [[ -z "$RESPONSES_JSON" || "$RESPONSES_JSON" == "null" ]]; then
   echo "No responses provided" >&2

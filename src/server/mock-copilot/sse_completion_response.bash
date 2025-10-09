@@ -38,10 +38,10 @@ job_ticket_json=$(jq --null-input \
 
 log_debug "job ticket json: $job_ticket_json"
 
-A="$(exec_dep parse_args "$job_ticket_json")"
+PARSED="$(exec_dep parse_args "$job_ticket_json")"
 
-log_debug "A: $A"
+log_debug "PARSED: $PARSED"
 
 jq --compact-output \
   --raw-output \
-  --from-file "$(dirname "$0")"/sse_completion_response.jq <<< "$A"
+  --from-file "$(dirname "$0")"/sse_completion_response.jq <<< "$PARSED"

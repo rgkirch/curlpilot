@@ -240,15 +240,76 @@ This section will be expanded to cover the following helper libraries:
 
 `bats-file` provides common filesystem-related assertions and helpers. It depends on `bats-support`.
 
-**Key Functions:**
+## **Index of all Functions**
 
-- **`assert_exists` / `assert_not_exists`**: Assert that a file or directory exists or does not exist.
-- **`assert_file_exists` / `assert_dir_exists`**: More specific existence assertions.
-- **`assert_file_executable`**: Assert that a file is executable.
-- **`assert_file_contains` / `assert_file_not_contains`**: Assert that a file contains or does not contain a regex match.
-- **`assert_files_equal`**: Assert that two files have the same content.
-- **`temp_make`**: Creates a temporary directory for a test.
-- **`temp_del`**: Deletes a temporary directory.
+Below is a categorized list of available assertion functions for testing files and directories. Each group covers a specific aspect of file or directory verification.
+
+### **Test File Types**
+
+- **File or Directory Existence**
+  - `assert_exists`: Check if a file or directory exists.
+  - `assert_not_exists`: Check if a file or directory does not exist.
+- **File Existence**
+  - `assert_file_exists`: Check if a file exists.
+  - `assert_file_not_exists`: Check if a file does not exist.
+- **Directory Existence**
+  - `assert_dir_exists`: Check if a directory exists.
+  - `assert_dir_not_exists`: Check if a directory does not exist.
+- **Link Existence**
+  - `assert_link_exists`: Check if a link exists.
+  - `assert_link_not_exists`: Check if a link does not exist.
+- **Block Special File Existence**
+  - `assert_block_exists`: Check if a block special file exists.
+  - `assert_block_not_exists`: Check if a block special file does not exist.
+- **Character Special File Existence**
+  - `assert_character_exists`: Check if a character special file exists.
+  - `assert_character_not_exists`: Check if a character special file does not exist.
+- **Socket Existence**
+  - `assert_socket_exists`: Check if a socket exists.
+  - `assert_socket_not_exists`: Check if a socket does not exist.
+- **FIFO Special File Existence**
+  - `assert_fifo_exists`: Check if a FIFO special file exists.
+  - `assert_fifo_not_exists`: Check if a FIFO special file does not exist.
+
+### **Test File Attributes**
+
+- **Executable Check**
+  - `assert_file_executable`: Check if a file is executable.
+  - `assert_file_not_executable`: Check if a file is not executable.
+- **File Owner Verification**
+  - `assert_file_owner`: Check if the file has the specified owner.
+  - `assert_file_not_owner`: Check if the file does not have the specified owner.
+- **Permission Check**
+  - `assert_file_permission`: Check the permission of a file.
+  - `assert_not_file_permission`: Check that a file does not have the specified permission.
+- **File Size Verification**
+  - `assert_file_size_equals`: Check if a file's size matches the expected number of bytes.
+- **Zero Byte File Check**
+  - `assert_size_zero`: Check if a file has zero bytes.
+  - `assert_size_not_zero`: Check if a file does not have zero bytes.
+- **Group ID Verification**
+  - `assert_file_group_id_set`: Check if a file has the specified group ID.
+  - `assert_file_not_group_id_set`: Check if a file does not have the specified group ID.
+- **User ID Verification**
+  - `assert_file_user_id_set`: Check if a file has the specified user ID.
+  - `assert_file_not_user_id_set`: Check if a file does not have the specified user ID.
+- **Sticky Bit Check**
+  - `assert_sticky_bit`: Check if the sticky bit is set.
+  - `assert_no_sticky_bit`: Check if the sticky bit is not set.
+
+### **Test File Content**
+
+- **Empty File Check**
+  - `assert_file_empty`: Check if a file is empty.
+  - `assert_file_not_empty`: Check if a file is not empty.
+- **Contents with Regular Expressions**
+  - `assert_file_contains`: Check if a file contains content matching a regular expression.
+  - `assert_file_not_contains`: Check if a file does not contain content matching a regular expression.
+- **Symlink Target Verification**
+  - `assert_symlink_to`: Check if a file is a symlink to the specified target.
+  - `assert_not_symlink_to`: Check if a file is not a symlink to the specified target.
+- **File Content Comparison**
+  - `assert_files_equal`: Check if the contents of two files are the same.
 
 **Example:**
 

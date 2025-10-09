@@ -50,7 +50,7 @@ retry() {
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
     --stdout-log 3 \
     --stderr-log 3 \
-    --child-args -- --message-content "$message"
+    --message-content "$message"
   log_debug "run command finished with status: $status"
   assert_success
   log_debug "assert_success finished"

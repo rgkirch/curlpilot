@@ -12,12 +12,9 @@ set -euo pipefail
 
 SOURCE_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 source "$SOURCE_DIR/.deps.bash"
-# schema validator is optional; register if exists
-if [[ -f "$SOURCE_DIR/schema_validator.bash" ]]; then
-  register_dep schema_validator "parse_args/schema_validator.bash"
-fi
+register_dep schema_validator "schema_validator.bash"
 
-log_debug "args $@"
+log_trace "args $@"
 
 usage() {
   echo "Usage: $0 --spec-json '<json>' --parsed-json '<json>'" >&2
@@ -37,26 +34,23 @@ while (( $# )); do
   shift || true
 done
 
-log_debug "SPEC_JSON $SPEC_JSON and PARSED_JSON $PARSED_JSON"
+log_debug "SPEC_JSON\n'''\n$SPEC_JSON\n''' and PARSED_JSON\n'''\n$PARSED_JSON\n'''"
 
 [[ -n "$SPEC_JSON" && -n "$PARSED_JSON" ]] || usage
 
-log_debug "insane 1"
 # Quick sanity checks
 if ! echo "$SPEC_JSON" | jq -e . >/dev/null 2>&1; then
   error "conform_args: spec is not valid JSON" >&2; exit 1; fi
 if ! echo "$PARSED_JSON" | jq -e . >/dev/null 2>&1; then
   error "conform_args: parsed args is not valid JSON" >&2; exit 1; fi
 
-log_debug "insane 2"
 # Build output object incrementally.
 OUTPUT='{}'
 ERRORS=()
 
-log_debug "insane 3"
 # Iterate spec keys preserving insertion order
 while IFS= read -r key; do
-  log_debug "procesing key $key"
+  log_trace "procesing key $key"
   spec_entry=$(echo "$SPEC_JSON" | jq -c --arg k "$key" '.[$k]')
   type=$(echo "$spec_entry" | jq -r '.type')
   has_default=$(echo "$spec_entry" | jq 'has("default")')
@@ -71,10 +65,13 @@ while IFS= read -r key; do
       raw_value="$default_value"
       is_from_default=true
     else
+      log_trace "continue_missing required --$key spec_entry=$spec_entry type=$type"
       ERRORS+=("missing required argument --$key")
       continue
     fi
   fi
+
+  log_trace "pre_coerce key=$key type=$type parsed_present=$parsed_present has_default=$has_default is_from_default=$is_from_default raw_value=$raw_value spec_entry=$spec_entry"
 
   # Coerce according to type
   case "$type" in
@@ -92,6 +89,7 @@ while IFS= read -r key; do
         val=false
       else
         # presence boolean with non-standard value -> error
+        log_trace "continue_invalid_boolean key=$key lit=$lit raw_value=$raw_value"
         ERRORS+=("invalid boolean for --$key: $lit")
         continue
       fi
@@ -101,11 +99,13 @@ while IFS= read -r key; do
       lit=$(echo "$raw_value" | jq -r '.') || lit="$raw_value"
       if [[ "$type" == "integer" ]]; then
         if [[ ! "$lit" =~ ^-?[0-9]+$ ]]; then
+          log_trace "continue_invalid_integer key=$key lit=$lit raw_value=$raw_value"
           ERRORS+=("--$key must be integer, got '$lit'")
           continue
         fi
       else
         if [[ ! "$lit" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+          log_trace "continue_invalid_number key=$key lit=$lit raw_value=$raw_value"
           ERRORS+=("--$key must be number, got '$lit'")
           continue
         fi
@@ -115,12 +115,14 @@ while IFS= read -r key; do
     enum)
       enums=$(echo "$spec_entry" | jq -c '.enums // empty')
       if [[ -z "$enums" || "$enums" == "null" ]]; then
+        log_trace "continue_enum_missing key=$key spec_entry=$spec_entry"
         ERRORS+=("enum spec for --$key missing 'enums' array")
         continue
       fi
       lit=$(echo "$raw_value" | jq -r '.')
       in_set=$(echo "$enums" | jq --arg v "$lit" 'index($v) // false')
       if [[ "$in_set" == "false" ]]; then
+        log_trace "continue_enum_value key=$key lit=$lit enums=$enums"
         ERRORS+=("--$key invalid enum value '$lit'")
         continue
       fi
@@ -130,6 +132,7 @@ while IFS= read -r key; do
       lit=$(echo "$raw_value" | jq -r '.')
       # Test compile using grep -E (portable enough)
       if ! echo "" | grep -E "$lit" >/dev/null 2>&1; then
+        log_trace "continue_invalid_regex key=$key lit=$lit"
         ERRORS+=("--$key invalid regex '$lit'")
         continue
       fi
@@ -139,6 +142,7 @@ while IFS= read -r key; do
       if [[ "$is_from_default" == "true" ]]; then
         # Contract for defaults: MUST be native JSON.
         if [[ $(echo "$raw_value" | jq 'type') == '"string"' ]]; then
+          log_trace "continue_json_default_string key=$key raw_value=$raw_value"
           ERRORS+=("--$key default in spec must be native JSON, but a string was provided")
           continue
         fi
@@ -146,11 +150,13 @@ while IFS= read -r key; do
       else
         # Contract for parsed args: MUST be a string that we can decode.
         if [[ $(echo "$raw_value" | jq 'type') != '"string"' ]]; then
+          log_trace "continue_json_parsed_not_string key=$key raw_value=$raw_value"
           ERRORS+=("--$key value from parsed args must be a string, but native JSON was provided")
           continue
         fi
-        compact=$(echo "$raw_value" | jq -c 'try fromjson catch "__DECODE_FAIL__"')
+        compact=$(jq -c 'try fromjson catch "__DECODE_FAIL__"' <<< "$raw_value")
         if [[ "$compact" == '"__DECODE_FAIL__"' ]]; then
+          log_trace "continue_json_decode_fail key=$key raw_value=$raw_value"
           ERRORS+=("--$key value contains malformed JSON")
           continue
         fi
@@ -181,15 +187,20 @@ while IFS= read -r key; do
       ;;
   esac
 
+  log_trace "finished processesing key $key. adding to output"
   # Add to OUTPUT
   if [[ "$type" == "json" ]]; then
     OUTPUT=$(jq --arg k "$key" --argjson v "$val_json" '. + {($k): $v}' <<< "$OUTPUT")
+    log_trace "OUTPUT includes json $OUTPUT"
   elif [[ "$type" == "boolean" ]]; then
     OUTPUT=$(jq --arg k "$key" --argjson v "$val" '. + {($k): $v}' <<< "$OUTPUT")
+    log_trace "OUTPUT includes boolean $OUTPUT"
   elif [[ "$type" == "number" || "$type" == "integer" ]]; then
     OUTPUT=$(jq --arg k "$key" --argjson v "$val" '. + {($k): $v}' <<< "$OUTPUT")
+    log_trace "OUTPUT includes number $OUTPUT"
   else
     OUTPUT=$(jq --arg k "$key" --arg v "$val" '. + {($k): $v}' <<< "$OUTPUT")
+    log_trace "OUTPUT includes something else $OUTPUT"
   fi
 
 done < <(echo "$SPEC_JSON" | jq -r 'keys[]')
@@ -200,8 +211,6 @@ if (( ${#ERRORS[@]} )); then
   exit 1
 fi
 
-log_debug "OUTPUT $OUTPUT"
-
-log_debug "$(jq '.' <<<"$OUTPUT")"
+log_debug "OUTPUT $(jq '.' <<<"$OUTPUT")"
 
 jq -c '.' <<<"$OUTPUT"

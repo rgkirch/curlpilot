@@ -1,7 +1,7 @@
 # logging.bash
-# Provides intelligent logging functions with multiple levels.
+# Provides intelligent logging functions with multiple levels and dual output.
 
-
+# Include guard
 if [[ -n "${_LOGGING_BASH_SOURCED:-}" ]]; then
   return 0
 fi
@@ -14,16 +14,21 @@ if [[ -n "${BATS_TEST_FILENAME:-}" ]]; then
   LOG_FD=3
 fi
 
+# Determine the log file path for the current script execution, if tracing is enabled.
+TRACE_LOG_FILE=""
+if [[ -n "${CURLPILOT_TRACE_PATH:-}" ]]; then
+  TRACE_LOG_FILE="${CURLPILOT_TRACE_PATH%/}/script.log"
+fi
+
 # Define standard log levels as numeric values for comparison.
-LOG_LEVEL_FATAL=0
-LOG_LEVEL_ERROR=1
-LOG_LEVEL_WARN=2
-LOG_LEVEL_INFO=3
-LOG_LEVEL_DEBUG=4
-LOG_LEVEL_TRACE=5
+readonly LOG_LEVEL_FATAL=0
+readonly LOG_LEVEL_ERROR=1
+readonly LOG_LEVEL_WARN=2
+readonly LOG_LEVEL_INFO=3
+readonly LOG_LEVEL_DEBUG=4
+readonly LOG_LEVEL_TRACE=5
 
 # Read the configured log level from the environment. Default to INFO.
-# Convert the string level (e.g., "INFO") to its numeric value.
 case "${CURLPILOT_LOG_LEVEL:-INFO}" in
   FATAL) configured_level=$LOG_LEVEL_FATAL ;;
   ERROR) configured_level=$LOG_LEVEL_ERROR ;;
@@ -40,11 +45,19 @@ _log() {
   local level_name=$2
   shift 2
   
-  # Only log if the message's level is at or above the configured level.
   if (( level_num <= configured_level )); then
     local message
+    # BASH_SOURCE[2] is used because the call stack is e.g. log_info() -> _log().
     message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
+    
+    # 1. Echo to the console via LOG_FD (stderr or bats fd 3)
     echo "$message" >&"$LOG_FD"
+
+    # 2. Append to the trace log file, if it's defined
+    if [[ -n "$TRACE_LOG_FILE" ]]; then
+      mkdir -p "$(dirname "$TRACE_LOG_FILE")"
+      echo "$message" >> "$TRACE_LOG_FILE"
+    fi
   fi
 }
 

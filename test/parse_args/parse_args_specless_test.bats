@@ -17,10 +17,10 @@ _assert_key_string() {
 
 _assert_key_true() {
   local json="$1" key="$2"
-  echo "key $key json $json" >&3
+  log_trace "key $key json $json"
   run jq -r --arg k "$key" '.[$k]' <<<"$json"
   assert_success
-  echo "output from _assert_key_true $output" >&3
+  log_trace "output from _assert_key_true $output"
   assert_output 'true'
 }
 
@@ -47,7 +47,7 @@ _assert_key_true() {
 @test "short cluster letters" {
   run bash "$PARSER" -abc
   assert_success
-  echo "output $output" >&3
+  log_trace "output $output"
   parsed="$output"
   _assert_key_true "$parsed" a
   _assert_key_true "$parsed" b

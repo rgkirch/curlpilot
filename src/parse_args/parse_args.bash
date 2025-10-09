@@ -17,28 +17,28 @@ _main_parse() {
          --argjson args "$ARGS_JSON" \
          --from-file "$MAIN_PARSER_SCRIPT"
   ); then
-      echo "Error: The jq argument parser failed." >&2
+      log_error "Error: The jq argument parser failed."
       exit 1
   fi
 
   jq -c 'to_entries[] | select(.value.schema?) | {arg_name: .key, schema: .value.schema}' <<< "$SPEC_JSON" | \
   while read -r validation_task; do
-      log_debug "$$ $? validation_task $validation_task"
+      log_trace "$$ $? validation_task $validation_task"
       arg_name=$(jq -r '.arg_name' <<< "$validation_task")
-      log_debug "$$ $? arg_name $arg_name"
+      log_trace "$$ $? arg_name $arg_name"
       schema=$(jq -r '.schema' <<< "$validation_task")
-      log_debug "$$ $? schema $schema"
+      log_trace "$$ $? schema $schema"
 
       data_to_validate=$(jq --compact-output --arg key "$arg_name" '.[$key]' <<< "$PARSED_VALUES_JSON")
-      log_debug "$$ $? data_to_validate $data_to_validate"
+      log_trace "$$ $? data_to_validate $data_to_validate"
 
-      echo "Validating argument --$arg_name against schema: $schema" >&2
+      log_trace "Validating argument --$arg_name against schema: $schema"
 
       resolved_schema_path=$(resolve_path "$schema")
-      log_debug "$$ $? resolved_schema_path $resolved_schema_path"
+      log_trace "$$ $? resolved_schema_path $resolved_schema_path"
 
       if ! echo "$data_to_validate" | exec_dep schema_validator "$resolved_schema_path"; then
-          echo "Error: Schema validation failed for argument --$arg_name" >&2
+          log_error "Error: Schema validation failed for argument --$arg_name"
           exit 1
       fi
   done
@@ -52,7 +52,7 @@ _main_parse() {
 # --- Main Script Execution ---
 
 if ! command -v jq &> /dev/null; then
-    echo "Error: jq is not installed..." >&2
+    log_error "Error: jq is not installed..."
     exit 1
 fi
 if [[ "$#" -ne 1 ]]; then

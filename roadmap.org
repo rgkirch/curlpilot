@@ -1,3 +1,4 @@
+- [ ] run deps.bash tests first before feature tests.
 - [ ] file editing
 - [ ] tool use (mcp)
 - [ ] conversation

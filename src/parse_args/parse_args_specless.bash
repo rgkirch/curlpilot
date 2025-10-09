@@ -23,8 +23,6 @@ set -euo pipefail
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.deps.bash"
 
-log_trace "sourced deps"
-
 _die() { echo "parse_args_specless error: $*" >&2; exit 1; }
 
 # Validate long key characters (post normalization) strictly: [a-z0-9_]
@@ -134,6 +132,6 @@ for k in "${order[@]}"; do
   fi
 done
 
-log_debug "json $json"
+log_debug "wc -l $(wc -l <<<"$json") json $json"
 
 echo "$json"

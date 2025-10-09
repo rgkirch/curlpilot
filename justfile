@@ -10,8 +10,8 @@ help:
 test *ARGS:
     @./run_tests.bash "$@"
 
-test-all:
-    @./run_tests.bash -r test --jobs 32
+test-all *ARGS:
+    @./run_tests.bash -r test --jobs 32 "$@"
 
 copilot-review-diff:
     @./scripts/review.bash
