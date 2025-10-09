@@ -45,14 +45,17 @@ enable_tracing() {
   # Log the trace directory to fd 3 for debugging in test output.
   echo "Tracing enabled. Directory: $CURLPILOT_TRACE_DIR" >&3
 }
-
 setup() {
-  source "$(dirname "$BATS_TEST_FILENAME")/test_helper.bash"
-  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  _setup
+  if declare -f _setup > /dev/null; then
+    _setup
+  fi
 }
 
 teardown() {
+  if declare -f _teardown > /dev/null; then
+    _teardown
+  fi
+
   echo "--- Teardown File Dump For Test: '$BATS_TEST_DESCRIPTION' ---" >&3
   find "$BATS_TEST_TMPDIR" -type f -print0 | sort -z | xargs -0 head &> /dev/fd/3 || true
 }
