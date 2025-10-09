@@ -4,7 +4,9 @@
 
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/src/logging.bash"
 
-PROJECT_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# Set PROJECT_ROOT only if it is not already set. This makes the script
+# testable and allows parent scripts to override the root directory.
+: "${PROJECT_ROOT:="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"}"
 
 # --- Tracing Initialization ---
 # Initialize a root trace directory once per (test) run.
@@ -188,7 +190,7 @@ exec_dep() {
   local stdout_schema_path="${base_path}.stdout.schema.json"
   local stderr_schema_path="${base_path}.stderr.schema.json"
 
-  if [[ -n "${CURLPILOT_TRACE_PATH:-}" ]]; then
+  if [[ -n "${CURLPILOT_TRACE:-}" ]]; then
     # Setup for TRACING MODE (persistent files)
     trace_path="$CURLPILOT_TRACE_PATH/$(_increment_counter "$CURLPILOT_TRACE_PATH"/.counter)_$key"
     mkdir -p "$trace_path"
@@ -202,7 +204,7 @@ exec_dep() {
       --arg timestamp "$(date -Iseconds)" \
       '{key:$key,script_path:$script_path,cwd:$cwd,pid:$pid,ppid:$ppid,timestamp:$timestamp}' \
       > "${trace_path}/meta.json"
-    jq --null-input --args -- "$@" '$ARGS.positional' > "${trace_path}/args.json"
+    jq --null-input '$ARGS.positional' --args -- "$@" > "${trace_path}/args.json"
     log_debug "Executing dep '$key' with streaming trace to: $trace_path"
   else
     # Setup for NON-TRACING MODE (temporary files)
@@ -255,10 +257,20 @@ get_script_registry() {
 }
 
 mock_dep() {
-  #export PS4="+[$$] \${BASH_SOURCE##*/}:\${LINENO} "
   local original_path="src/$1"
-  local mock_path="test/$2"
+  local mock_arg="$2"
+  local mock_path
 
+  # FIX: Handle both absolute and relative paths for the mock file.
+  if [[ "$mock_arg" == /* ]]; then
+    # It's an absolute path, use it directly.
+    mock_path="$mock_arg"
+  else
+    # It's a relative path, assume it's inside test/.
+    mock_path="test/$mock_arg"
+  fi
+
+  # We still check for the original file's existence to prevent typos.
   if [[ ! -f "$(resolve_path "$original_path")" ]]; then
     echo "Mocking ERROR: The original dependency file '$original_path' does not exist." >&2
     return 1
