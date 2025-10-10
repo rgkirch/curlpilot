@@ -3,22 +3,39 @@ set -euo pipefail
 
 # Get the directory containing this script.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$SCRIPT_DIR"
-BATS_EXECUTABLE="$PROJECT_ROOT/libs/bats/bin/bats"
+
+# Define and export a stable path to the BATS libraries.
+# This allows test files to safely override PROJECT_ROOT for sandboxing.
+export BATS_LIBS_DIR="$SCRIPT_DIR/libs"
+
+# Define the Bats executable path in terms of the libs directory.
+BATS_EXECUTABLE="$BATS_LIBS_DIR/bats/bin/bats"
 
 # Initialize variables.
-export CURLPILOT_LOG_LEVEL="${CURLPILOT_LOG_LEVEL:-ERROR}" # Default to ERROR for clean output
+export CURLPILOT_LOG_LEVEL="${CURLPILOT_LOG_LEVEL:-ERROR}"
+export BATS_NUMBER_OF_PARALLEL_JOBS=1
 BATS_ARGS=()
 
-# Allow the --verbose flag to enable INFO level logging.
-for arg in "$@"; do
-  if [[ "$arg" == "--verbose" ]]; then
-    export CURLPILOT_LOG_LEVEL=INFO
-    echo "Log level set to INFO" >&2
-    BATS_ARGS+=(--verbose-run)
-  else
-    BATS_ARGS+=("$arg")
-  fi
+# Parse arguments to find the --jobs flag and set our environment variable.
+# Pass all other arguments through to BATS.
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -j|--jobs)
+      export BATS_NUMBER_OF_PARALLEL_JOBS="$2"
+      BATS_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --verbose)
+      export CURLPILOT_LOG_LEVEL=INFO
+      echo "Log level set to INFO" >&2
+      BATS_ARGS+=(--verbose-run)
+      shift
+      ;;
+    *)
+      BATS_ARGS+=("$1")
+      shift
+      ;;
+  esac
 done
 
 # Check if the Bats executable exists.
@@ -28,5 +45,5 @@ if [ ! -x "$BATS_EXECUTABLE" ]; then
 fi
 
 # Run bats with all the collected arguments.
-echo "Running command: CURLPILOT_LOG_LEVEL=$CURLPILOT_LOG_LEVEL '$BATS_EXECUTABLE' --timing '${BATS_ARGS[@]}'"
+echo "Running command: '$BATS_EXECUTABLE' --timing '${BATS_ARGS[*]}'"
 "$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}"

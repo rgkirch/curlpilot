@@ -1,50 +1,91 @@
 #!/usr/bin/env bats
 
+# Source the global test helper, which provides the setup() and teardown() hooks.
 source "$(dirname "$BATS_TEST_FILENAME")/test_helper.bash"
 
+# This test-specific setup function will be called automatically by the global setup().
 _setup() {
+  local REAL_PROJECT_ROOT="$PROJECT_ROOT"
+  local SANDBOX_ROOT="$BATS_TEST_TMPDIR/sandbox"
+  local SANDBOX_SRC_DIR="$SANDBOX_ROOT/src"
 
-  # Create a sandbox for our temporary scripts.
-  SANDBOX_DIR="$BATS_TEST_TMPDIR/sandbox"
-  mkdir -p "$SANDBOX_DIR"
+  # 1. Create sandbox directory structure
+  mkdir -p "$SANDBOX_SRC_DIR"
+  mkdir -p "$SANDBOX_ROOT/test/mock"
+
+  # 2. Create a mock logging.bash in the sandbox.
+  # This makes deps.bash work without needing the real logging script.
+  cat > "$SANDBOX_SRC_DIR/logging.bash" <<'EOF'
+log_error() { echo "ERROR: $@" >&2; }
+log_info() { echo "INFO: $@" >&2; }
+log_debug() { echo "DEBUG: $@" >&2; }
+log_warn() { echo "WARN: $@" >&2; }
+EOF
+
+  # 3. Create a MOCK schema_validator.bash in the sandbox.
+  # This removes the dependency on Node.js and ajv for our tests.
+  cat > "$SANDBOX_SRC_DIR/schema_validator.bash" <<'EOF'
+#!/usr/bin/env bash
+# Mock schema validator. The schema file argument ($1) is ignored.
+# It just checks if stdin is valid JSON.
+if ! jq -e . >/dev/null 2>&1; then
+    echo "Mock Validator: Invalid JSON" >&2
+    exit 1
+fi
+exit 0
+EOF
+  chmod +x "$SANDBOX_SRC_DIR/schema_validator.bash"
+
+
+  # 4. NOW, HIJACK PROJECT_ROOT for the test's execution context.
+  export PROJECT_ROOT="$SANDBOX_ROOT"
 
   # Failsafe: Ensure the sandbox is in a temporary directory.
-  if [[ ! "$SANDBOX_DIR" == /tmp/* ]]; then
+  if [[ ! "$PROJECT_ROOT" == /tmp/* ]]; then
     echo "FATAL: Sandbox directory is not under /tmp. Aborting." >&2
     exit 1
   fi
-
-  # Create a placeholder for the real src directory so mock_dep's
-  # existence check on the original file passes.
-  mkdir -p "$PROJECT_ROOT/src"
 }
 
-create_sandboxed_dep() {
+# --- Sandboxed Helper Functions ---
+create_dep_script() {
   local name="$1"
   local content="$2"
-  local script_path="$SANDBOX_DIR/${name}.bash"
-  mkdir -p "$(dirname "$script_path")"
+  local script_path="$PROJECT_ROOT/src/${name}.bash"
   echo "#!/usr/bin/env bash" > "$script_path"
   echo "$content" >> "$script_path"
   chmod +x "$script_path"
-  echo "$script_path" # Return the absolute path to the script
 }
 
-create_sandboxed_schema() {
+create_mock_script() {
   local name="$1"
   local content="$2"
-  local schema_path="$SANDBOX_DIR/${name}.schema.json"
-  mkdir -p "$(dirname "$schema_path")"
+  local script_path="$PROJECT_ROOT/test/mock/${name}.bash"
+  echo "#!/usr/bin/env bash" > "$script_path"
+  echo "$content" >> "$script_path"
+  chmod +x "$script_path"
+}
+
+create_schema() {
+  local name="$1"
+  local content="$2"
+  local schema_path="$PROJECT_ROOT/src/${name}.stdout.schema.json"
+  echo "$content" > "$schema_path"
+}
+
+create_stderr_schema() {
+  local name="$1"
+  local content="$2"
+  local schema_path="$PROJECT_ROOT/src/${name}.stderr.schema.json"
   echo "$content" > "$schema_path"
 }
 
 
 @test "exec_dep: basic execution with stdout and stderr" {
-  local script_path
-  script_path=$(create_sandboxed_dep "basic" 'echo "to stdout"; echo "to stderr" >&2')
-  touch "$PROJECT_ROOT/src/basic.bash" # Placeholder for mock_dep check
+  create_dep_script "basic" "I am the original"
+  create_mock_script "basic_mock" 'echo "to stdout"; echo "to stderr" >&2'
 
-  mock_dep "basic.bash" "$script_path"
+  mock_dep "basic.bash" "mock/basic_mock.bash"
   register_dep "basic_key" "basic.bash"
 
   run --separate-stderr exec_dep "basic_key"
@@ -54,11 +95,10 @@ create_sandboxed_schema() {
 }
 
 @test "exec_dep: passes arguments correctly" {
-  local script_path
-  script_path=$(create_sandboxed_dep "args" 'echo "Args: $@"')
-  touch "$PROJECT_ROOT/src/args.bash"
+  create_dep_script "args" "original"
+  create_mock_script "args_mock" 'echo "Args: $@"'
 
-  mock_dep "args.bash" "$script_path"
+  mock_dep "args.bash" "mock/args_mock.bash"
   register_dep "args_key" "args.bash"
 
   run --separate-stderr exec_dep "args_key" "hello" "world with spaces"
@@ -67,11 +107,10 @@ create_sandboxed_schema() {
 }
 
 @test "exec_dep: propagates non-zero exit code from dependency" {
-  local script_path
-  script_path=$(create_sandboxed_dep "fail" 'echo "something went wrong" >&2; exit 42')
-  touch "$PROJECT_ROOT/src/fail.bash"
+  create_dep_script "fail" "original"
+  create_mock_script "fail_mock" 'echo "something went wrong" >&2; exit 42'
 
-  mock_dep "fail.bash" "$script_path"
+  mock_dep "fail.bash" "mock/fail_mock.bash"
   register_dep "fail_key" "fail.bash"
 
   run --separate-stderr exec_dep "fail_key"
@@ -81,11 +120,13 @@ create_sandboxed_schema() {
 
 @test "exec_dep: enables tracing and creates trace files" {
   export CURLPILOT_TRACE=true
-  local script_path
-  script_path=$(create_sandboxed_dep "trace_me" 'echo "tracing stdout"')
-  touch "$PROJECT_ROOT/src/trace_me.bash"
+  # Re-source deps.bash AFTER setting the trace variable to trigger init logic.
+  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
 
-  mock_dep "trace_me.bash" "$script_path"
+  create_dep_script "trace_me" "original"
+  create_mock_script "trace_mock" 'echo "tracing stdout"'
+
+  mock_dep "trace_me.bash" "mock/trace_mock.bash"
   register_dep "trace_key" "trace_me.bash"
 
   run --separate-stderr exec_dep "trace_key" "arg1" "arg with spaces"
@@ -102,12 +143,9 @@ create_sandboxed_schema() {
 }
 
 @test "exec_dep: validates stdout against a schema (success)" {
-  local script_path
-  script_path=$(create_sandboxed_dep "valid_json" 'echo "{\"name\": \"test\"}"')
-  create_sandboxed_schema "valid_json.stdout" '{ "type": "object" }'
-  touch "$PROJECT_ROOT/src/valid_json.bash"
+  create_dep_script "valid_json" 'echo "{\"name\": \"test\"}"'
+  create_schema "valid_json" '{ "type": "object" }'
 
-  mock_dep "valid_json.bash" "$script_path"
   register_dep "valid_key" "valid_json.bash"
 
   run --separate-stderr exec_dep "valid_key"
@@ -115,12 +153,9 @@ create_sandboxed_schema() {
 }
 
 @test "exec_dep: validates stdout against a schema (failure)" {
-  local script_path
-  script_path=$(create_sandboxed_dep "invalid_json" 'echo "this is not json"')
-  create_sandboxed_schema "invalid_json.stdout" '{ "type": "object" }'
-  touch "$PROJECT_ROOT/src/invalid_json.bash"
+  create_dep_script "invalid_json" 'echo "this is not json"'
+  create_schema "invalid_json" '{ "type": "object" }'
 
-  mock_dep "invalid_json.bash" "$script_path"
   register_dep "invalid_key" "invalid_json.bash"
 
   run --separate-stderr exec_dep "invalid_key"
@@ -129,12 +164,9 @@ create_sandboxed_schema() {
 }
 
 @test "exec_dep: validates stderr against a schema (failure)" {
-  local script_path
-  script_path=$(create_sandboxed_dep "stderr_validation" 'echo "OK"; echo "not json" >&2')
-  create_sandboxed_schema "stderr_validation.stderr" '{ "type": "object" }'
-  touch "$PROJECT_ROOT/src/stderr_validation.bash"
+  create_dep_script "stderr_validation" 'echo "OK"; echo "not json" >&2'
+  create_stderr_schema "stderr_validation" '{ "type": "object" }'
 
-  mock_dep "stderr_validation.bash" "$script_path"
   register_dep "stderr_key" "stderr_validation.bash"
 
   run --separate-stderr exec_dep "stderr_key"
@@ -143,14 +175,8 @@ create_sandboxed_schema() {
 }
 
 @test "mock_dep: successfully overrides with a relative path" {
-  # This test specifically checks the original, relative-path behavior of mock_dep.
-  mkdir -p "$PROJECT_ROOT/test/mock"
-  local mock_path="$PROJECT_ROOT/test/mock/mock_version.bash"
-  echo '#!/usr/bin/env bash' > "$mock_path"
-  echo 'echo "I am the mock"' >> "$mock_path"
-  chmod +x "$mock_path"
-
-  touch "$PROJECT_ROOT/src/original.bash"
+  create_dep_script "original" "I am the original"
+  create_mock_script "mock_version" "echo 'I am the mock'"
 
   mock_dep "original.bash" "mock/mock_version.bash"
   register_dep "my_key" "original.bash"
@@ -158,8 +184,4 @@ create_sandboxed_schema() {
   run --separate-stderr exec_dep "my_key"
   assert_success
   assert_output "I am the mock"
-
-  # Clean up the files created in the real project dir
-  rm "$mock_path"
-  rm "$PROJECT_ROOT/src/original.bash"
 }

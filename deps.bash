@@ -2,14 +2,16 @@
 
 # A sourced library file like deps.bash should never change the shell options of its caller. So, don't set -euox pipefail.
 
+# FIX: Use a path relative to this script's location to find its own helpers.
+# This decouples it from PROJECT_ROOT and makes it safe for sandboxed testing.
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/src/logging.bash"
 
-# Set PROJECT_ROOT only if it is not already set. This makes the script
-# testable and allows parent scripts to override the root directory.
+# Use conditional assignment. This allows a test suite to override PROJECT_ROOT.
 : "${PROJECT_ROOT:="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"}"
 
+
 # --- Tracing Initialization ---
-# Initialize a root trace directory once per (test) run.
+# This logic should only run once, when the script is first sourced.
 if [[ "${CURLPILOT_TRACE:-}" == "true" && -z "${CURLPILOT_TRACE_ROOT_DIR:-}" ]]; then
   if [[ -n "${BATS_TEST_TMPDIR:-}" ]]; then
     export CURLPILOT_TRACE_ROOT_DIR
@@ -130,6 +132,7 @@ register_dep() {
   SCRIPT_REGISTRY["$key"]="$new_resolved_path"
 }
 
+# Helper function for validation
 _validate_stream() {
   local stream_name="$1"
   local captured_file="$2"
@@ -190,7 +193,7 @@ exec_dep() {
   local stdout_schema_path="${base_path}.stdout.schema.json"
   local stderr_schema_path="${base_path}.stderr.schema.json"
 
-  if [[ -n "${CURLPILOT_TRACE:-}" ]]; then
+  if [[ -n "${CURLPILOT_TRACE_PATH:-}" ]]; then
     # Setup for TRACING MODE (persistent files)
     trace_path="$CURLPILOT_TRACE_PATH/$(_increment_counter "$CURLPILOT_TRACE_PATH"/.counter)_$key"
     mkdir -p "$trace_path"
@@ -199,12 +202,13 @@ exec_dep() {
     exec_cmd=(env "CURLPILOT_TRACE_PATH=${trace_path}" bash "$script_path" "$@")
 
     # Write metadata
-    jq -n --arg key "$key" --arg script_path "$script_path" \
+    jq -n '$ARGS.positional' --args -- "$@" > "${trace_path}/args.json"
+    jq -n \
+      --arg key "$key" --arg script_path "$script_path" \
       --arg cwd "$(pwd)" --arg pid "$$" --arg ppid "$PPID" \
       --arg timestamp "$(date -Iseconds)" \
       '{key:$key,script_path:$script_path,cwd:$cwd,pid:$pid,ppid:$ppid,timestamp:$timestamp}' \
       > "${trace_path}/meta.json"
-    jq --null-input '$ARGS.positional' --args -- "$@" > "${trace_path}/args.json"
     log_debug "Executing dep '$key' with streaming trace to: $trace_path"
   else
     # Setup for NON-TRACING MODE (temporary files)
@@ -214,6 +218,7 @@ exec_dep() {
     exec_cmd=(bash "$script_path" "$@")
   fi
 
+  # --- UNIFIED EXECUTION (Always streams live output) ---
   local stdout_pipe stderr_pipe
   stdout_pipe=$(mktemp -u); stderr_pipe=$(mktemp -u)
   mkfifo "$stdout_pipe" "$stderr_pipe"
@@ -226,12 +231,13 @@ exec_dep() {
   "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
   exit_code=$?
   set -e
-  wait # Wait for tee processes to finish
+  wait
 
   if [[ -n "$trace_path" ]]; then
     echo "$exit_code" > "${trace_path}/exit_code"
   fi
 
+  # --- UNIFIED TEARDOWN (Validation and Error Handling) ---
   if [[ $exit_code -ne 0 ]]; then
     log_error "Dependency '$key' exited with code $exit_code (trace: ${trace_path:-N/A})"
     return $exit_code
@@ -257,22 +263,27 @@ get_script_registry() {
 }
 
 mock_dep() {
-  local original_path="src/$1"
+  local original_arg="$1"
   local mock_arg="$2"
+  local original_path
   local mock_path
 
-  # FIX: Handle both absolute and relative paths for the mock file.
-  if [[ "$mock_arg" == /* ]]; then
-    # It's an absolute path, use it directly.
+  # Handle absolute vs relative path for the ORIGINAL file
+  if [[ "$original_arg" = /* ]]; then
+    original_path="$original_arg"
+  else
+    original_path="src/$original_arg"
+  fi
+
+  # Handle absolute vs relative path for the MOCK file
+  if [[ "$mock_arg" = /* ]]; then
     mock_path="$mock_arg"
   else
-    # It's a relative path, assume it's inside test/.
     mock_path="test/$mock_arg"
   fi
 
-  # We still check for the original file's existence to prevent typos.
   if [[ ! -f "$(resolve_path "$original_path")" ]]; then
-    echo "Mocking ERROR: The original dependency file '$original_path' does not exist." >&2
+    echo "Mocking ERROR: The original dependency file does not exist at resolved path: '$(resolve_path "$original_path")'" >&2
     return 1
   fi
 
