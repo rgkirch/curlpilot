@@ -1,4 +1,4 @@
-# parse_args.jq
+# parse_args/parse_args.jq
 
 # This version replaces the simple `... | debug` filter.
 def dbg:

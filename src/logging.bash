@@ -1,4 +1,3 @@
-# logging.bash
 # Provides intelligent logging functions with multiple levels and dual output.
 
 # Include guard
@@ -7,18 +6,8 @@ if [[ -n "${_LOGGING_BASH_SOURCED:-}" ]]; then
 fi
 readonly _LOGGING_BASH_SOURCED=1
 
-# Determine the log target file descriptor automatically.
-# If a Bats test variable is set, log to fd 3, otherwise log to stderr (fd 2).
-LOG_FD=2
-if [[ -n "${BATS_TEST_FILENAME:-}" ]]; then
-  LOG_FD=3
-fi
 
-# Determine the log file path for the current script execution, if tracing is enabled.
-TRACE_LOG_FILE=""
-if [[ -n "${CURLPILOT_TRACE_PATH:-}" ]]; then
-  TRACE_LOG_FILE="${CURLPILOT_TRACE_PATH%/}/script.log"
-fi
+# --- Configuration ---
 
 # Define standard log levels as numeric values for comparison.
 readonly LOG_LEVEL_FATAL=0
@@ -28,35 +17,54 @@ readonly LOG_LEVEL_INFO=3
 readonly LOG_LEVEL_DEBUG=4
 readonly LOG_LEVEL_TRACE=5
 
-# Read the configured log level from the environment. Default to INFO.
-case "${CURLPILOT_LOG_LEVEL:-INFO}" in
-  FATAL) configured_level=$LOG_LEVEL_FATAL ;;
-  ERROR) configured_level=$LOG_LEVEL_ERROR ;;
-  WARN)  configured_level=$LOG_LEVEL_WARN ;;
-  INFO)  configured_level=$LOG_LEVEL_INFO ;;
-  DEBUG) configured_level=$LOG_LEVEL_DEBUG ;;
-  TRACE) configured_level=$LOG_LEVEL_TRACE ;;
-  *)     configured_level=$LOG_LEVEL_INFO ;;
-esac
+# Helper function to convert a log level name to its numeric value.
+_get_level_num() {
+    case "${1:-INFO}" in
+        FATAL) echo $LOG_LEVEL_FATAL ;;
+        ERROR) echo $LOG_LEVEL_ERROR ;;
+        WARN)  echo $LOG_LEVEL_WARN ;;
+        INFO)  echo $LOG_LEVEL_INFO ;;
+        DEBUG) echo $LOG_LEVEL_DEBUG ;;
+        TRACE) echo $LOG_LEVEL_TRACE ;;
+        *)     echo $LOG_LEVEL_INFO ;;
+    esac
+}
+
+# --- Main Logic ---
 
 # Internal logging function that all public functions call.
 _log() {
   local level_num=$1
   local level_name=$2
   shift 2
-  
-  if (( level_num <= configured_level )); then
-    local message
-    # BASH_SOURCE[2] is used because the call stack is e.g. log_info() -> _log().
-    message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
-    
-    # 1. Echo to the console via LOG_FD (stderr or bats fd 3)
-    echo "$message" >&"$LOG_FD"
 
-    # 2. Append to the trace log file, if it's defined
-    if [[ -n "$TRACE_LOG_FILE" ]]; then
-      mkdir -p "$(dirname "$TRACE_LOG_FILE")"
-      echo "$message" >> "$TRACE_LOG_FILE"
+  local message
+  # BASH_SOURCE[2] is used because the call stack is e.g. log_info() -> _log().
+  message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
+
+  # Echo to the appropriate console streams.
+  if [[ -n "${BATS_TEST_FILENAME:-}" ]]; then
+    # --- BATS TEST ENVIRONMENT ---
+    # Read configured levels from environment variables for test runs.
+    # Default stderr to ERROR to keep it clean for assertions.
+    # Default BATS log to INFO for general visibility.
+    local cfg_lvl_stderr=$(_get_level_num "${CURLPILOT_LOG_LEVEL_STDERR:-ERROR}")
+    local cfg_lvl_bats=$(_get_level_num "${CURLPILOT_LOG_LEVEL_BATS:-INFO}")
+
+    # Check against the log level for stderr (fd 2).
+    if (( level_num <= cfg_lvl_stderr )); then
+        echo "$message" >&2
+    fi
+    # Check against the log level for the BATS log (fd 3).
+    if (( level_num <= cfg_lvl_bats )); then
+        echo "$message" >&3
+    fi
+  else
+    # --- NORMAL ENVIRONMENT ---
+    # Read the single configured log level.
+    local configured_level=$(_get_level_num "${CURLPILOT_LOG_LEVEL:-INFO}")
+    if (( level_num <= configured_level )); then
+      echo "$message" >&2
     fi
   fi
 }
