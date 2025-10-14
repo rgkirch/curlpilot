@@ -132,6 +132,4 @@ for k in "${order[@]}"; do
   fi
 done
 
-log_debug "wc -l $(wc -l <<<"$json") json $json"
-
 echo "$json"

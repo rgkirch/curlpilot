@@ -1,11 +1,6 @@
 bats_require_minimum_version 1.5.0
 
-# --- GLOBAL SETUP & TEARDOWN HOOKS ---
-
-# This global setup runs before EACH test in a file.
 setup() {
-  # If the specific test file being run has its own setup function, call it.
-  # This allows for test-file-specific setup logic.
   if declare -f _setup > /dev/null; then
     _setup
   fi
@@ -20,6 +15,18 @@ teardown() {
   if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
     echo "--- Teardown File Dump For Test: '$BATS_TEST_DESCRIPTION' ---" >&3
     find "$BATS_TEST_TMPDIR" -type f -print0 | sort -z | xargs -0 head &> /dev/fd/3 || true
+  fi
+}
+
+setup_file() {
+  if declare -f _setup_file > /dev/null; then
+    _setup_file
+  fi
+}
+
+teardown_file() {
+  if declare -f _teardown_file > /dev/null; then
+    _teardown_file
   fi
 }
 

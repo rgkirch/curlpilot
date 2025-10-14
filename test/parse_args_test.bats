@@ -1,24 +1,22 @@
 # test/parse_args_test.bats
 #!/usr/bin/env bats
 
-load test_helper.bash
+parse_args() (
+  source deps.bash
+  set -euo pipefail
 
-  _run_parser() (
-    source deps.bash
-    set -euo pipefail
+  local spec_json="$1"
+  shift
 
-    local spec_json="$1"
-    shift
-
-    local job_ticket
-    job_ticket=$(jq --null-input \
-      --argjson spec "$spec_json" \
-      '{"spec": $spec, "args": $ARGS.positional}' \
-      --args -- "$@"
-    )
-
-    _exec_dep "$PROJECT_ROOT/src/parse_args/parse_args.bash" "parse_args" "$job_ticket"
+  local job_ticket
+  job_ticket=$(jq --null-input \
+    --argjson spec "$spec_json" \
+    '{"spec": $spec, "args": $ARGS.positional}' \
+    --args -- "$@"
   )
+
+  _exec_dep "$PROJECT_ROOT/src/parse_args/parse_args.bash" "parse_args" "$job_ticket"
+)
 
 # ===============================================
 # ==         SUCCESS TEST CASES                ==
@@ -28,7 +26,7 @@ load test_helper.bash
   local spec='{"api_key": {"type": "string"}}'
   local expected='{"api_key": "SECRET"}'
 
-  run --separate-stderr _run_parser "$spec" --api-key=SECRET
+  run --separate-stderr parse_args "$spec" --api-key=SECRET
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -38,7 +36,7 @@ load test_helper.bash
   local spec='{"model": {"type": "string", "default": "gpt-default"}}'
   local expected='{"model": "gpt-default"}'
 
-  run --separate-stderr _run_parser "$spec" # No arguments provided
+  run --separate-stderr parse_args "$spec" # No arguments provided
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -48,7 +46,7 @@ load test_helper.bash
   local spec='{"model": {"type": "string", "default": "gpt-default"}}'
   local expected='{"model": "gpt-4"}'
 
-  run --separate-stderr _run_parser "$spec" --model="gpt-4"
+  run --separate-stderr parse_args "$spec" --model="gpt-4"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -58,7 +56,7 @@ load test_helper.bash
   local spec='{"api_key": {"type": "string"}}'
   local expected='{"api_key": "SECRET_VALUE"}'
 
-  run --separate-stderr _run_parser "$spec" --api-key=SECRET_VALUE
+  run --separate-stderr parse_args "$spec" --api-key=SECRET_VALUE
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -68,7 +66,7 @@ load test_helper.bash
   local spec='{"api_key": {"type": "string"}}'
   local expected='{"api_key": "SECRET_VALUE"}'
 
-  run --separate-stderr _run_parser "$spec" --api-key "SECRET_VALUE"
+  run --separate-stderr parse_args "$spec" --api-key "SECRET_VALUE"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -79,7 +77,7 @@ load test_helper.bash
   local spec='{"connection_string": {"type": "string"}}'
   local expected='{"connection_string": "user=admin;pass=123"}'
 
-  run --separate-stderr _run_parser "$spec" --connection-string="user=admin;pass=123"
+  run --separate-stderr parse_args "$spec" --connection-string="user=admin;pass=123"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -89,7 +87,7 @@ load test_helper.bash
   local spec='{"stream": {"type": "boolean", "default": false}}'
   local expected='{"stream": true}'
 
-  run --separate-stderr _run_parser "$spec" --stream
+  run --separate-stderr parse_args "$spec" --stream
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -99,7 +97,7 @@ load test_helper.bash
   local spec='{"stream": {"type": "boolean", "default": true}}'
   local expected='{"stream": false}'
 
-  run --separate-stderr _run_parser "$spec" --stream=false
+  run --separate-stderr parse_args "$spec" --stream=false
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -109,7 +107,7 @@ load test_helper.bash
   local spec='{"retries": {"type": "number"}}'
   local expected='{"retries": 10}'
 
-  run --separate-stderr _run_parser "$spec" --retries=10
+  run --separate-stderr parse_args "$spec" --retries=10
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -119,7 +117,7 @@ load test_helper.bash
   local spec='{"version": {"type": "string"}}'
   local expected='{"version": "1.0"}'
 
-  run --separate-stderr _run_parser "$spec" --version=1.0
+  run --separate-stderr parse_args "$spec" --version=1.0
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -129,7 +127,7 @@ load test_helper.bash
   local spec='{"nullable_arg": {"type": "string", "default": "null"}}'
   local expected='{"nullable_arg": "null"}'
 
-  run --separate-stderr _run_parser "$spec"
+  run --separate-stderr parse_args "$spec"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -139,7 +137,7 @@ load test_helper.bash
   local spec='{"api_key": {"type": "string"}}'
   local expected='{"api_key": "LAST_KEY"}'
 
-  run --separate-stderr _run_parser "$spec" --api-key=FIRST_KEY --api-key=LAST_KEY
+  run --separate-stderr parse_args "$spec" --api-key=FIRST_KEY --api-key=LAST_KEY
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -153,7 +151,7 @@ load test_helper.bash
   local spec='{"message_content": {"type": "array"}}'
   local expected='{"message_content": ["this", "is", "a", "test"]}'
 
-  run --separate-stderr _run_parser "$spec" --message-content -- this is a test
+  run --separate-stderr parse_args "$spec" --message-content -- this is a test
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -163,7 +161,7 @@ load test_helper.bash
   local spec='{"message_content": {"type": "array"}}'
   local expected='{"message_content": ["this", "--is", "--a", "test"]}'
 
-  run --separate-stderr _run_parser "$spec" --message-content -- this --is --a test
+  run --separate-stderr parse_args "$spec" --message-content -- this --is --a test
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -173,7 +171,7 @@ load test_helper.bash
   local spec='{"message_content": {"type": "array"}}'
   local expected='{"message_content": ["a single quoted value"]}'
 
-  run --separate-stderr _run_parser "$spec" --message-content -- "a single quoted value"
+  run --separate-stderr parse_args "$spec" --message-content -- "a single quoted value"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -186,7 +184,7 @@ load test_helper.bash
   }'
   local expected='{"model": "gpt-4", "message_content": ["this", "is", "a", "test"]}'
 
-  run --separate-stderr _run_parser "$spec" --model gpt-4 --message-content -- this is a test
+  run --separate-stderr parse_args "$spec" --model gpt-4 --message-content -- this is a test
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -196,7 +194,7 @@ load test_helper.bash
   local spec='{"message_content": {"type": "array", "default": null}}'
   local expected='{"message_content": []}'
 
-  run --separate-stderr _run_parser "$spec" --message-content --
+  run --separate-stderr parse_args "$spec" --message-content --
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -210,7 +208,7 @@ load test_helper.bash
 @test "Fails when a required argument is missing" {
   local spec='{"api_key": {"type": "string"}}'
 
-  run --separate-stderr _run_parser "$spec" # No api_key provided
+  run --separate-stderr parse_args "$spec" # No api_key provided
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): Missing required value for key: api_key"
@@ -219,7 +217,7 @@ load test_helper.bash
 @test "Fails on an unknown argument" {
   local spec='{"api_key": {"type": "string"}}'
 
-  run --separate-stderr _run_parser "$spec" --api-key=SECRET --non-existent-arg
+  run --separate-stderr parse_args "$spec" --api-key=SECRET --non-existent-arg
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): Unknown argument: --non-existent-arg"
@@ -228,7 +226,7 @@ load test_helper.bash
 @test "Fails when a value-taking argument receives no value" {
   local spec='{"model": {"type": "string"}}'
 
-  run --separate-stderr _run_parser "$spec" --model
+  run --separate-stderr parse_args "$spec" --model
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): Non-boolean argument --model requires a value"
@@ -237,7 +235,7 @@ load test_helper.bash
 @test "Correctly fails when a defined flag is used as a value" {
   local spec='{"command": {"type": "string"}, "version": {"type": "boolean"}}'
 
-  run --separate-stderr _run_parser "$spec" --command --version
+  run --separate-stderr parse_args "$spec" --command --version
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): Non-boolean argument --command requires a value"
@@ -246,7 +244,7 @@ load test_helper.bash
 @test "Fails when a non-numeric value is provided for a number type" {
   local spec='{"retries": {"type": "number"}}'
 
-  run --separate-stderr _run_parser "$spec" --retries=five
+  run --separate-stderr parse_args "$spec" --retries=five
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): string (\"five\") cannot be parsed as a number"
@@ -256,7 +254,7 @@ load test_helper.bash
   local spec='{"messages": {"type": "json"}}'
   local invalid_json='[{"role": "user"}'
 
-  run --separate-stderr _run_parser "$spec" --messages="$invalid_json"
+  run --separate-stderr parse_args "$spec" --messages="$invalid_json"
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): Unfinished JSON term at EOF at line 1, column 17 (while parsing '[{\"role\": \"user\"}')"
@@ -265,7 +263,7 @@ load test_helper.bash
 @test "Fails when an invalid value is provided for a boolean type" {
   local spec='{"stream": {"type": "boolean"}}'
 
-  run --separate-stderr _run_parser "$spec" --stream=yes
+  run --separate-stderr parse_args "$spec" --stream=yes
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): string (\"yes\") cannot be parsed as a boolean"
@@ -274,7 +272,7 @@ load test_helper.bash
 @test "Fails when a positional argument is provided" {
   local spec='{"api_key": {"type": "string"}}'
 
-  run --separate-stderr _run_parser "$spec" --api-key=SECRET "some_file.txt"
+  run --separate-stderr parse_args "$spec" --api-key=SECRET "some_file.txt"
 
   assert_failure
   assert_stderr --partial "jq: error (at <unknown>): Invalid argument (does not start with --): some_file.txt"
@@ -308,7 +306,7 @@ load test_helper.bash
     "  --messages\tA JSON array of messages. (default: [])"
 )
 
-  run --separate-stderr _run_parser "$spec" --help
+  run --separate-stderr parse_args "$spec" --help
 
   assert_success
   assert_output '{"help_requested": true}'
@@ -319,7 +317,7 @@ load test_helper.bash
   local spec='{"message_content": {"type": "array"}}'
   local expected='{"message_content": ["--help"]}'
 
-  run --separate-stderr _run_parser "$spec" --message-content -- --help
+  run --separate-stderr parse_args "$spec" --message-content -- --help
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -331,7 +329,7 @@ load test_helper.bash
   local stdin_data="This is a line from stdin."
   local expected="{\"content\": \"${stdin_data}\"}"
 
-  run --separate-stderr _run_parser "$spec" --content - <<< "$stdin_data"
+  run --separate-stderr parse_args "$spec" --content - <<< "$stdin_data"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -343,7 +341,7 @@ load test_helper.bash
   local expected
   expected=$(jq -n --argjson data "$stdin_data" '{"messages": $data}')
 
-  run --separate-stderr _run_parser "$spec" --messages - <<< "$stdin_data"
+  run --separate-stderr parse_args "$spec" --messages - <<< "$stdin_data"
 
   assert_success
   assert_json_equal "$output" "$expected"
@@ -380,7 +378,7 @@ EOF
   local expected="{\"body\": ${valid_json_body}}"
 
   # Act: The mock environment is inherited by the subshell created by `run`.
-  run --separate-stderr _run_parser "$spec_with_schema" --body="$valid_json_body"
+  run --separate-stderr parse_args "$spec_with_schema" --body="$valid_json_body"
 
   # Assert
   assert_success
@@ -415,7 +413,7 @@ EOF
   local json_body='{"model": "any data is fine"}'
 
   # Act
-  run --separate-stderr _run_parser "$spec_with_schema" --body="$json_body"
+  run --separate-stderr parse_args "$spec_with_schema" --body="$json_body"
 
   # Assert
   assert_failure
