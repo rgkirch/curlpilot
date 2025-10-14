@@ -1,5 +1,8 @@
-# test/parse_args_test.bats
 #!/usr/bin/env bats
+# test/parse_args_test.bats
+
+source test/test_helper.bash
+source src/logging.bash
 
 parse_args() (
   source deps.bash

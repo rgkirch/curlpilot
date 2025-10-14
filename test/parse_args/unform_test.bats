@@ -1,14 +1,21 @@
 #!/usr/bin/env bats
+#test/parse_args/unform_test.bats
 
-setup() {
-  source "$(dirname "$BATS_TEST_FILENAME")/../.deps.bash"
-  source "$(dirname "$BATS_TEST_FILENAME")/../test_helper.bash"
+source test/test_helper.bash
+source src/logging.bash
 
-  register_dep conform_args "parse_args/conform_args.bash"
-  register_dep unform_args "parse_args/unform.bash"
+conform() {
+  source deps.bash
+  source test/test_helper.bash
 
-  CONFORM=$(resolve_path src/parse_args/conform_args.bash)
-  UNFORM=$(resolve_path src/parse_args/unform.bash)
+  _exec_dep "$PROJECT_ROOT/src/parse_args/conform_args.bash" conform_args "$@"
+}
+
+unform() {
+  source deps.bash
+  source test/test_helper.bash
+
+  _exec_dep "$PROJECT_ROOT/src/parse_args/unform.bash" unform "$@"
 }
 
 _spec_base='{
@@ -52,11 +59,11 @@ deep_assert_json_equal() {
 }
 
 @test "conform -> unform round trip" {
-  run bash "$CONFORM" --spec-json "$_spec_base" --parsed-json "$_parsed_base"
+  run conform --spec-json "$_spec_base" --parsed-json "$_parsed_base"
   assert_success
   local conformed_output="$output"
 
-  run bash "$UNFORM" --spec-json "$_spec_base" --parsed-json "$conformed_output"
+  run unform --spec-json "$_spec_base" --parsed-json "$conformed_output"
   assert_success
   local unformed_output="$output"
 
@@ -64,11 +71,11 @@ deep_assert_json_equal() {
 }
 
 @test "unform -> conform round trip" {
-  run bash "$UNFORM" --spec-json "$_spec_base" --parsed-json "$_conformed_base"
+  run unform --spec-json "$_spec_base" --parsed-json "$_conformed_base"
   assert_success
   local unformed_output="$output"
 
-  run bash "$CONFORM" --spec-json "$_spec_base" --parsed-json "$unformed_output"
+  run conform --spec-json "$_spec_base" --parsed-json "$unformed_output"
   assert_success
   local conformed_output="$output"
 

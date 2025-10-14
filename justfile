@@ -22,3 +22,16 @@ tree:
 
 ai:
     @gemini-cli --include-directories /home/me/mirror/github.com/google-gemini/gemini-cli --include-directories /home/me/mirror/github.com/Aider-AI/aider
+
+
+untested-src:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    missing=()
+    while IFS= read -r f; do
+      base=$(basename "$f"); stem=${base%.*}
+      if ! find test -type f -name "${stem}_test.bats" | grep -q .; then
+        missing+=("$f")
+      fi
+    done < <(find src -type f \( -name '*.bash' -o -name '*.jq' -o -name '*.clj' \))
+    if ((${#missing[@]})); then printf '%s\n' "${missing[@]}"; else echo "(all src files have matching *_test.bats)"; fi
