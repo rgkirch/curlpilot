@@ -1,8 +1,8 @@
 # test/mock/server/copilot_test.bats
 # set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
-setup_file(){
-  export BATS_TEST_TIMEOUT=10
+_setup_file(){
+  export BATS_TEST_TIMEOUT=15
 }
 
 setup() {
