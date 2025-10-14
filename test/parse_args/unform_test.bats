@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# -*- mode: bats; -*-
 #test/parse_args/unform_test.bats
 
 source test/test_helper.bash
@@ -18,28 +19,13 @@ unform() {
   _exec_dep "$PROJECT_ROOT/src/parse_args/unform.bash" unform "$@"
 }
 
-_spec_base='{
-  "port": {"type": "integer"},
-  "flag": {"type": "boolean"},
-  "cfg": {"type": "json"},
-  "name": {"type": "string"}
-}'
+
 
 # Represents the raw output from parse_args_specless.bash (all strings)
-_parsed_base='{
-  "port": "9090",
-  "flag": "true",
-  "cfg": "{\"a\":1, \"b\":[2,3]}",
-  "name": "test-server"
-}'
+
 
 # Represents the final, correctly typed output from conform_args.bash
-_conformed_base='{
-  "port": 9090,
-  "flag": true,
-  "cfg": {"a":1, "b":[2,3]},
-  "name": "test-server"
-}'
+
 
 # Helper to compare two JSON strings canonically (sorted keys)
 deep_assert_json_equal() {
@@ -58,26 +44,48 @@ deep_assert_json_equal() {
   assert_equal "$canonical_actual" "$canonical_expected"
 }
 
-@test "conform -> unform round trip" {
-  run conform --spec-json "$_spec_base" --parsed-json "$_parsed_base"
-  assert_success
-  local conformed_output="$output"
-
-  run unform --spec-json "$_spec_base" --parsed-json "$conformed_output"
-  assert_success
-  local unformed_output="$output"
-
-  deep_assert_json_equal "$unformed_output" "$_parsed_base"
+@test "round trip integer boolean json string" {
+  spec='{"port":{"type":"integer"},"flag":{"type":"boolean"},"cfg":{"type":"json"},"name":{"type":"string"}}'
+  raw='{"port":"9090","flag":"true","cfg":"{\"a\":1, \"b\":[2,3]}","name":"test-server"}'
+  run conform --spec-json "$spec" --parsed-json "$raw"; assert_success; conformed="$output"
+  run unform --spec-json "$spec" --parsed-json "$conformed"; assert_success; unformed="$output"
+  deep_assert_json_equal "$unformed" "$raw"
 }
 
-@test "unform -> conform round trip" {
-  run unform --spec-json "$_spec_base" --parsed-json "$_conformed_base"
-  assert_success
-  local unformed_output="$output"
+@test "unform from conformed preserves json string encoding" {
+  spec='{"cfg":{"type":"json"}}'
+  conformed='{"cfg":{"a":1}}'
+  run unform --spec-json "$spec" --parsed-json "$conformed"; assert_success; out="$output"
+  run jq -r '.cfg' <<<"$out"; assert_output '{"a":1}'
+}
 
-  run conform --spec-json "$_spec_base" --parsed-json "$unformed_output"
-  assert_success
-  local conformed_output="$output"
+@test "unform boolean true becomes string true" {
+  spec='{"flag":{"type":"boolean"}}'
+  conformed='{"flag":true}'
+  run unform --spec-json "$spec" --parsed-json "$conformed"; assert_success; out="$output"
+  run jq -r '.flag' <<<"$out"; assert_output 'true'
+}
 
-  deep_assert_json_equal "$conformed_output" "$_conformed_base"
+@test "unform integer becomes numeric string" {
+  spec='{"port":{"type":"integer"}}'
+  conformed='{"port":1234}'
+  run unform --spec-json "$spec" --parsed-json "$conformed"; assert_success; out="$output"
+  run jq -r '.port' <<<"$out"; assert_output '1234'
+}
+
+@test "missing spec key is ignored" {
+  spec='{"a":{"type":"string"}}'
+  conformed='{"a":"x","b":1}'
+  run unform --spec-json "$spec" --parsed-json "$conformed"; assert_success; out="$output"
+  run jq 'has("b")' <<<"$out"; assert_output 'false'
+}
+
+@test "invalid spec json errors" {
+  run unform --spec-json '{bad' --parsed-json '{}' ; assert_failure
+  [[ "$output" == *"spec is not valid JSON"* ]] || fail "$output"
+}
+
+@test "invalid conformed json errors" {
+  run unform --spec-json '{}' --parsed-json '{bad' ; assert_failure
+  [[ "$output" == *"conformed data is not valid JSON"* ]] || fail "$output"
 }
