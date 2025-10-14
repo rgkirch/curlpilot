@@ -1,10 +1,12 @@
 #!/usr/bin/env bats
 
-# Source the global test helper, which provides the setup() and teardown() hooks.
+# test/deps_test.bats
+source deps.bash
 source "$(dirname "$BATS_TEST_FILENAME")/test_helper.bash"
 
-# This test-specific setup function will be called automatically by the global setup().
 _setup() {
+  source deps.bash
+
   local REAL_PROJECT_ROOT="$PROJECT_ROOT"
   local SANDBOX_ROOT="$BATS_TEST_TMPDIR/sandbox"
   local SANDBOX_SRC_DIR="$SANDBOX_ROOT/src"
@@ -45,6 +47,7 @@ EOF
     echo "FATAL: Sandbox directory is not under /tmp. Aborting." >&2
     exit 1
   fi
+  log_debug "setup done"
 }
 
 # --- Sandboxed Helper Functions ---
@@ -82,7 +85,7 @@ create_stderr_schema() {
 
 
 @test "exec_dep: basic execution with stdout and stderr" {
-  create_dep_script "basic" "I am the original"
+  create_dep_script "basic" 'echo "I am the original"'
   create_mock_script "basic_mock" 'echo "to stdout"; echo "to stderr" >&2'
 
   mock_dep "basic.bash" "mock/basic_mock.bash"

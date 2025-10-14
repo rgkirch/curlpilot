@@ -94,7 +94,7 @@ def substitute_stdin_values:
   with_entries(
     if .value.value == "-" then
       dbg("reading input from stdin", .) |
-      .value.value = input |
+      .value.value = (input | trim) |
       dbg("read input from stdin \(.value.value)", .)
     else
       . # Leave the entry unchanged

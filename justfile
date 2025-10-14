@@ -11,7 +11,8 @@ test *ARGS:
     @./run_tests.bash "$@"
 
 test-all *ARGS:
-    @./run_tests.bash -r test --jobs 32 "$@"
+    #!/bin/sh
+    env CURLPILOT_LOG_LEVEL_BATS=FATAL ./run_tests.bash -r test --jobs 32 "$@"
 
 copilot-review-diff:
     @./scripts/review.bash

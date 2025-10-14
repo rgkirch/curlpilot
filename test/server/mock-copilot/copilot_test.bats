@@ -1,9 +1,4 @@
 # test/mock/server/copilot_test.bats
-# set -euo pipefail # Temporarily disabled to ensure all logs are written.
-
-
-
-# ---
 
 setup() {
   bats_require_minimum_version 1.5.0

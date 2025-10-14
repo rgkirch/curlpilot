@@ -2,7 +2,7 @@
 
 # A sourced library file like deps.bash should never change the shell options of its caller. So, don't set -euox pipefail.
 
-# FIX: Use a path relative to this script's location to find its own helpers.
+# Use a path relative to this script's location to find its own helpers.
 # This decouples it from PROJECT_ROOT and makes it safe for sandboxed testing.
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/src/logging.bash"
 
@@ -88,27 +88,15 @@ _get_override_var_name() {
 register_dep() {
   local key="$1"
   local original_path="src/$2"
-  local final_path="$original_path"
-
-  local override_var_name
-  override_var_name=$(_get_override_var_name "$original_path")
-  if [[ -n "${!override_var_name-}" ]]; then
-    final_path="${!override_var_name}"
-  fi
-  local new_resolved_path
-  new_resolved_path=$(resolve_path "$final_path")
 
   if [[ -v SCRIPT_REGISTRY["$key"] ]]; then
     local existing_path="${SCRIPT_REGISTRY[$key]}"
-
-    if [[ "$new_resolved_path" != "$existing_path" ]]; then
+    if [[ "$original_path" != "$existing_path" ]]; then
       {
         echo "---"
         echo "ERROR: Dependency Conflict"
-        echo "  The key '$key' is already registered with a different path."
-        echo
-        echo "  - Existing Path: '$existing_path'"
-        echo "  - Conflicting Path: '$new_resolved_path'"
+        echo "  The key '$key' is already registered with '$existing_path'."
+        echo "  Attempted to re-register with '$original_path'."
         echo "---"
       } >&2
       exit 1
@@ -118,18 +106,22 @@ register_dep() {
     fi
   fi
 
-  if [[ ! -f "$new_resolved_path" ]]; then
+  # Still check for the existence of the REAL file as a sanity check.
+  local resolved_original_path
+  resolved_original_path=$(resolve_path "$original_path")
+  if [[ ! -f "$resolved_original_path" ]]; then
     {
       echo "---"
       echo "ERROR: Dependency Registration Failed"
       echo "  File not found for dependency key: '$key'"
-      echo "  Attempted to resolve path: '$new_resolved_path'"
+      echo "  Attempted to resolve original path: '$resolved_original_path'"
       echo "---"
     } >&2
     exit 1
   fi
 
-  SCRIPT_REGISTRY["$key"]="$new_resolved_path"
+  # Store the canonical path in the registry.
+  SCRIPT_REGISTRY["$key"]="$original_path"
 }
 
 # Helper function for validation
@@ -166,25 +158,54 @@ _validate_stream() {
   return 0
 }
 
+# The public-facing function for executing a registered dependency.
 exec_dep() {
-  # --- Initial Checks ---
   if ! declare -p SCRIPT_REGISTRY >/dev/null 2>&1; then
-    echo "Error (deps.bash): SCRIPT_REGISTRY is not defined." >&2
+    log_error "SCRIPT_REGISTRY is not defined."
     exit 1
   fi
   local key="$1"
-  local script_path="${SCRIPT_REGISTRY[$key]}"
-  if [[ -z "$script_path" ]]; then
-    echo "Error: No script registered for key '$key'" >&2
-    return 1
-  fi
-  if [[ ! -f "$script_path" ]]; then
-    echo "Error: Script file '$script_path' does not exist." >&2
-    return 1
-  fi
   shift
 
-  # --- UNIFIED SETUP ---
+  # REFACTORED: This is where the mock is resolved (late binding).
+  local original_path="${SCRIPT_REGISTRY[$key]}"
+  if [[ -z "$original_path" ]]; then
+    log_error "No script registered for key '$key'"
+    return 1
+  fi
+
+  local override_var_name
+  override_var_name=$(_get_override_var_name "$original_path")
+
+  local final_path
+  if [[ -n "${!override_var_name-}" ]]; then
+    # A mock is defined, use its path.
+    final_path="${!override_var_name}"
+  else
+    # No mock, use the original path from the registry.
+    final_path="$original_path"
+  fi
+
+  # Resolve the chosen path to an absolute path for execution.
+  local resolved_path
+  resolved_path=$(resolve_path "$final_path")
+
+  # Call the internal execution function with the final, resolved path.
+  _exec_dep "$resolved_path" "$key" "$@"
+}
+
+# Internal execution engine.
+_exec_dep() (
+  set -euo pipefail
+  # --- Initial Checks ---
+  local script_path="$1"
+  local key="$2"
+  if [[ ! -f "$script_path" ]]; then
+    log_error "Script file '$script_path' does not exist."
+    return 1
+  fi
+  shift 2
+
   local trace_path=""
   local stdout_file stderr_file
   local exec_cmd exit_code
@@ -218,14 +239,13 @@ exec_dep() {
     exec_cmd=(bash "$script_path" "$@")
   fi
 
-  # --- UNIFIED EXECUTION (Always streams live output) ---
   local stdout_pipe stderr_pipe
   stdout_pipe=$(mktemp -u); stderr_pipe=$(mktemp -u)
   mkfifo "$stdout_pipe" "$stderr_pipe"
   trap 'rm -f "$stdout_pipe" "$stderr_pipe"' EXIT
 
-  tee "$stdout_file" < "$stdout_pipe" &
-  tee "$stderr_file" < "$stderr_pipe" >&2 &
+  tee -ap "$stdout_file" < "$stdout_pipe" &
+  tee -ap "$stderr_file" < "$stderr_pipe" >&2 &
 
   set +e
   "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
@@ -237,7 +257,6 @@ exec_dep() {
     echo "$exit_code" > "${trace_path}/exit_code"
   fi
 
-  # --- UNIFIED TEARDOWN (Validation and Error Handling) ---
   if [[ $exit_code -ne 0 ]]; then
     log_error "Dependency '$key' exited with code $exit_code (trace: ${trace_path:-N/A})"
     return $exit_code
@@ -256,7 +275,8 @@ exec_dep() {
   fi
 
   return 0
-}
+)
+
 
 get_script_registry() {
   declare -p SCRIPT_REGISTRY

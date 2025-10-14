@@ -43,7 +43,6 @@ EOF
 }
 
 @test "chat.bash correctly processes a streaming response" {
-  enable_tracing
   log_debug "--- Starting test: '$BATS_TEST_DESCRIPTION' ---"
 
   # 1. Generate the mock SSE body using the dedicated script.
@@ -57,11 +56,15 @@ EOF
   local responses_json
   responses_json=$(jq -n --arg p "$response_file" '[$p]')
 
+  local request_log_dir="$BATS_TEST_TMPDIR/requests"
+  mkdir -p "$request_log_dir"
+
   log_debug "Launching server..."
   # 3. Launch the canned server with the generated response file.
   run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
     --stdout-log 3 \
     --stderr-log 3 \
+    --request-dir "$request_log_dir" \
     --responses "$responses_json"
   assert_success
   log_debug "Server launch command finished with status: $status"
@@ -70,7 +73,7 @@ EOF
   local pid=${lines[1]}
   log_debug "Server launched. Port: $port, PID: $pid"
 
-  trap 'kill "$pid" &>/dev/null || true' EXIT
+  #trap 'kill "$pid" &>/dev/null || true' EXIT
 
   log_debug "Running chat.bash client..."
   # Export the API_ENDPOINT so the stubbed config.bash can access it.
@@ -88,7 +91,7 @@ EOF
   assert_success
 
   log_debug "Asserting request body was received by server..."
-  request_log_file="$BATS_TEST_TMPDIR/request.log"
+  local request_log_file="$request_log_dir/request.0.log"
   assert_file_contains "$request_log_file" "Say hello"
   log_debug "Request body assertion passed."
 

@@ -12,7 +12,6 @@ source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 #log_debug "PROJECT_ROOT $PROJECT_ROOT"
 
 setup() {
-  enable_tracing
   export -f mock_completion
   log_debug "exported run_with_setup"
 }

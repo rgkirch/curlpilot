@@ -17,7 +17,7 @@ _main_parse() {
          --argjson args "$ARGS_JSON" \
          --from-file "$MAIN_PARSER_SCRIPT"
   ); then
-      log_error "Error: The jq argument parser failed."
+      log_error "The jq argument parser failed."
       exit 1
   fi
 
@@ -38,7 +38,7 @@ _main_parse() {
       log_trace "$$ $? resolved_schema_path $resolved_schema_path"
 
       if ! echo "$data_to_validate" | exec_dep schema_validator "$resolved_schema_path"; then
-          log_error "Error: Schema validation failed for argument --$arg_name"
+          echo "Error: Schema validation failed for argument --$arg_name" >&2
           exit 1
       fi
   done
@@ -52,7 +52,7 @@ _main_parse() {
 # --- Main Script Execution ---
 
 if ! command -v jq &> /dev/null; then
-    log_error "Error: jq is not installed..."
+    echo "Error: jq is not installed..." >&2
     exit 1
 fi
 if [[ "$#" -ne 1 ]]; then

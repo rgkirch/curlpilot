@@ -38,34 +38,20 @@ _log() {
   local level_name=$2
   shift 2
 
-  local message
-  # BASH_SOURCE[2] is used because the call stack is e.g. log_info() -> _log().
-  message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
-
-  # Echo to the appropriate console streams.
-  if [[ -n "${BATS_TEST_FILENAME:-}" ]]; then
-    # --- BATS TEST ENVIRONMENT ---
-    # Read configured levels from environment variables for test runs.
-    # Default stderr to ERROR to keep it clean for assertions.
-    # Default BATS log to INFO for general visibility.
-    local cfg_lvl_stderr=$(_get_level_num "${CURLPILOT_LOG_LEVEL_STDERR:-ERROR}")
-    local cfg_lvl_bats=$(_get_level_num "${CURLPILOT_LOG_LEVEL_BATS:-INFO}")
-
-    # Check against the log level for stderr (fd 2).
-    if (( level_num <= cfg_lvl_stderr )); then
-        echo "$message" >&2
+  local cfg_lvl_bats=$(_get_level_num "${CURLPILOT_LOG_LEVEL_BATS:-INFO}")
+  if (( level_num <= cfg_lvl_bats )); then
+    if : >&3 2>/dev/null; then
+      local message
+      message="$(date '+%T.%N') [BATS:$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
+      echo "$message" >&3
     fi
-    # Check against the log level for the BATS log (fd 3).
-    if (( level_num <= cfg_lvl_bats )); then
-        echo "$message" >&3
-    fi
-  else
-    # --- NORMAL ENVIRONMENT ---
-    # Read the single configured log level.
-    local configured_level=$(_get_level_num "${CURLPILOT_LOG_LEVEL:-INFO}")
-    if (( level_num <= configured_level )); then
-      echo "$message" >&2
-    fi
+  fi
+  local configured_level=$(_get_level_num "${CURLPILOT_LOG_LEVEL:-INFO}")
+  if (( level_num <= configured_level )); then
+    local message
+    # BASH_SOURCE[2] is used because the call stack is e.g. log_info() -> _log().
+    message="$(date '+%T.%N') [$(basename "${BASH_SOURCE[2]:-$0}")] $level_name: $*"
+    echo "$message" >&2
   fi
 }
 

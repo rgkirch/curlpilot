@@ -13,6 +13,8 @@ BATS_EXECUTABLE="$BATS_LIBS_DIR/bats/bin/bats"
 
 # Initialize variables.
 export CURLPILOT_LOG_LEVEL="${CURLPILOT_LOG_LEVEL:-ERROR}"
+export CURLPILOT_LOG_LEVEL_BATS="${CURLPILOT_LOG_LEVEL_BATS:-ERROR}"
+
 export BATS_NUMBER_OF_PARALLEL_JOBS=1
 BATS_ARGS=()
 
@@ -26,10 +28,16 @@ while [[ "$#" -gt 0 ]]; do
       shift 2
       ;;
     --verbose)
-      export CURLPILOT_LOG_LEVEL=INFO
+      export CURLPILOT_LOG_LEVEL_BATS=INFO
       echo "Log level set to INFO" >&2
       BATS_ARGS+=(--verbose-run)
       shift
+      ;;
+    --trace)
+      export CURLPILOT_TRACE=true
+      echo "Tracing enabled." >&2
+      BATS_ARGS+=(--no-tempdir-cleanup)
+      shift # Consume the --trace flag, do not pass it to BATS.
       ;;
     *)
       BATS_ARGS+=("$1")

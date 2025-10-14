@@ -35,7 +35,7 @@ _launch_canned() {
   PID="${out[1]}"
   [ -n "$PORT" ] || fail "No port returned"
   [ -n "$PID" ] || fail "No PID returned"
-  echo "Launched: port=$PORT pid=$PID responses=$responses_json" >&3
+  log_info "Launched: port=$PORT pid=$PID responses=$responses_json" >&3
 }
 
 _wait_down() {
@@ -43,7 +43,6 @@ _wait_down() {
 }
 
 @test "multi responses served sequentially and logged" {
-  enable_tracing
   resp1="$BATS_TEST_TMPDIR/r1.http"; resp2="$BATS_TEST_TMPDIR/r2.http"
   _make_response "$resp1" hello
   _make_response "$resp2" world
@@ -114,7 +113,6 @@ _wait_down() {
 }
 
 @test "missing responses argument errors" {
-  enable_tracing
   if bash "$SERVER_SCRIPT" --port 22222 > "$BATS_TEST_TMPDIR/cr.out" 2> "$BATS_TEST_TMPDIR/cr.err"; then
     fail "Expected missing responses error"
   fi
