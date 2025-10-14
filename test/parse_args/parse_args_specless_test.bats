@@ -152,10 +152,13 @@ _assert_key_true() {
   [[ "$output" == *"invalid key characters"* ]] || fail "Expected invalid key characters error, got: $output"
 }
 
-@test "empty long key" {
-  run parse_args --
-  assert_failure
-  [[ "$output" == *"empty key"* ]] || fail "Expected empty key error, got: $output"
+@test "standalone double dash begins positional collection" {
+  run parse_args -- a b
+  assert_success
+  parsed="$output"
+  run jq -r '._positional | length' <<<"$parsed"; assert_output "2"
+  run jq -r '._positional[0]' <<<"$parsed"; assert_output "a"
+  run jq -r '._positional[1]' <<<"$parsed"; assert_output "b"
 }
 
 @test "lone dash error" {
@@ -183,3 +186,23 @@ _assert_key_true() {
   assert_failure
   [[ "$output" == *"duplicate key"* ]] || fail "Expected duplicate key error, got: $output"
 }
+
+@test "positional args after option" {
+  run parse_args --foo bar baz qux
+  assert_success
+  parsed="$output"
+  run jq -r '._positional | length' <<<"$parsed"; assert_success; assert_output "2"
+  run jq -r '._positional[0]' <<<"$parsed"; assert_output "baz"
+  run jq -r '._positional[1]' <<<"$parsed"; assert_output "qux"
+  run jq -r '.foo' <<<"$parsed"; assert_output "bar"
+}
+
+@test "end of options with --" {
+  run parse_args --foo bar -- -x --y
+  assert_success
+  parsed="$output"
+  run jq -r '._positional | length' <<<"$parsed"; assert_output "2"
+  run jq -r '._positional[0]' <<<"$parsed"; assert_output "-x"
+  run jq -r '._positional[1]' <<<"$parsed"; assert_output "--y"
+}
+
