@@ -138,3 +138,48 @@ _assert_key_true() {
   assert_success
   _assert_key_string "$output" data "$json_val"
 }
+
+
+@test "uppercase long key normalization" {
+  run parse_args --FooBar
+  assert_success
+  _assert_key_true "$output" foobar
+}
+
+@test "invalid long key characters" {
+  run parse_args --foo!
+  assert_failure
+  [[ "$output" == *"invalid key characters"* ]] || fail "Expected invalid key characters error, got: $output"
+}
+
+@test "empty long key" {
+  run parse_args --
+  assert_failure
+  [[ "$output" == *"empty key"* ]] || fail "Expected empty key error, got: $output"
+}
+
+@test "lone dash error" {
+  run parse_args -
+  assert_failure
+  [[ "$output" == *"lone '-' is invalid"* ]] || fail "Expected lone dash error, got: $output"
+}
+
+@test "duplicate after normalization" {
+  run parse_args --foo-bar --foo_bar
+  assert_failure
+  [[ "$output" == *"duplicate key"* ]] || fail "Expected duplicate key error, got: $output"
+}
+
+@test "uppercase short cluster lowercased" {
+  run parse_args -AB
+  assert_success
+  parsed="$output"
+  _assert_key_true "$parsed" a
+  _assert_key_true "$parsed" b
+}
+
+@test "duplicate short key differing only by case" {
+  run parse_args -ABc -a
+  assert_failure
+  [[ "$output" == *"duplicate key"* ]] || fail "Expected duplicate key error, got: $output"
+}
