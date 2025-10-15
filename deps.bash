@@ -9,33 +9,13 @@ source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/src/logging.bash"
 # Use conditional assignment. This allows a test suite to override PROJECT_ROOT.
 : "${PROJECT_ROOT:="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"}"
 
-
-# --- Tracing Initialization ---
-# This logic should only run once, when the script is first sourced.
-if [[ "${CURLPILOT_TRACE:-}" == "true" && -z "${CURLPILOT_TRACE_ROOT_DIR:-}" ]]; then
-  if [[ -n "${BATS_TEST_TMPDIR:-}" ]]; then
-    export CURLPILOT_TRACE_ROOT_DIR
-    CURLPILOT_TRACE_ROOT_DIR="$(mktemp -d "${BATS_TEST_TMPDIR%/}/curlpilot-trace.${BATS_ROOT_PID:-$$}.XXXXXX")"
-  else
-    export CURLPILOT_TRACE_ROOT_DIR
-    CURLPILOT_TRACE_ROOT_DIR="$(mktemp -d -t curlpilot-trace.XXXXXX)"
-  fi
-  log_info "CURLPILOT tracing enabled. Base log directory: ${CURLPILOT_TRACE_ROOT_DIR}"
-fi
-# Per-process base trace path (adds PID to avoid collisions)
-if [[ -n "${CURLPILOT_TRACE_ROOT_DIR:-}" && -z "${CURLPILOT_TRACE_PATH:-}" ]]; then
-  export CURLPILOT_TRACE_PATH="${CURLPILOT_TRACE_ROOT_DIR}/$(basename "$0" .bash).pid$$"
-  mkdir -p "$CURLPILOT_TRACE_PATH"
-fi
-# --- End Tracing Initialization ---
-
 _increment_counter() {
   local counter_file="$1"
   local child_num
   child_num=$(cat "$counter_file" 2>/dev/null || echo 0)
   child_num=$((child_num + 1))
   echo "$child_num" > "$counter_file"
-  echo "$child_num"
+  printf "%02d\n" "$child_num"
 }
 
 
@@ -194,7 +174,6 @@ exec_dep() {
   _exec_dep "$resolved_path" "$key" "$@"
 }
 
-# Internal execution engine.
 _exec_dep() (
   set -euo pipefail
   # --- Initial Checks ---
@@ -214,54 +193,85 @@ _exec_dep() (
   local stdout_schema_path="${base_path}.stdout.schema.json"
   local stderr_schema_path="${base_path}.stderr.schema.json"
 
-  if [[ -n "${CURLPILOT_TRACE_PATH:-}" ]]; then
-    # Setup for TRACING MODE (persistent files)
-    trace_path="$CURLPILOT_TRACE_PATH/$(_increment_counter "$CURLPILOT_TRACE_PATH"/.counter)_$key"
+  # --- Tracing Path Setup ---
+  if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
+    # If a root is already defined (by BATS or a parent process), use it.
+    # Otherwise, create one for this new standalone trace.
+    local trace_root="${CURLPILOT_TRACE_ROOT_DIR:-$(mktemp -d -t curlpilot-trace.XXXXXX)}"
+
+    # If this is the first call in a standalone trace, export the new root so children can find it.
+    if [[ -z "${CURLPILOT_TRACE_ROOT_DIR:-}" ]]; then
+        export CURLPILOT_TRACE_ROOT_DIR="$trace_root"
+    fi
+
+    # If a parent process has set a path, create a subdirectory within it.
+    # Otherwise, create a new top-level directory within the root.
+    local parent_path="${CURLPILOT_TRACE_PATH:-$trace_root}"
+    trace_path="${parent_path}/$(_increment_counter "${parent_path}"/.counter)_$key"
     mkdir -p "$trace_path"
     stdout_file="${trace_path}/stdout"
     stderr_file="${trace_path}/stderr"
-    exec_cmd=(env "CURLPILOT_TRACE_PATH=${trace_path}" bash "$script_path" "$@")
 
-    # Write metadata
-    jq -n '$ARGS.positional' --args -- "$@" > "${trace_path}/args.json"
-    jq -n \
-      --arg key "$key" --arg script_path "$script_path" \
-      --arg cwd "$(pwd)" --arg pid "$$" --arg ppid "$PPID" \
-      --arg timestamp "$(date -Iseconds)" \
-      '{key:$key,script_path:$script_path,cwd:$cwd,pid:$pid,ppid:$ppid,timestamp:$timestamp}' \
-      > "${trace_path}/meta.json"
-    log_debug "Executing dep '$key' with streaming trace to: $trace_path"
+    # Pass the ROOT dir to all children.
+    # Pass the NEW, more specific PATH to our direct children.
+    exec_cmd=(env "CURLPILOT_TRACE_ROOT_DIR=${trace_root}" "CURLPILOT_TRACE_PATH=${trace_path}" bash "$script_path" "$@")
   else
-    # Setup for NON-TRACING MODE (temporary files)
+    # NON-TRACING MODE
     stdout_file=$(mktemp)
     stderr_file=$(mktemp)
     trap "rm -f '$stdout_file' '$stderr_file'" RETURN
     exec_cmd=(bash "$script_path" "$@")
   fi
 
+  # --- Execution and I/O Redirection ---
   local stdout_pipe stderr_pipe
   stdout_pipe=$(mktemp -u); stderr_pipe=$(mktemp -u)
   mkfifo "$stdout_pipe" "$stderr_pipe"
   trap 'rm -f "$stdout_pipe" "$stderr_pipe"' EXIT
-
   tee -ap "$stdout_file" < "$stdout_pipe" &
   tee -ap "$stderr_file" < "$stderr_pipe" >&2 &
 
+  # --- Timing and Execution ---
+  local start_time_ns
+  start_time_ns=$(date +%s%N)
   set +e
   "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
   exit_code=$?
   set -e
   wait
+  local end_time_ns duration_ns
+  end_time_ns=$(date +%s%N)
+  duration_ns=$((end_time_ns - start_time_ns))
 
+  # --- Tracing Finalization Logic ---
   if [[ -n "$trace_path" ]]; then
+    local start_time_us=$((start_time_ns / 1000))
+    local duration_us=$((duration_ns / 1000))
+    local self_event_log="${trace_path}/events.log"
+
+    # Step 1: Write THIS process's own event to its raw event log.
+    jq -n --compact-output \
+      --arg name "$key" --arg cat "deps" --arg ph "X" \
+      --argjson ts "$start_time_us" --argjson dur "$duration_us" \
+      --argjson pid "$$" --argjson tid "$$" --argjson args "{}" \
+      '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:$args}' > "$self_event_log"
+
+    # Step 2: Gather the raw event logs from DIRECT CHILDREN ONLY and append them.
+    find "$trace_path" -mindepth 2 -maxdepth 2 -name "events.log" -print0 | \
+      xargs -0 --no-run-if-empty cat >> "$self_event_log"
+
+    # Step 3: ALWAYS create the final, user-facing trace.json for this level.
+    local final_trace_file="${trace_path}/trace.json"
+    jq -s '{traceEvents: .}' < "$self_event_log" > "$final_trace_file"
+
     echo "$exit_code" > "${trace_path}/exit_code"
   fi
 
+  # --- Schema Validation ---
   if [[ $exit_code -ne 0 ]]; then
     log_error "Dependency '$key' exited with code $exit_code (trace: ${trace_path:-N/A})"
     return $exit_code
   fi
-
   local all_validations_passed=true
   if ! _validate_stream "stdout" "$stdout_file" "$stdout_schema_path" "$validator_path" "$key" "$trace_path"; then
     all_validations_passed=false
@@ -269,14 +279,11 @@ _exec_dep() (
   if ! _validate_stream "stderr" "$stderr_file" "$stderr_schema_path" "$validator_path" "$key" "$trace_path"; then
     all_validations_passed=false
   fi
-
   if ! $all_validations_passed; then
     return 1
   fi
-
   return 0
 )
-
 
 get_script_registry() {
   declare -p SCRIPT_REGISTRY

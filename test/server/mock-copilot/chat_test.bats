@@ -1,11 +1,13 @@
 # test/mock/server/copilot_test.bats
 # set -euo pipefail # Temporarily disabled to ensure all logs are written.
 
+source test/test_helper.bash
+
 _setup_file(){
   export BATS_TEST_TIMEOUT=15
 }
 
-setup() {
+_setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
   log_trace "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
   source "$BATS_TEST_DIRNAME/../../test_helper.bash"
