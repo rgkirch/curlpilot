@@ -253,8 +253,9 @@ _exec_dep() (
     jq -n --compact-output \
       --arg name "$key" --arg cat "deps" --arg ph "X" \
       --argjson ts "$start_time_us" --argjson dur "$duration_us" \
-      --argjson pid "$$" --argjson tid "$$" --argjson args "{}" \
-      '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:$args}' > "$self_event_log"
+      --argjson pid "$$" --argjson tid "$$" \
+      --args -- "$@" \
+      '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:{argv: $ARGS.positional}}' > "$self_event_log"
 
     # Step 2: Gather the raw event logs from DIRECT CHILDREN ONLY and append them.
     find "$trace_path" -mindepth 2 -maxdepth 2 -name "events.log" -print0 | \

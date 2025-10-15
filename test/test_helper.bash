@@ -38,11 +38,17 @@ teardown() (
     local start_time_us=$((start_time_ns / 1000))
     local duration_us=$((duration_ns / 1000))
 
+    # Create the root event for the BATS test itself.
     local root_event
     root_event=$(jq -n --compact-output \
-      --arg name "$BATS_TEST_DESCRIPTION" --arg cat "test" --arg ph "X" \
-      --argjson ts "$start_time_us" --argjson dur "$duration_us" \
-      --argjson pid "$BATS_PID" --argjson tid "$BATS_PID" --argjson args "{}" \
+      --arg name "$BATS_TEST_DESCRIPTION" \
+      --arg cat "test" \
+      --arg ph "X" \
+      --argjson ts "$start_time_us" \
+      --argjson dur "$duration_us" \
+      --argjson pid "$$" \
+      --argjson tid "$$" \
+      --argjson args "{}" \
       '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:$args}')
 
     local final_trace_file="${BATS_TEST_TMPDIR}/trace.json"
@@ -74,10 +80,11 @@ teardown() (
     ) | jq -s '{traceEvents: .}' > "$final_trace_file"
     log_debug "Teardown: Final trace file created."
 
+    # Clean up the environment variable.
     unset CURLPILOT_TRACE_ROOT_DIR
   fi
 
-  # If tracing is enabled and the test failed, dump all files created during the test for debugging.
+  # If tracing is enabled and the test failed, dump files.
   if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
     echo "--- Teardown File Dump For Test: '$BATS_TEST_DESCRIPTION' ---" >&3
     find "$BATS_TEST_TMPDIR" -type f -not -name trace.json -not -name events.log -print0 | sort -z | xargs -0 head &> /dev/fd/3 || true
