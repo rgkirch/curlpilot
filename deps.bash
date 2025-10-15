@@ -249,13 +249,15 @@ _exec_dep() (
     local duration_us=$((duration_ns / 1000))
     local self_event_log="${trace_path}/events.log"
 
-    # Step 1: Write THIS process's own event to its raw event log.
-    jq -n --compact-output \
+    log_debug "args $@"
+
+    jq '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:{argv: $ARGS.positional}}' \
+      --null-input \
+      --compact-output \
       --arg name "$key" --arg cat "deps" --arg ph "X" \
       --argjson ts "$start_time_us" --argjson dur "$duration_us" \
       --argjson pid "$$" --argjson tid "$$" \
-      --args -- "$@" \
-      '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:{argv: $ARGS.positional}}' > "$self_event_log"
+      --args -- "$@" > "$self_event_log"
 
     # Step 2: Gather the raw event logs from DIRECT CHILDREN ONLY and append them.
     find "$trace_path" -mindepth 2 -maxdepth 2 -name "events.log" -print0 | \

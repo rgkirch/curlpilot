@@ -18,7 +18,7 @@ setup() {
   fi
 }
 
-teardown() (
+teardown() {
   set -euo pipefail
   source src/logging.bash
   if declare -f _teardown > /dev/null; then
@@ -29,7 +29,6 @@ teardown() (
   if [[ -f "${CURLPILOT_TRACE_ROOT_DIR}/.start_time_ns" ]]; then
     log_debug "Teardown: Finalizing BATS trace..."
     log_debug "Teardown: CURLPILOT_TRACE_ROOT_DIR is '${CURLPILOT_TRACE_ROOT_DIR}'"
-
     local start_time_ns end_time_ns duration_ns
     start_time_ns=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.start_time_ns")
     end_time_ns=$(date +%s%N)
@@ -40,7 +39,9 @@ teardown() (
 
     # Create the root event for the BATS test itself.
     local root_event
-    root_event=$(jq -n --compact-output \
+    root_event=$(jq '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:{argv: $ARGS.positional}}' \
+      --null-input \
+      --compact-output \
       --arg name "$BATS_TEST_DESCRIPTION" \
       --arg cat "test" \
       --arg ph "X" \
@@ -48,37 +49,17 @@ teardown() (
       --argjson dur "$duration_us" \
       --argjson pid "$$" \
       --argjson tid "$$" \
-      --argjson args "{}" \
-      '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:$args}')
+      --args "$@")
 
     local final_trace_file="${BATS_TEST_TMPDIR}/trace.json"
-    log_debug "Teardown: Final trace file will be at '${final_trace_file}'"
 
-    # --- Start of Debugging Logic ---
-    local find_cmd=(find "$CURLPILOT_TRACE_ROOT_DIR" -mindepth 3 -maxdepth 3 -name "events.log" -print0)
-    log_debug "Teardown: Running find command: ${find_cmd[*]}"
-
-    # Capture the output of find to see if it's working
-    local found_logs
-    mapfile -d '' found_logs < <("${find_cmd[@]}")
-
-    if (( ${#found_logs[@]} > 0 )); then
-        log_debug "Teardown: Found ${#found_logs[@]} event logs to process:"
-        printf "  - %s\n" "${found_logs[@]}" | while IFS= read -r line; do log_debug "$line"; done
-    else
-        log_debug "Teardown: WARNING - 'find' command did not locate any event.log files."
-        log_debug "Teardown: Dumping directory structure of '${CURLPILOT_TRACE_ROOT_DIR}' for inspection:"
-        tree "$CURLPILOT_TRACE_ROOT_DIR" 2>&1 | while IFS= read -r line; do log_debug "  | $line"; done || log_debug "  (tree command not found)"
-    fi
-    # --- End of Debugging Logic ---
-
+    # Gather all top-level event logs and finalize the single master trace file.
     (
       echo "$root_event"
-      if (( ${#found_logs[@]} > 0 )); then
-          printf "%s\0" "${found_logs[@]}" | xargs -0 --no-run-if-empty cat
-      fi
-    ) | jq -s '{traceEvents: .}' > "$final_trace_file"
-    log_debug "Teardown: Final trace file created."
+      # Find the events.log from each of the top-level `exec_dep` calls.
+      find "$CURLPILOT_TRACE_ROOT_DIR" -mindepth 2 -maxdepth 2 -name "events.log" -print0 | \
+        xargs -0 --no-run-if-empty cat
+    ) | jq --slurp '{traceEvents: .}' > "$final_trace_file"
 
     # Clean up the environment variable.
     unset CURLPILOT_TRACE_ROOT_DIR
@@ -87,9 +68,14 @@ teardown() (
   # If tracing is enabled and the test failed, dump files.
   if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
     echo "--- Teardown File Dump For Test: '$BATS_TEST_DESCRIPTION' ---" >&3
-    find "$BATS_TEST_TMPDIR" -type f -not -name trace.json -not -name events.log -print0 | sort -z | xargs -0 head &> /dev/fd/3 || true
+    find "$BATS_TEST_TMPDIR" -type f\
+      -not -name trace.json \
+      -not -name events.log \
+      -not -name .counter \
+      -not -name .start_time_ns \
+      -print0 | sort -z | xargs -0 head &> /dev/fd/3 || true
   fi
-)
+}
 
 setup_file() {
   if declare -f _setup_file > /dev/null; then

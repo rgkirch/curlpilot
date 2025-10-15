@@ -187,8 +187,8 @@ Optional
 ## **Phases** {#phases}
 
 The following table lists all event types and their associated phases:
-- **Duration Events**  
-  - B (begin)  
+- **Duration Events**
+  - B (begin)
   - E (end)
 
 - **Complete Events**  
@@ -885,7 +885,6 @@ Mark events are created whenever a corresponding [navigation timing API](http://
 ]
 ```
 *Mark event example.*
-```
 
 ## **Clock Sync Event** {#clock-sync-event}
 
@@ -928,7 +927,6 @@ When the tracing agent is the issuer, both **sync\_id** and **issue\_ts** are ne
 }
 ```
 *Clock Sync Event Example - issuer*
-```
 
 ## **Context Events** {#context-events}
 

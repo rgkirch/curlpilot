@@ -1,5 +1,4 @@
-# test/mock/server/copilot_test.bats
-# set -euo pipefail # Temporarily disabled to ensure all logs are written.
+# test/mock/server/chat_test.bats
 
 source test/test_helper.bash
 
@@ -8,28 +7,16 @@ _setup_file(){
 }
 
 _setup() {
-  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  log_trace "BATS_TEST_DIRNAME $BATS_TEST_DIRNAME"
-  source "$BATS_TEST_DIRNAME/../../test_helper.bash"
-
-  log_trace "Loaded test helper"
-
+  source deps.bash
+  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
   mock_dep "client/copilot/auth.bash" "mock/stub/success/auth.bash"
   mock_dep "config.bash" "mock/stub/success/config.bash"
-  register_dep sse_generator "server/mock-copilot/sse_completion_response.bash"
-  log_trace "Dependencies mocked."
-
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
-  log_info "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
 }
-
 
 sse_generator() {
-  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  register_dep sse_generator "server/mock-copilot/sse_completion_response.bash"
-  exec_dep sse_generator "$@"
+  source deps.bash
+  _exec_dep "$PROJECT_ROOT/src/server/mock-copilot/sse_completion_response.bash" sse_completion_response "$@"
 }
-
 
 _make_response() {
   local path="$1" body="$2"
