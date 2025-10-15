@@ -1,0 +1,3 @@
+* profile viewers
+- https://www.speedscope.app/
+- https://ui.perfetto.dev/
