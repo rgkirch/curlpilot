@@ -180,9 +180,11 @@ exec_dep() {
 # the child process using the GNU `time` command.
 # Internal execution engine. Each invocation records rich performance data for
 # the child process using the GNU `time` command.
+# Internal execution engine. Each invocation records rich performance data for
+# the child process using the GNU `time` command.
 _exec_dep() (
   set -euo pipefail
-  # --- Initial Checks ---
+  # --- Initial Checks and setup ---
   local script_path="$1"
   local key="$2"
   if [[ ! -f "$script_path" ]]; then
@@ -208,25 +210,18 @@ _exec_dep() (
 
   # --- Tracing Path & I/O File Setup ---
   if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
-    # If no root is set (standalone mode), establish one.
     local trace_root="${CURLPILOT_TRACE_ROOT_DIR:-$(mktemp --directory --tmpdir curlpilot-trace.XXXXXX)}"
     if [[ -z "${CURLPILOT_TRACE_ROOT_DIR:-}" ]]; then
         export CURLPILOT_TRACE_ROOT_DIR="$trace_root"
     fi
-
-    # CORRECT: Inherit the parent's path from the environment.
-    # Fallback to the root dir if this is the first call.
     local parent_path="${CURLPILOT_TRACE_PATH:-$CURLPILOT_TRACE_ROOT_DIR}"
-
-    # Create a unique path for this execution.
     trace_path="${parent_path}/$(_increment_counter "${parent_path}"/.counter)_$key"
     mkdir -p "$trace_path"
 
     stdout_file="${trace_path}/stdout"
     stderr_file="${trace_path}/stderr"
-    time_file="${trace_path}/rusage" # File to capture resource usage
+    time_file="${trace_path}/rusage"
 
-    # CORRECT: Pass this execution's new path to its children.
     exec_cmd=(env "CURLPILOT_TRACE_ROOT_DIR=${trace_root}" "CURLPILOT_TRACE_PATH=${trace_path}" bash "$script_path" "$@")
   else
     stdout_file=$(mktemp)
@@ -254,7 +249,9 @@ _exec_dep() (
   set +e
   if [[ -n "$TIME_CMD" ]]; then
     local TIME_FORMAT='{"user_cpu_seconds":%U, "system_cpu_seconds":%S, "max_rss_kb":%M, "major_page_faults":%F, "minor_page_faults":%R, "fs_inputs":%I, "fs_outputs":%O, "voluntary_context_switches":%w, "involuntary_context_switches":%c}'
-    "$TIME_CMD" -f "$TIME_FORMAT" -o "$time_file" -- "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
+
+    # CORRECTED: Added the -q flag to suppress error messages from `time` itself.
+    "$TIME_CMD" -f "$TIME_FORMAT" -o "$time_file" -q -- "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
     exit_code=$?
   else
     "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
@@ -281,37 +278,32 @@ _exec_dep() (
     fi
   fi
 
-  # --- Final Record Generation (only when tracing) ---
+  # --- Final Record Generation ---
   if [[ -n "$trace_path" ]]; then
-    # CORRECT: Derive IDs purely from the path hierarchy.
     local self_id="${trace_path#$CURLPILOT_TRACE_ROOT_DIR/}"
     local parent_id
     if [[ "$parent_path" == "$CURLPILOT_TRACE_ROOT_DIR" ]]; then
-      parent_id="" # This is a root-level call.
+      parent_id=""
     else
       parent_id="${parent_path#$CURLPILOT_TRACE_ROOT_DIR/}"
     fi
 
-    # Use jq to parse the rusage file and build the final data object.
+    # The jq command is now simple again, as the rusage file is clean.
     jq --null-input --compact-output \
       --arg name "$key" --arg id "$self_id" --arg parentId "$parent_id" \
       --argjson pid "$$" --argjson ts "$((start_ts_ns / 1000))" \
       --argjson dur "$wall_duration_us" --argjson exit_code "$exit_code" \
       --slurpfile rusage "$time_file" \
       '
-      # Start with the object read from the rusage file
-      $rusage[0]
-      # Add the other primary metrics
-      | . + {
+      ($rusage[0] // {}) as $rusage_data
+      | $rusage_data + {
           "start_timestamp_us": $ts,
           "wall_duration_us": $dur,
           "exit_code": $exit_code
         }
-      # Calculate the total CPU time and add it
       | . + {
           "cpu_duration_us": ((.user_cpu_seconds // 0) + (.system_cpu_seconds // 0)) * 1000000 | round
         }
-      # Construct the final, top-level record structure
       | {
           name: $name,
           id: $id,

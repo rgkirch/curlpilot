@@ -6,19 +6,19 @@ setup() {
     _setup
   fi
 
-  # --- TRACING SETUP (TEST CASE LEVEL) ---
   if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
     # Inherit the suite's path from setup_file
     local suite_path="${CURLPILOT_TRACE_PATH}"
 
     # Create a unique path for this specific test case.
     local test_case_path="${suite_path}/${BATS_TEST_NUMBER}"
+    mkdir -p "$test_case_path" # Create the test case's own directory
 
-    # CORRECT: Export this test case's path as the parent for _exec_dep calls
+    # Record this test case's start time inside its directory.
+    date +%s%N > "${test_case_path}/.test_start_time_ns"
+
+    # Export this test case's path as the parent for _exec_dep calls
     export CURLPILOT_TRACE_PATH="$test_case_path"
-
-    # Record this test case's start time.
-    date +%s%N > "${CURLPILOT_TRACE_ROOT_DIR}/.test_start_time_ns_${BATS_TEST_NUMBER}"
   fi
 }
 
@@ -29,20 +29,20 @@ teardown() {
     _teardown
   fi
 
-  # --- TRACING TEARDOWN (TEST CASE LEVEL) ---
-  if [[ -f "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id" ]]; then
+  if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
     log_debug "Teardown: Recording BATS test case data..."
     local suite_id start_time_ns end_time_ns
-    suite_id=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id")
-    start_time_ns=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.test_start_time_ns_${BATS_TEST_NUMBER}")
-    end_time_ns=$(date +%s%N)
+    suite_id=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id") # Read suite ID
 
-    # Re-create the paths
+    # Re-create paths
     local suite_path="${CURLPILOT_TRACE_ROOT_DIR}/${suite_id}"
     local test_case_path="${suite_path}/${BATS_TEST_NUMBER}"
     local test_case_id="${test_case_path#$CURLPILOT_TRACE_ROOT_DIR/}"
 
-    mkdir -p "$test_case_path"
+    # Read start time from the test case's directory.
+    start_time_ns=$(cat "${test_case_path}/.test_start_time_ns")
+    end_time_ns=$(date +%s%N)
+
     local record_file="${test_case_path}/record.ndjson"
 
     local test_exit_code=0
@@ -68,21 +68,23 @@ teardown() {
       --argjson ts "$((start_time_ns / 1000))" \
       --argjson dur "$(((end_time_ns - start_time_ns) / 1000))" \
       --argjson exit_code "$test_exit_code" > "$record_file"
-
-    # CORRECT: Reset the trace path back to the suite level for the next test.
-    export CURLPILOT_TRACE_PATH="$suite_path"
   fi
 
   # If tracing is enabled and the test failed, dump artifact files for debugging.
-  if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
-    echo "--- Teardown File Dump For Test: '$BATS_TEST_DESCRIPTION' ---" >&3
-    find "$BATS_TEST_TMPDIR" -type f\
-      -not -name 'record.ndjson' \
+  if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
+    echo "=== Teardown Dump of CURLPILOT_TRACE_PATH $CURLPILOT_TRACE_PATH ===" >&3
+    find "$CURLPILOT_TRACE_PATH" -type f \
       -not -name .counter \
       -not -name .start_time_ns \
-      -print0 | sort -z | xargs -0 head &> /dev/fd/3 || true
+      -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
+  fi
+  if [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
+    echo "=== Teardown Dump of BATS_TEST_TMPDIR $BATS_TEST_TMPDIR ===" >&3
+    find "$BATS_TEST_TMPDIR" -type f \
+      -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
   fi
 }
+
 
 setup_file() {
   if declare -f _setup_file > /dev/null; then
@@ -91,19 +93,21 @@ setup_file() {
 
   # --- TRACING SETUP (SUITE LEVEL) ---
   if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
-    # Use the BATS_FILE_TMPDIR variable, which is guaranteed to exist.
+    # Use the BATS_FILE_TMPDIR variable.
     export CURLPILOT_TRACE_ROOT_DIR="${BATS_FILE_TMPDIR}/curlpilot-trace"
     mkdir -p "$CURLPILOT_TRACE_ROOT_DIR"
 
     # Generate a clean, stable ID for this test file (the "suite").
     local suite_id="bats_$(basename "${BATS_TEST_FILENAME}" .bats)"
+    local suite_path="${CURLPILOT_TRACE_ROOT_DIR}/${suite_id}"
+    mkdir -p "$suite_path" # Create the suite's own directory
 
-    # Store the suite ID and start time for other functions to use.
-    echo "$suite_id" > "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id"
-    date +%s%N > "${CURLPILOT_TRACE_ROOT_DIR}/.suite_start_time_ns"
+    # Store the start time inside the suite's directory.
+    echo "$suite_id" > "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id" # Keep ID ref in root for setup()
+    date +%s%N > "${suite_path}/.suite_start_time_ns" # Store time inside suite dir
 
-    # CORRECT: Export the suite's path as the parent for setup()
-    export CURLPILOT_TRACE_PATH="${CURLPILOT_TRACE_ROOT_DIR}/${suite_id}"
+    # Export the suite's path as the parent for setup()
+    export CURLPILOT_TRACE_PATH="$suite_path"
   fi
 }
 
@@ -117,12 +121,12 @@ teardown_file() {
     log_debug "Teardown: Recording BATS suite data..."
     local suite_id start_time_ns end_time_ns
     suite_id=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id")
-    start_time_ns=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.suite_start_time_ns")
+    local suite_path="${CURLPILOT_TRACE_ROOT_DIR}/${suite_id}"
+
+    # Read start time from the suite's directory.
+    start_time_ns=$(cat "${suite_path}/.suite_start_time_ns")
     end_time_ns=$(date +%s%N)
 
-    # The root record is stored in its own directory.
-    local suite_path="${CURLPILOT_TRACE_ROOT_DIR}/${suite_id}"
-    mkdir -p "$suite_path"
     local record_file="${suite_path}/record.ndjson"
 
     jq --null-input --compact-output \
@@ -144,10 +148,15 @@ teardown_file() {
       --argjson ts "$((start_time_ns / 1000))" \
       --argjson dur "$(((end_time_ns - start_time_ns) / 1000))" > "$record_file"
 
-    # Clean up temp files
-    #rm -f "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id" \
-    #      "${CURLPILOT_TRACE_ROOT_DIR}/.suite_start_time_ns"
-    #find "$CURLPILOT_TRACE_ROOT_DIR" -name ".test_start_time_ns_*" -delete
+    if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
+      echo "=== File Teardown Dump of CURLPILOT_TRACE_ROOT_DIR $CURLPILOT_TRACE_ROOT_DIR ===" >&3
+      echo "while pruning CURLPILOT_TRACE_PATH $CURLPILOT_TRACE_PATH" >&3
+      tree -a "$CURLPILOT_TRACE_ROOT_DIR" &> /dev/fd/3
+      find "$CURLPILOT_TRACE_ROOT_DIR" \
+        -path "$CURLPILOT_TRACE_PATH/[0-9]*" -prune -o \
+        -type f \
+        -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
+    fi
   fi
 }
 
