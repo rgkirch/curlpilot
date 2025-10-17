@@ -1,66 +1,4 @@
 # Trace Event Format
-
-*Last updated: October 2016*  
-*nduca@, dsinclair@*
-
-[Introduction](#introduction)
-
-[JSON Format](#json-format)
-
-[JSON Array Format](#json-array-format)
-
-[JSON Object Format](#json-object-format)
-
-[Event Descriptions](#event-descriptions)
-
-[Phases](#phases)
-
-[Duration Events](#duration-events)
-
-[Stack Traces on Duration Events](#stack-traces-on-duration-events)
-
-[Complete Events](#complete-events)
-
-[Instant Events](#instant-events)
-
-[Counter Events](#counter-events)
-
-[Async Events](#async-events)
-
-[Flow Events](#flow-events)
-
-[Sample Events (deprecated)](#sample-events-\(deprecated\))
-
-[Object Events](#object-events)
-
-[Snapshots](#snapshots)
-
-[Snapshot category override](#snapshot-category-override)
-
-[Snapshot base\_type override](#snapshot-base_type-override)
-
-[References](#references)
-
-[Metadata Events](#metadata-events)
-
-[Memory Dump Events](#memory-dump-events)
-
-[Mark Events](#mark-events)
-
-[Clock Sync Event](#clock-sync-event)
-
-[Context Events](#context-events)
-
-[Linking IDs](#linking-ids)
-
-[More about IDs](#more-about-ids)
-
-[StackFrames Dictionary](#stackframes-dictionary)
-
-[Global Samples](#global-samples)
-
-[Linux Debug Format](#linux-debug-format)
-
 # Introduction {#introduction}
 
 The Trace Event Format is the trace data representation that is processed by the Trace Viewer[^1] application. Trace Viewer recognizes four input variations.
@@ -1094,13 +1032,3 @@ Covered in [PerfPlanet](https://calendar.perfplanet.com/2019/javascript-componen
 * **tidelta** – number of instructions of this event  
 * **ticount** – number of instructions at the start of this event
 
-## **Additional Resources**
-
-A few tools parse & analyze trace events as used in Chrome:
-
-* [Catapult/traceviewer](https://github.com/catapult-project/catapult/blob/master/tracing/tracing/extras/importer/trace_event_importer.html)  
-* [Lighthouse/tracehouse](https://github.com/GoogleChrome/lighthouse/tree/master/lighthouse-core/lib/tracehouse)  
-* [Speedscope](https://github.com/jlfwong/speedscope/blob/master/src/import/chrome.ts)  
-* [Tracerbench](https://github.com/TracerBench/tracerbench/tree/master/packages/tracerbench/src/trace)
-
-[^1]:  [https://github.com/catapult-project/catapult/tree/master/tracing](https://github.com/catapult-project/catapult/tree/master/tracing)

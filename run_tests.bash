@@ -1,4 +1,5 @@
 #!/bin/bash
+#run_tests.bash
 set -euo pipefail
 
 # Get the directory containing this script.

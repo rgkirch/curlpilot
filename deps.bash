@@ -174,6 +174,12 @@ exec_dep() {
   _exec_dep "$resolved_path" "$key" "$@"
 }
 
+# Internal execution engine. Each invocation records its own performance data
+# to a self-contained intermediate file (`record.ndjson`).
+# Internal execution engine. Each invocation records rich performance data for
+# the child process using the GNU `time` command.
+# Internal execution engine. Each invocation records rich performance data for
+# the child process using the GNU `time` command.
 _exec_dep() (
   set -euo pipefail
   # --- Initial Checks ---
@@ -186,106 +192,137 @@ _exec_dep() (
   shift 2
 
   local trace_path=""
-  local stdout_file stderr_file
+  local stdout_file stderr_file time_file
   local exec_cmd exit_code
-  local base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
+  local base_path
+  base_path="$(dirname "$script_path")/$(basename "$script_path" .bash)"
   local validator_path="$PROJECT_ROOT/src/schema_validator.bash"
   local stdout_schema_path="${base_path}.stdout.schema.json"
   local stderr_schema_path="${base_path}.stderr.schema.json"
 
-  # --- Tracing Path Setup ---
-  if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
-    # If a root is already defined (by BATS or a parent process), use it.
-    # Otherwise, create one for this new standalone trace.
-    local trace_root="${CURLPILOT_TRACE_ROOT_DIR:-$(mktemp -d -t curlpilot-trace.XXXXXX)}"
+  local TIME_CMD="/usr/bin/time"
+  if [[ ! -x "$TIME_CMD" ]]; then
+    log_warn "GNU time not found at '$TIME_CMD'. CPU and resource metrics will be zero."
+    TIME_CMD=""
+  fi
 
-    # If this is the first call in a standalone trace, export the new root so children can find it.
+  # --- Tracing Path & I/O File Setup ---
+  if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
+    # If no root is set (standalone mode), establish one.
+    local trace_root="${CURLPILOT_TRACE_ROOT_DIR:-$(mktemp --directory --tmpdir curlpilot-trace.XXXXXX)}"
     if [[ -z "${CURLPILOT_TRACE_ROOT_DIR:-}" ]]; then
         export CURLPILOT_TRACE_ROOT_DIR="$trace_root"
     fi
 
-    # If a parent process has set a path, create a subdirectory within it.
-    # Otherwise, create a new top-level directory within the root.
-    local parent_path="${CURLPILOT_TRACE_PATH:-$trace_root}"
+    # CORRECT: Inherit the parent's path from the environment.
+    # Fallback to the root dir if this is the first call.
+    local parent_path="${CURLPILOT_TRACE_PATH:-$CURLPILOT_TRACE_ROOT_DIR}"
+
+    # Create a unique path for this execution.
     trace_path="${parent_path}/$(_increment_counter "${parent_path}"/.counter)_$key"
     mkdir -p "$trace_path"
+
     stdout_file="${trace_path}/stdout"
     stderr_file="${trace_path}/stderr"
+    time_file="${trace_path}/rusage" # File to capture resource usage
 
-    # Pass the ROOT dir to all children.
-    # Pass the NEW, more specific PATH to our direct children.
+    # CORRECT: Pass this execution's new path to its children.
     exec_cmd=(env "CURLPILOT_TRACE_ROOT_DIR=${trace_root}" "CURLPILOT_TRACE_PATH=${trace_path}" bash "$script_path" "$@")
   else
-    # NON-TRACING MODE
     stdout_file=$(mktemp)
     stderr_file=$(mktemp)
-    trap "rm -f '$stdout_file' '$stderr_file'" RETURN
+    time_file=$(mktemp)
+    trap "rm -f '$stdout_file' '$stderr_file' '$time_file'" EXIT
     exec_cmd=(bash "$script_path" "$@")
   fi
 
-  # --- Execution and I/O Redirection ---
+  # --- Timing and Execution ---
+  local start_ts_ns end_ts_ns wall_duration_us
+  start_ts_ns=$(date +%s%N)
+
+  # --- Real-Time I/O Streaming and Capture ---
   local stdout_pipe stderr_pipe
   stdout_pipe=$(mktemp -u); stderr_pipe=$(mktemp -u)
   mkfifo "$stdout_pipe" "$stderr_pipe"
   trap 'rm -f "$stdout_pipe" "$stderr_pipe"' EXIT
-  tee -ap "$stdout_file" < "$stdout_pipe" &
-  tee -ap "$stderr_file" < "$stderr_pipe" >&2 &
 
-  # --- Timing and Execution ---
-  local start_time_ns
-  start_time_ns=$(date +%s%N)
+  tee -a "$stdout_file" < "$stdout_pipe" &
+  local tee_stdout_pid=$!
+  tee -a "$stderr_file" < "$stderr_pipe" >&2 &
+  local tee_stderr_pid=$!
+
   set +e
-  "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
-  exit_code=$?
-  set -e
-  wait
-  local end_time_ns duration_ns
-  end_time_ns=$(date +%s%N)
-  duration_ns=$((end_time_ns - start_time_ns))
-
-  # --- Tracing Finalization Logic ---
-  if [[ -n "$trace_path" ]]; then
-    local start_time_us=$((start_time_ns / 1000))
-    local duration_us=$((duration_ns / 1000))
-    local self_event_log="${trace_path}/events.log"
-
-    log_debug "args $@"
-
-    jq '{name:$name, cat:$cat, ph:$ph, ts:$ts, dur:$dur, pid:$pid, tid:$tid, args:{argv: $ARGS.positional}}' \
-      --null-input \
-      --compact-output \
-      --arg name "$key" --arg cat "deps" --arg ph "X" \
-      --argjson ts "$start_time_us" --argjson dur "$duration_us" \
-      --argjson pid "$$" --argjson tid "$$" \
-      --args -- "$@" > "$self_event_log"
-
-    # Step 2: Gather the raw event logs from DIRECT CHILDREN ONLY and append them.
-    find "$trace_path" -mindepth 2 -maxdepth 2 -name "events.log" -print0 | \
-      xargs -0 --no-run-if-empty cat >> "$self_event_log"
-
-    # Step 3: ALWAYS create the final, user-facing trace.json for this level.
-    local final_trace_file="${trace_path}/trace.json"
-    jq -s '{traceEvents: .}' < "$self_event_log" > "$final_trace_file"
-
-    echo "$exit_code" > "${trace_path}/exit_code"
+  if [[ -n "$TIME_CMD" ]]; then
+    local TIME_FORMAT='{"user_cpu_seconds":%U, "system_cpu_seconds":%S, "max_rss_kb":%M, "major_page_faults":%F, "minor_page_faults":%R, "fs_inputs":%I, "fs_outputs":%O, "voluntary_context_switches":%w, "involuntary_context_switches":%c}'
+    "$TIME_CMD" -f "$TIME_FORMAT" -o "$time_file" -- "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
+    exit_code=$?
+  else
+    "${exec_cmd[@]}" >"$stdout_pipe" 2>"$stderr_pipe"
+    exit_code=$?
+    echo '{}' > "$time_file"
   fi
+  set -e
+
+  wait "$tee_stdout_pid" "$tee_stderr_pid"
+  end_ts_ns=$(date +%s%N)
+  wall_duration_us=$(((end_ts_ns - start_ts_ns) / 1000))
 
   # --- Schema Validation ---
-  if [[ $exit_code -ne 0 ]]; then
-    log_error "Dependency '$key' exited with code $exit_code (trace: ${trace_path:-N/A})"
-    return $exit_code
+  if [[ $exit_code -eq 0 ]]; then
+    local all_validations_passed=true
+    if ! _validate_stream "stdout" "$stdout_file" "$stdout_schema_path" "$validator_path" "$key" "$trace_path"; then
+      all_validations_passed=false
+    fi
+    if ! _validate_stream "stderr" "$stderr_file" "$stderr_schema_path" "$validator_path" "$key" "$trace_path"; then
+      all_validations_passed=false
+    fi
+    if ! $all_validations_passed; then
+      exit_code=124
+    fi
   fi
-  local all_validations_passed=true
-  if ! _validate_stream "stdout" "$stdout_file" "$stdout_schema_path" "$validator_path" "$key" "$trace_path"; then
-    all_validations_passed=false
+
+  # --- Final Record Generation (only when tracing) ---
+  if [[ -n "$trace_path" ]]; then
+    # CORRECT: Derive IDs purely from the path hierarchy.
+    local self_id="${trace_path#$CURLPILOT_TRACE_ROOT_DIR/}"
+    local parent_id
+    if [[ "$parent_path" == "$CURLPILOT_TRACE_ROOT_DIR" ]]; then
+      parent_id="" # This is a root-level call.
+    else
+      parent_id="${parent_path#$CURLPILOT_TRACE_ROOT_DIR/}"
+    fi
+
+    # Use jq to parse the rusage file and build the final data object.
+    jq --null-input --compact-output \
+      --arg name "$key" --arg id "$self_id" --arg parentId "$parent_id" \
+      --argjson pid "$$" --argjson ts "$((start_ts_ns / 1000))" \
+      --argjson dur "$wall_duration_us" --argjson exit_code "$exit_code" \
+      --slurpfile rusage "$time_file" \
+      '
+      # Start with the object read from the rusage file
+      $rusage[0]
+      # Add the other primary metrics
+      | . + {
+          "start_timestamp_us": $ts,
+          "wall_duration_us": $dur,
+          "exit_code": $exit_code
+        }
+      # Calculate the total CPU time and add it
+      | . + {
+          "cpu_duration_us": ((.user_cpu_seconds // 0) + (.system_cpu_seconds // 0)) * 1000000 | round
+        }
+      # Construct the final, top-level record structure
+      | {
+          name: $name,
+          id: $id,
+          parentId: $parentId,
+          pid: $pid,
+          data: .
+        }
+      ' > "${trace_path}/record.ndjson"
   fi
-  if ! _validate_stream "stderr" "$stderr_file" "$stderr_schema_path" "$validator_path" "$key" "$trace_path"; then
-    all_validations_passed=false
-  fi
-  if ! $all_validations_passed; then
-    return 1
-  fi
-  return 0
+
+  return "$exit_code"
 )
 
 get_script_registry() {

@@ -1,3 +1,8 @@
+* tracing
+https://thume.ca/2023/12/02/tracing-methods/
+https://awsdocs-neuron.readthedocs-hosted.com/en/latest/tools/neuron-sys-tools/neuron-profile-user-guide.html
+https://github.com/janestreet/magic-trace
+https://github.com/wolfpld/tracy
 * profile viewers
 - https://www.speedscope.app/
 - https://ui.perfetto.dev/
