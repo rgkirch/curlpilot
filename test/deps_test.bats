@@ -49,6 +49,17 @@ EOF
     echo "FATAL: Sandbox directory is not under /tmp. Aborting." >&2
     exit 1
   fi
+
+  if [[ "${BATS_TEST_DESCRIPTION}" == *"tracing"* ]]; then
+    export CURLPILOT_TRACE=true
+    export CURLPILOT_TRACE_ROOT_DIR="$BATS_TEST_TMPDIR/curlpilot-trace"
+    mkdir -p "$CURLPILOT_TRACE_ROOT_DIR"
+    local suite_id="bats_$(basename "$BATS_TEST_FILENAME" .bats)"
+    local suite_path="${CURLPILOT_TRACE_ROOT_DIR}/${suite_id}"
+    mkdir -p "$suite_path"
+    export CURLPILOT_TRACE_PATH="$suite_path"
+  fi
+
   log_debug "setup done"
 }
 
@@ -156,9 +167,6 @@ create_stderr_schema() {
 }
 
 @test "exec_dep: enables tracing and creates trace files" {
-  export CURLPILOT_TRACE=true
-  # No need to re-source deps.bash here, _exec_dep handles root detection.
-
   create_dep_script "trace_me" "original"
   create_mock_script "trace_mock" 'echo "tracing stdout"'
 
@@ -236,8 +244,6 @@ create_stderr_schema() {
 }
 
 @test "exec_dep: tracing a command that fails" {
-  export CURLPILOT_TRACE=true
-
   create_dep_script "fail_script" 'echo "Error output" >&2; exit 55'
   register_dep "fail_key" "fail_script.bash"
 
