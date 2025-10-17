@@ -1,5 +1,14 @@
 bats_require_minimum_version 1.5.0
 
+_increment_counter() {
+  local counter_file="$1"
+  local child_num
+  child_num=$(cat "$counter_file" 2>/dev/null || echo 0)
+  child_num=$((child_num + 1))
+  echo "$child_num" > "$counter_file"
+  printf "%02d\n" "$child_num"
+}
+
 setup() {
   source src/logging.bash
   if declare -f _setup > /dev/null; then
@@ -45,8 +54,9 @@ teardown() {
 
     local record_file="${test_case_path}/record.ndjson"
 
-    local test_exit_code=0
-    [[ "${BATS_TEST_FAILED:-}" == "1" ]] && test_exit_code=1
+    if [[ "${BATS_ERROR_STATUS:-}" == "1" ]]; then
+      _increment_counter "${CURLPILOT_TRACE_ROOT_DIR}/.failed_test_count"
+    fi
 
     jq --null-input --compact-output \
       '{
@@ -67,7 +77,7 @@ teardown() {
       --argjson pid "$$" \
       --argjson ts "$((start_time_ns / 1000))" \
       --argjson dur "$(((end_time_ns - start_time_ns) / 1000))" \
-      --argjson exit_code "$test_exit_code" > "$record_file"
+      --argjson exit_code "$BATS_ERROR_STATUS" > "$record_file"
   fi
 
   if [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
@@ -149,9 +159,12 @@ teardown_file() {
       --argjson dur "$(((end_time_ns - start_time_ns) / 1000))" > "$record_file"
     fi
 
-  echo "CURLPILOT_TRACE $CURLPILOT_TRACE" >&3
-  echo "BATS_ERROR_STATUS $BATS_ERROR_STATUS" >&3
-    if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]]; then
+  #echo "CURLPILOT_TRACE $CURLPILOT_TRACE" >&3
+  #echo "BATS_ERROR_STATUS $BATS_ERROR_STATUS" >&3
+  #echo "CURLPILOT_FAILED_TEST_COUNT $(cat "${CURLPILOT_TRACE_ROOT_DIR}/.failed_test_count")" >&3
+    local failed_test_count
+    failed_test_count=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.failed_test_count" 2>/dev/null || echo 0)
+    if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "$failed_test_count" && "$failed_test_count" -ne 0 ]]; then
       if [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
         echo "=== File Teardown Dump of CURLPILOT_TRACE_ROOT_DIR $CURLPILOT_TRACE_ROOT_DIR ===" >&3
         find "$CURLPILOT_TRACE_ROOT_DIR" \
