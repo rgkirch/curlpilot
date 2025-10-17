@@ -70,15 +70,15 @@ teardown() {
       --argjson exit_code "$test_exit_code" > "$record_file"
   fi
 
-  # If tracing is enabled and the test failed, dump artifact files for debugging.
-  if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
-    echo "=== Teardown Dump of CURLPILOT_TRACE_PATH $CURLPILOT_TRACE_PATH ===" >&3
-    find "$CURLPILOT_TRACE_PATH" -type f \
-      -not -name .counter \
-      -not -name .start_time_ns \
-      -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
-  fi
   if [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]] && [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
+      if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
+      echo "=== Teardown Dump of CURLPILOT_TRACE_PATH $CURLPILOT_TRACE_PATH ===" >&3
+      find "$CURLPILOT_TRACE_PATH" -type f \
+        -not -name .counter \
+        -not -name .start_time_ns \
+        -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
+    fi
+
     echo "=== Teardown Dump of BATS_TEST_TMPDIR $BATS_TEST_TMPDIR ===" >&3
     find "$BATS_TEST_TMPDIR" -type f \
       -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
@@ -117,7 +117,7 @@ teardown_file() {
   fi
 
   # --- TRACING TEARDOWN (SUITE LEVEL) ---
-  if [[ -f "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id" ]]; then
+  if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
     log_debug "Teardown: Recording BATS suite data..."
     local suite_id start_time_ns end_time_ns
     suite_id=$(cat "${CURLPILOT_TRACE_ROOT_DIR}/.suite_id")
@@ -147,17 +147,24 @@ teardown_file() {
       --argjson pid "$$" \
       --argjson ts "$((start_time_ns / 1000))" \
       --argjson dur "$(((end_time_ns - start_time_ns) / 1000))" > "$record_file"
-
-    if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
-      echo "=== File Teardown Dump of CURLPILOT_TRACE_ROOT_DIR $CURLPILOT_TRACE_ROOT_DIR ===" >&3
-      echo "while pruning CURLPILOT_TRACE_PATH $CURLPILOT_TRACE_PATH" >&3
-      tree -a "$CURLPILOT_TRACE_ROOT_DIR" &> /dev/fd/3
-      find "$CURLPILOT_TRACE_ROOT_DIR" \
-        -path "$CURLPILOT_TRACE_PATH/[0-9]*" -prune -o \
-        -type f \
-        -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
     fi
-  fi
+
+  echo "CURLPILOT_TRACE $CURLPILOT_TRACE" >&3
+  echo "BATS_ERROR_STATUS $BATS_ERROR_STATUS" >&3
+    if [[ "${CURLPILOT_TRACE:-}" == "true" ]] && [[ -n "${BATS_ERROR_STATUS:-}" && "${BATS_ERROR_STATUS}" -ne 0 ]]; then
+      if [[ "${BATS_NUMBER_OF_PARALLEL_JOBS:-1}" -le 1 ]]; then
+        echo "=== File Teardown Dump of CURLPILOT_TRACE_ROOT_DIR $CURLPILOT_TRACE_ROOT_DIR ===" >&3
+        find "$CURLPILOT_TRACE_ROOT_DIR" \
+          -path "$CURLPILOT_TRACE_PATH/[0-9]*" -prune -o \
+          -type f \
+          -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
+      else
+        echo "=== File Teardown Dump of CURLPILOT_TRACE_ROOT_DIR $CURLPILOT_TRACE_ROOT_DIR ===" >&3
+        find "$CURLPILOT_TRACE_ROOT_DIR" \
+          -type f \
+          -print0 | sort -z | xargs -0 head -n 200 &> /dev/fd/3 || true
+      fi
+    fi
 }
 
 # --- LOAD BATS LIBRARIES ---
