@@ -283,6 +283,6 @@ create_stderr_schema() {
   assert_json_value "$record_json" '.data.user_cpu_seconds' "0.00"
   assert_json_value "$record_json" '.data.cpu_duration_us' "0"
   # Check existence of another field using jq's 'has'
-  run echo "$record_json" | jq -e 'has("data") and (.data | has("max_rss_kb"))'
+  run jq -e 'has("data") and (.data | has("max_rss_kb"))' "$record_file"
   assert_success "Record should contain data.max_rss_kb field"
 }
