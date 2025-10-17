@@ -21,10 +21,10 @@ _setup() {
 
   # 2. Create a mock logging.bash in the sandbox.
   cat > "$SANDBOX_SRC_DIR/logging.bash" <<'EOF'
-log_error() { echo "ERROR: $@"; } # Don't send to stderr in tests
+log_error() { echo "ERROR: $@" >&2; }
 log_info() { echo "INFO: $@"; }
-log_debug() { echo "DEBUG: $@"; }
-log_warn() { echo "WARN: $@"; }
+log_debug() { echo "DEBUG: $@" >&2; }
+log_warn() { echo "WARN: $@" >&2; }
 EOF
 
   # 3. Create a MOCK schema_validator.bash in the sandbox.
@@ -32,7 +32,8 @@ EOF
 #!/usr/bin/env bash
 # Mock schema validator. The schema file argument ($1) is ignored.
 # It just checks if stdin is valid JSON.
-if ! jq -e . >/dev/null 2>&1; then
+if ! jq -e . >/dev/null 2>&1;
+  then
     echo "Mock Validator: Invalid JSON" >&2
     exit 1
 fi
@@ -291,4 +292,72 @@ create_stderr_schema() {
   # Check existence of another field using jq's 'has'
   run jq -e 'has("data") and (.data | has("max_rss_kb"))' "$record_file"
   assert_success "Record should contain data.max_rss_kb field"
+}
+
+@test "exec_dep: functions without /usr/bin/time" {
+  create_dep_script "no_time" "echo 'hello'"
+  register_dep "no_time_key" "no_time.bash"
+
+  # Override TIME_CMD to a non-existent path
+  export CURLPILOT_TIME_CMD="/invalid/path/to/time"
+  export CURLPILOT_LOG_LEVEL="DEBUG"
+  
+  run --separate-stderr exec_dep "no_time_key"
+
+  assert_success
+  assert_output "hello"
+  assert_stderr --partial "GNU time not found"
+
+  unset CURLPILOT_TIME_CMD
+  unset CURLPILOT_LOG_LEVEL
+}
+
+@test "exec_dep: tracing a command that fails validation" {
+  # The name of this test enables tracing via _setup
+
+  create_dep_script "invalid_json_trace" 'echo "this is not json"'
+  create_schema "invalid_json_trace" '{ "type": "object" }'
+  register_dep "invalid_key_trace" "invalid_json_trace.bash"
+
+  run --separate-stderr exec_dep "invalid_key_trace"
+  assert_failure 124
+
+  # Assert that the validation error file was created in the trace directory
+  local dep_trace_path
+  dep_trace_path=$(find "$CURLPILOT_TRACE_ROOT_DIR" -type d -name '*_invalid_key_trace' 2>/dev/null | head -n 1)
+  assert_exists "$dep_trace_path"
+  assert_file_exists "${dep_trace_path}/stdout_validation_errors"
+  assert_file_contains "${dep_trace_path}/stdout_validation_errors" "Mock Validator: Invalid JSON"
+}
+
+@test "exec_dep: fails if mock script path does not exist" {
+  create_dep_script "real_script" "echo 'real'"
+  register_dep "real_key" "real_script.bash"
+  
+  # Manually export a mock pointing to a non-existent file
+  local non_existent_path="$PROJECT_ROOT/test/mock/non_existent_mock.bash"
+  export CPO_SRC__REAL_SCRIPT_BASH="$non_existent_path"
+  
+  run --separate-stderr exec_dep "real_key"
+  assert_failure 1
+  assert_stderr --partial "Script file '$non_existent_path' does not exist"
+}
+
+@test "exec_dep: tracing creates a root span correctly" {
+  # This test has "tracing" in its name, so _setup enables it.
+  # We just need to unset the CURLPILOT_TRACE_PATH set by _setup.
+  unset CURLPILOT_TRACE_PATH
+  
+  create_dep_script "root_trace" "echo 'root'"
+  register_dep "root_key" "root_trace.bash"
+
+  run --separate-stderr exec_dep "root_key"
+  assert_success
+  
+  local dep_trace_path
+  dep_trace_path=$(find "$CURLPILOT_TRACE_ROOT_DIR" -type d -name '*_root_key' 2>/dev/null | head -n 1)
+  local record_json=$(cat "${dep_trace_path}/record.ndjson")
+  
+  # Use your helper to check for empty parentId
+  assert_json_value "$record_json" '.parentId' ""
 }

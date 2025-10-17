@@ -1,3 +1,4 @@
+#!/usr/bin/bash
 # Provides intelligent logging functions with multiple levels and dual output.
 
 # Include guard

@@ -202,7 +202,7 @@ _exec_dep() (
   local stdout_schema_path="${base_path}.stdout.schema.json"
   local stderr_schema_path="${base_path}.stderr.schema.json"
 
-  local TIME_CMD="/usr/bin/time"
+  local TIME_CMD="${CURLPILOT_TIME_CMD:-/usr/bin/time}"
   if [[ ! -x "$TIME_CMD" ]]; then
     log_warn "GNU time not found at '$TIME_CMD'. CPU and resource metrics will be zero."
     TIME_CMD=""
