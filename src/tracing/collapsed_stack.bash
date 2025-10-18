@@ -31,37 +31,20 @@ collapsed_stack_from_trace_root() {
       dur["$id"]="$d"
     done < "$f"
   done
-  # Aggregate durations by full path (root->leaf)
-  declare -A agg
-  local leaf cur component path_parts path i
-  for leaf in "${!name[@]}"; do
-    path_parts=()
-    cur="$leaf"
-    while [[ -n "$cur" ]]; do
-      # Prefer recorded name; fallback to last id segment
-      local label
-      if [[ -v "name[$cur]" && -n "${name[$cur]}" ]]; then
-        label="${name[$cur]}"
-      else
-        label="${cur##*/}"
-      fi
-      path_parts+=("$label")
-      if [[ -v "parent[$cur]" && -n "${parent[$cur]}" ]]; then
-        cur="${parent[$cur]}"
-      else
-        cur="" # reached root
-      fi
-    done
-    local rev=()
-    for (( i=${#path_parts[@]}-1; i>=0; i--)); do rev+=("${path_parts[$i]}"); done
-    path="$(IFS=';'; echo "${rev[*]}")"
-    if [[ -n "${dur[$leaf]:-}" ]]; then
-      agg["$path"]=$(( ${agg[$path]:-0} + ${dur[$leaf]} ))
-    fi
+  # Emit one line per record (preserve ordinal components to distinguish repeats)
+  local id path duration path_segments seg root_name
+  for id in "${!name[@]}"; do
+    duration="${dur[$id]:-0}"
+    # Build path from id segments
+    IFS='/' read -r -a path_segments <<< "$id"
+    # Replace first segment (suite id) with suite record name if available
+    root_name="${name["${path_segments[0]}"]:-${path_segments[0]}}"
+    path_segments[0]="$root_name"
+    # For leaf segment use original segment (with ordinal) rather than plain name to disambiguate
+    # If segment has ordinal (NN_) keep it; else optionally append name
+    # Already contained in id
+    path="$(IFS=';'; echo "${path_segments[*]}")"
+    printf '%s %s\n' "$path" "$duration"
   done
-  # Output aggregated collapsed stacks
-  for path in "${!agg[@]}"; do
-    printf '%s %s\n' "$path" "${agg[$path]}"
-  done | sort
 }
 

@@ -14,7 +14,6 @@ if [[ -z "${_BASH_PROFILER_ACTIVE:-}" ]]; then
     export _BASH_PROFILER_ACTIVE=1
 
     # 2. Find the full, real path to this script.
-    local profiler_path
     profiler_path="$(realpath "${BASH_SOURCE[0]}")"
 
     # 3. Set BASH_ENV so all child scripts will be profiled.

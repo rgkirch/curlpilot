@@ -2,14 +2,9 @@
 
 source test/test_helper.bash
 
-_setup() {
-  bats_require_minimum_version 1.5.0
-
-  source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  log_debug "Sourced deps.bash"
-
-  export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
-  log_debug "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"
+launch_server() {
+  source deps.bash
+  _exec_dep "$PROJECT_ROOT/src/server/launch_server.bash" launch_server "$@"
 }
 
 _make_copilot_response() {
@@ -66,7 +61,7 @@ retry() {
   responses_json=$(jq -n --arg p "$response_file" '[$p]')
 
   log_debug "Launching server..."
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
+  run --separate-stderr launch_server \
     --stderr-log 3 \
     --stream=false --responses "$responses_json"
   log_debug "run command finished with status: $status"
@@ -111,7 +106,7 @@ retry() {
   responses_json=$(jq -n --arg p "$response_file" '[$p]')
 
   log_debug "Launching server..."
-  run --separate-stderr bash "$MOCK_SERVER_SCRIPT" \
+  run --separate-stderr launch_server \
     --stdout-log 3 \
     --stderr-log 3 \
     --responses "$responses_json"

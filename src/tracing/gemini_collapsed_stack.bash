@@ -46,11 +46,12 @@ gemini_collapsed_stack_from_trace_root() {
     return 1
   fi
 
-  # Find all 'record.ndjson' files within the trace root directory.
-  # We use `find ... -print0 | xargs -0 cat` to safely handle filenames
-  # that might contain spaces and to avoid argument list length limits.
-  # The concatenated output is then piped to jq for processing.
-  find "$trace_root" -name record.ndjson -print0 | xargs -0 --no-run-if-empty cat | \
+  # Find all 'record.ndjson' files, sort their paths alphabetically,
+  # and then concatenate their contents in that sorted order. This is
+  # crucial for producing an ordered stack trace.
+  # We use `find...-print0 | sort -z | xargs -0` for safe handling of
+  # filenames with spaces or special characters.
+  find "$trace_root" -name record.ndjson -print0 | sort -z | xargs -0 --no-run-if-empty cat | \
     jq -r \
       --arg key "$metric_key" \
       '
