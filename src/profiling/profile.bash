@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-# Smart Profiler v8 - `set -u` safe, clean PS4, consolidated logs,
-#                     PID-first logging, and a 100% reliable delimiter.
+# Smart Profiler v15 - `set -u` safe, consolidated logs,
+#                      PID-first logging, and the user-designed
+#                      "+ ...US... RS ..." format for 100% robustness.
 #
 
 # ---
@@ -54,13 +55,16 @@ else
     # 3. Tell Bash to send all trace output to that dynamic FD.
     export BASH_XTRACEFD=$_PROFILE_FD
 
-    # 4. FIX: Use '|' as the 100% reliable delimiter.
-    #    The trace output (the command) will *never* start with '|'.
-    export PS4='+ [${EPOCHREALTIME}] [${BASH_SOURCE[0]}:${LINENO}] [${FUNCNAME[@]}] | '
+    # 4. Define the delimiters in variables first.
+    _PROF_RS=$'\x1E' # Record Separator (marks end of metadata)
+    _PROF_US=$'\x1F' # Unit Separator (field separator)
 
-    # 5. Announce that profiling is active (to stderr).
+    # 5. Set the final, 100% robust PS4.
+    export PS4="+ ${_PROF_US}${EPOCHREALTIME}${_PROF_US}${BASH_SOURCE[0]}${_PROF_US}${LINENO}${_PROF_US}${FUNCNAME[@]}${_PROF_US}${_PROF_RS} "
+
+    # 6. Announce that profiling is active (to stderr).
     echo "PROFILING: Enabled for PID $$. Log file: $_PROFILE_LOG" >&2
 
-    # 6. Finally, turn on tracing!
+    # 7. Finally, turn on tracing!
     set -x
 fi
