@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Smart Profiler v6 - `set -u` safe, clean PS4, and consolidated logs.
+# Smart Profiler v7 - `set -u` safe, clean PS4, consolidated logs,
+#                     PID-first logging, and no `local` in sourced code.
 #
 
 # ---
@@ -14,13 +15,14 @@ if [[ -z "${_BASH_PROFILER_ACTIVE:-}" ]]; then
     export _BASH_PROFILER_ACTIVE=1
 
     # 2. Find the full, real path to this script.
+    #    FIX: Removed `local` - it's invalid when sourced, not in a function.
     profiler_path="$(realpath "${BASH_SOURCE[0]}")"
 
     # 3. Set BASH_ENV so all child scripts will be profiled.
     export BASH_ENV="$profiler_path"
 
-    # 4. FIX: Create and export a single log directory.
-    export PROFILE_LOG_DIR="/tmp/profile.${$}"
+    # 4. FIX: Create and export a single log directory, named with our PID.
+    export PROFILE_LOG_DIR="/tmp/profile-logs.${$}"
     mkdir -p "$PROFILE_LOG_DIR"
 
     echo "Bash Profiler: ON" >&2
@@ -44,7 +46,8 @@ if [[ -z "${_BASH_PROFILER_ACTIVE:-}" ]]; then
 else
 
     # 1. FIX: Use the exported log dir, with a fallback to /tmp.
-    _PROFILE_LOG="${PROFILE_LOG_DIR:-/tmp}/$(basename "$0").${$}.profile.log"
+    #    FIX: Put PID ($$) first for better sorting.
+    _PROFILE_LOG="${PROFILE_LOG_DIR:-/tmp}/${$}.$(basename "$0").profile.log"
 
     # 2. DYNAMICALLY find an open FD and assign it to _PROFILE_FD.
     exec {_PROFILE_FD}> "$_PROFILE_LOG"
@@ -52,7 +55,7 @@ else
     # 3. Tell Bash to send all trace output to that dynamic FD.
     export BASH_XTRACEFD=$_PROFILE_FD
 
-    # 4. FIX: Prepend '+ ' to PS4 to fix bracket-repeating.
+    # 4. Prepend '+ ' to PS4 to fix bracket-repeating.
     export PS4='+ [${EPOCHREALTIME}] [${BASH_SOURCE[0]}:${LINENO}] [${FUNCNAME[@]}] '
 
     # 5. Announce that profiling is active (to stderr).
