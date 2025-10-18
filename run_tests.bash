@@ -53,6 +53,20 @@ if [ ! -x "$BATS_EXECUTABLE" ]; then
   exit 1
 fi
 
-# Run bats with all the collected arguments.
+: "${BATS_RUN_TMPDIR:="$(mktemp -du)"}"
+
 echo "Running command: '$BATS_EXECUTABLE' --timing '${BATS_ARGS[*]}'"
-"$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}"
+"$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}" --tempdir "$BATS_RUN_TMPDIR"
+
+# After full test suite run, generate collapsed stacks for all trace roots (each test file) if tracing enabled.
+if [[ "${CURLPILOT_TRACE:-}" == "true" && -f src/tracing/collapsed_stack.bash ]]; then
+  source src/tracing/collapsed_stack.bash
+  # Find suite trace roots only under the BATS run tmpdir
+  while IFS= read -r trace_root; do
+    [[ -z "$trace_root" ]] && continue
+    collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/collapsed-stacks-wall.txt" || true
+    collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/collapsed-stacks-cpu.txt" || true
+  done < <(find "$BATS_RUN_TMPDIR" -type f -name .suite_id -printf '%h\n')
+fi
+
+#echo "BATS_RUN_TMPDIR $BATS_RUN_TMPDIR"

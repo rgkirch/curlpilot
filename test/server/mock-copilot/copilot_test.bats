@@ -1,11 +1,12 @@
 # test/mock/server/copilot_test.bats
 
-setup() {
+source test/test_helper.bash
+
+_setup() {
   bats_require_minimum_version 1.5.0
 
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
   log_debug "Sourced deps.bash"
-  source "$BATS_TEST_DIRNAME/../../test_helper.bash"
 
   export MOCK_SERVER_SCRIPT="$PROJECT_ROOT/src/server/launch_server.bash"
   log_debug "Setup complete. MOCK_SERVER_SCRIPT is $MOCK_SERVER_SCRIPT"

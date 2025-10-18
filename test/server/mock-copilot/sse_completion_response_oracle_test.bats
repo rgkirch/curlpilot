@@ -1,17 +1,10 @@
 # curlpilot/test/mock_tests/server/copilot/sse_completion_response_test.bats
 set -euo pipefail
 
-setup_file(){
-  bats_require_minimum_version 1.5.0
-}
+source test/test_helper.bash
 
-setup() {
+_setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  log_debug "Sourced deps.bash"
-
-  source "$BATS_TEST_DIRNAME/../../test_helper.bash"
-
-  log_debug "Setup complete"
 }
 
 

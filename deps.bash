@@ -174,14 +174,6 @@ exec_dep() {
   _exec_dep "$resolved_path" "$key" "$@"
 }
 
-# Internal execution engine. Each invocation records its own performance data
-# to a self-contained intermediate file (`record.ndjson`).
-# Internal execution engine. Each invocation records rich performance data for
-# the child process using the GNU `time` command.
-# Internal execution engine. Each invocation records rich performance data for
-# the child process using the GNU `time` command.
-# Internal execution engine. Each invocation records rich performance data for
-# the child process using the GNU `time` command.
 _exec_dep() (
   set -euo pipefail
   # --- Initial Checks and setup ---

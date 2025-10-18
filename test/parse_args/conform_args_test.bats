@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
 
-# Refactored: each test defines minimal spec focused on scenario.
-setup() {
+source test/test_helper.bash
+
+_setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/../.deps.bash"
-  source "$(dirname "$BATS_TEST_FILENAME")/../test_helper.bash"
   register_dep conform_args "parse_args/conform_args.bash"
   CONFORM=$(resolve_path src/parse_args/conform_args.bash)
 }

@@ -1,8 +1,9 @@
 #!/usr/bin/env bats
 
-setup() {
+source test/test_helper.bash
+
+_setup() {
   source "$(dirname "$BATS_TEST_FILENAME")/.deps.bash"
-  source "$BATS_TEST_DIRNAME/../test_helper.bash"
   LAUNCH="$PROJECT_ROOT/src/server/launch_server.bash"
   SERVER_SCRIPT="$PROJECT_ROOT/src/server/canned_responses.bash"
 }

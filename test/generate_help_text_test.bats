@@ -1,8 +1,9 @@
 #!/usr/bin/env bats
 # test/generate_help_text_test.bats
 
-setup() {
-  source test/test_helper.bash
+source test/test_helper.bash
+
+_setup() {
   source src/logging.bash
 }
 

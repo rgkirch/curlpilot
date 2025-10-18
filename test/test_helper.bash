@@ -159,6 +159,7 @@ teardown_file() {
       --argjson dur "$(((end_time_ns - start_time_ns) / 1000))" > "$record_file"
     fi
 
+
   #echo "CURLPILOT_TRACE $CURLPILOT_TRACE" >&3
   #echo "BATS_ERROR_STATUS $BATS_ERROR_STATUS" >&3
   #echo "CURLPILOT_FAILED_TEST_COUNT $(cat "${CURLPILOT_TRACE_ROOT_DIR}/.failed_test_count")" >&3
