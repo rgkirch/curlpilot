@@ -15,7 +15,7 @@
 #   $1: trace_root - The root directory of the trace data.
 #   $2: metric     - The metric to use for the weight. Can be 'wall' or 'cpu'.
 #
-gemini_collapsed_stack_from_trace_root() {
+collapsed_stack_from_trace_root() {
   local trace_root="$1"
   local metric="$2"
   local metric_key
