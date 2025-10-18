@@ -2,7 +2,7 @@
 #run_tests.bash
 set -euo pipefail
 
-source ~/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/src/profiling/profile.bash
+source ./src/profiling/profile.bash
 
 # Get the directory containing this script.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,24 +77,8 @@ if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
   while IFS= read -r trace_root; do
     [[ -z "$trace_root" ]] && continue
 
-    # Generate collapsed stack files if the function exists.
-    if command -v gemini_collapsed_stack_from_trace_root &> /dev/null; then
-      echo "  Generating collapsed stack files in $trace_root" >&2
-      gemini_collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/collapsed-stacks-wall.txt" || true
-      gemini_collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/collapsed-stacks-cpu.txt" || true
-    else
-      echo "  WARNING: gemini_collapsed_stack_from_trace_root function not found. Skipping." >&2
-    fi
-
-    # Generate the Trace Event Format JSON file if the function exists.
-    if command -v trace_event_from_trace_root &> /dev/null; then
-      output_file="$trace_root/trace.json"
-      echo "  Generating Trace Event file: $output_file" >&2
-      trace_event_from_trace_root "$trace_root" > "$output_file" || true
-      echo "    -> To view, open the file at https://ui.perfetto.dev/" >&2
-    else
-      echo "  WARNING: trace_event_from_trace_root function not found. Skipping." >&2
-    fi
+    bash ./src/tracing/collapsed_stack.bash "$trace_root"
+    bash ./src/tracing/trace_event.bash "$trace_root"
 
   done < <(find "$BATS_RUN_TMPDIR" -type f -name .suite_id -printf '%h\n')
 fi

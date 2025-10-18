@@ -64,3 +64,8 @@ collapsed_stack_from_trace_root() {
       "\(.id | gsub("/"; ";")) \(.data[$key])"
       '
 }
+
+echo "Generating wall" >&2
+collapsed_stack_from_trace_root "$1" wall > "$trace_root/collapsed-stacks-wall.txt" || true
+echo "Generating cpu" >&2
+collapsed_stack_from_trace_root "$1" cpu > "$trace_root/collapsed-stacks-cpu.txt" || true

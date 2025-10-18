@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Smart Profiler v15 - `set -u` safe, consolidated logs,
-#                      PID-first logging, and the user-designed
-#                      "+ ...US... RS ..." format for 100% robustness.
+# Smart Profiler v17 - `set -u` safe, consolidated logs,
+#                      PID-first logging, and full metadata
+#                      including BASH_SUBSHELL.
 #
 
 # ---
@@ -60,7 +60,8 @@ else
     _PROF_US=$'\x1F' # Unit Separator (field separator)
 
     # 5. Set the final, 100% robust PS4.
-    export PS4="+ ${_PROF_US}${EPOCHREALTIME}${_PROF_US}${BASH_SOURCE[0]}${_PROF_US}${LINENO}${_PROF_US}${FUNCNAME[@]}${_PROF_US}${_PROF_RS} "
+    #    Added $BASH_SUBSHELL
+    export PS4="+ ${_PROF_US}${EPOCHREALTIME}${_PROF_US}${PPID}${_PROF_US}${BASH_SUBSHELL}${_PROF_US}${BASH_SOURCE[0]}${_PROF_US}${LINENO}${_PROF_US}${FUNCNAME[@]}${_PROF_US}${_PROF_RS} "
 
     # 6. Announce that profiling is active (to stderr).
     echo "PROFILING: Enabled for PID $$. Log file: $_PROFILE_LOG" >&2

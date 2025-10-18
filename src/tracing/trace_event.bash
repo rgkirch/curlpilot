@@ -58,3 +58,7 @@ trace_event_from_trace_root() {
     }
     '
 }
+
+output_file="$trace_root/trace.json"
+echo "Generating Trace Event file: $output_file" >&2
+trace_event_from_trace_root "$1" > "$output_file" || true
