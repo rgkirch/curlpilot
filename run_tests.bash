@@ -2,6 +2,8 @@
 #run_tests.bash
 set -euo pipefail
 
+source ~/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/src/profiling/profile.bash
+
 # Get the directory containing this script.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -58,14 +60,35 @@ fi
 echo "Running command: '$BATS_EXECUTABLE' --timing '${BATS_ARGS[*]}'"
 "$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}" --tempdir "$BATS_RUN_TMPDIR"
 
-# After full test suite run, generate collapsed stacks for all trace roots (each test file) if tracing enabled.
+
 if [[ "${CURLPILOT_TRACE:-}" == "true" && -f src/tracing/collapsed_stack.bash ]]; then
   source src/tracing/collapsed_stack.bash
   # Find suite trace roots only under the BATS run tmpdir
   while IFS= read -r trace_root; do
     [[ -z "$trace_root" ]] && continue
-    collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/collapsed-stacks-wall.txt" || true
-    collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/collapsed-stacks-cpu.txt" || true
+     collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/copilot-collapsed-stacks-wall.txt" || true
+     collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/copilot-collapsed-stacks-cpu.txt" || true
+  done < <(find "$BATS_RUN_TMPDIR" -type f -name .suite_id -printf '%h\n')
+fi
+
+
+if [[ "${CURLPILOT_TRACE:-}" == "true" && -f src/tracing/gemini_collapsed_stack.bash ]]; then
+  source src/tracing/gemini_collapsed_stack.bash
+  # Find suite trace roots only under the BATS run tmpdir
+  while IFS= read -r trace_root; do
+    [[ -z "$trace_root" ]] && continue
+    gemini_collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/gemini-collapsed-stacks-wall.txt" || true
+    gemini_collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/gemini-collapsed-stacks-cpu.txt" || true
+  done < <(find "$BATS_RUN_TMPDIR" -type f -name .suite_id -printf '%h\n')
+fi
+
+if [[ "${CURLPILOT_TRACE:-}" == "true" && -f src/tracing/grok_collapsed_stack.bash ]]; then
+  source src/tracing/grok_collapsed_stack.bash
+  # Find suite trace roots only under the BATS run tmpdir
+  while IFS= read -r trace_root; do
+    [[ -z "$trace_root" ]] && continue
+    grok_collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/grok-collapsed-stacks-wall.txt" || true
+    grok_collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/grok-collapsed-stacks-cpu.txt" || true
   done < <(find "$BATS_RUN_TMPDIR" -type f -name .suite_id -printf '%h\n')
 fi
 

@@ -11,13 +11,13 @@ collapsed_stack_from_trace_root() {
   shopt -s nullglob
   mapfile -t record_files < <(find "$trace_root" -type f -name record.ndjson)
   if (( ${#record_files[@]} == 0 )); then
-    echo ""; return 0
+    return 0
   fi
   declare -A name parent dur
-  local f id p n d key_field
+  local f line id p n d
   for f in "${record_files[@]}"; do
-    # Extract fields
     while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
       id=$(jq -r '.id' <<<"$line")
       p=$(jq -r '.parentId' <<<"$line")
       n=$(jq -r '.name' <<<"$line")
@@ -31,34 +31,37 @@ collapsed_stack_from_trace_root() {
       dur["$id"]="$d"
     done < "$f"
   done
-  # Identify leaves (ids that are not parents of others)
-  declare -A is_parent
-  for id in "${!parent[@]}"; do
-    p="${parent[$id]}"
-    [[ -n "$p" ]] && is_parent["$p"]=1
-  done
-  local leaf stack cur
+  # Aggregate durations by full path (root->leaf)
+  declare -A agg
+  local leaf cur component path_parts path i
   for leaf in "${!name[@]}"; do
-    if [[ -v "is_parent[$leaf]" ]]; then
-      continue
-    fi
-    stack=()
+    path_parts=()
     cur="$leaf"
-    # Build path upwards (robust against missing parent/name entries)
     while [[ -n "$cur" ]]; do
-      if [[ -v "name[$cur]" ]]; then
-        stack+=("${name[$cur]}")
+      # Prefer recorded name; fallback to last id segment
+      local label
+      if [[ -v "name[$cur]" && -n "${name[$cur]}" ]]; then
+        label="${name[$cur]}"
+      else
+        label="${cur##*/}"
       fi
-      if [[ -v "parent[$cur]" ]]; then
+      path_parts+=("$label")
+      if [[ -v "parent[$cur]" && -n "${parent[$cur]}" ]]; then
         cur="${parent[$cur]}"
       else
-        break
+        cur="" # reached root
       fi
     done
-    # Reverse stack
-    local i rev=()
-    for (( i=${#stack[@]}-1; i>=0; i--)); do rev+=("${stack[$i]}"); done
-    printf '%s %s\n' "$(IFS=';'; echo "${rev[*]}")" "${dur[$leaf]}"
+    local rev=()
+    for (( i=${#path_parts[@]}-1; i>=0; i--)); do rev+=("${path_parts[$i]}"); done
+    path="$(IFS=';'; echo "${rev[*]}")"
+    if [[ -n "${dur[$leaf]:-}" ]]; then
+      agg["$path"]=$(( ${agg[$path]:-0} + ${dur[$leaf]} ))
+    fi
   done
+  # Output aggregated collapsed stacks
+  for path in "${!agg[@]}"; do
+    printf '%s %s\n' "$path" "${agg[$path]}"
+  done | sort
 }
 
