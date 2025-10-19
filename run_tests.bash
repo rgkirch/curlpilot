@@ -2,27 +2,22 @@
 #run_tests.bash
 set -euo pipefail
 
-source ./src/profiling/profile.bash
-
 # Get the directory containing this script.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Define and export a stable path to the BATS libraries.
-# This allows test files to safely override PROJECT_ROOT for sandboxing.
 export BATS_LIBS_DIR="$SCRIPT_DIR/libs"
-
-# Define the Bats executable path in terms of the libs directory.
 BATS_EXECUTABLE="$BATS_LIBS_DIR/bats/bin/bats"
 
 # Initialize variables.
 export CURLPILOT_LOG_LEVEL="${CURLPILOT_LOG_LEVEL:-ERROR}"
 export CURLPILOT_LOG_LEVEL_BATS="${CURLPILOT_LOG_LEVEL_BATS:-ERROR}"
-
 export BATS_NUMBER_OF_PARALLEL_JOBS=1
 BATS_ARGS=()
+STRACE_CMD=()
+SESSION_TMPDIR=""
 
-# Parse arguments to find the --jobs flag and set our environment variable.
-# Pass all other arguments through to BATS.
+# --- Phase 1: Argument Parsing ---
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     -j|--jobs)
@@ -38,9 +33,12 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --trace)
       export CURLPILOT_TRACE=true
-      echo "Tracing enabled." >&2
       BATS_ARGS+=(--no-tempdir-cleanup)
-      shift # Consume the --trace flag, do not pass it to BATS.
+      shift
+      ;;
+    --tempdir)
+      SESSION_TMPDIR="$2"
+      shift 2
       ;;
     *)
       BATS_ARGS+=("$1")
@@ -49,22 +47,53 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+# --- Phase 2: Setup Environment based on Parsed Arguments ---
+
+# Finalize the top-level session temp directory.
+: "${SESSION_TMPDIR:=$(mktemp -d)}"
+echo "Session directory: $SESSION_TMPDIR" >&2
+
+# Define the path for the BATS temp directory *inside* our session directory.
+# We DO NOT create this; we pass the path to `bats` and let it create it.
+BATS_RUN_TMPDIR="${SESSION_TMPDIR}/bats-run"
+
+# If tracing is enabled, set up all log directories and arm the profiler.
+if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
+  echo "Tracing enabled (BASH_ENV and strace)." >&2
+
+  export PROFILE_LOG_DIR="${SESSION_TMPDIR}/profile-logs"
+  STRACE_LOG_DIR="${SESSION_TMPDIR}/strace-logs"
+  mkdir -p "$PROFILE_LOG_DIR"
+  mkdir -p "$STRACE_LOG_DIR"
+
+  # Now, source the profiler. It will see and adopt our PROFILE_LOG_DIR.
+  source ./src/profiling/profile.bash
+
+  echo "BASH_ENV logs will be in: $PROFILE_LOG_DIR" >&2
+  echo "strace logs will be in: $STRACE_LOG_DIR" >&2
+
+  STRACE_CMD=(strace -ff -o "$STRACE_LOG_DIR/trace" -e trace=%process -ttt -y -s 4096)
+fi
+
+# --- Phase 3: Execute Bats ---
+
 # Check if the Bats executable exists.
 if [ ! -x "$BATS_EXECUTABLE" ]; then
   echo "Bats executable not found or not executable: $BATS_EXECUTABLE"
   exit 1
 fi
 
-: "${BATS_RUN_TMPDIR:="$(mktemp -du)"}"
+# Assemble the final command, explicitly passing --tempdir to bats.
+FINAL_CMD=("${STRACE_CMD[@]}" "$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}" --tempdir "$BATS_RUN_TMPDIR")
 
-echo "Running command: '$BATS_EXECUTABLE' --timing '${BATS_ARGS[*]}'"
-"$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}" --tempdir "$BATS_RUN_TMPDIR"
+echo "Running command: '${FINAL_CMD[*]}'"
+"${FINAL_CMD[@]}"
 
 
-# If tracing is enabled, run post-processing scripts to generate analysis files.
+# --- Phase 4: Post-Processing ---
 if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
-  echo "Processing trace data..." >&2
-
-  bash ./src/tracing/collapsed_stack.bash "$BATS_RUN_TMPDIR"
-  bash ./src/tracing/trace_event.bash "$BATS_RUN_TMPDIR"
+  echo "Processing trace data from $SESSION_TMPDIR..." >&2
+  # Pass the correct log directories to the analysis scripts.
+  bash ./src/tracing/collapsed_stack.bash "$PROFILE_LOG_DIR" "$STRACE_LOG_DIR"
+  bash ./src/tracing/trace_event.bash "$PROFILE_LOG_DIR" "$STRACE_LOG_DIR"
 fi
