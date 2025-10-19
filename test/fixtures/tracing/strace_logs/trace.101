@@ -1,0 +1,4 @@
+1000.500000 execve("/usr/bin/blackbox", ["blackbox", "--run"], ...) = 0
+1000.600000 clone(child_stack=NULL, flags=...) = 102
+1004.500000 exit_group(0) = ?
+1004.600000 +++ exited with 0 +++
