@@ -1,6 +1,12 @@
+#!/usr/bin/gawk -f
+#
+# This awk script processes `strace -ff` log files to generate a collapsed
+# stack file representing process wall-clock duration.
+#
+
 # This block runs before processing any files.
 # It defines a helper function to extract the PID from a filename.
-function get_pid_from_filename(filename, pid) {
+function get_pid_from_filename(filename) {
     # basename, then remove "trace." prefix
     sub(/.*\//, "", filename)
     sub(/trace\./, "", filename)
