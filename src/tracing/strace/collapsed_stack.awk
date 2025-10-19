@@ -35,9 +35,9 @@ function get_pid_from_filename(filename) {
     }
 
     # Match process exit to get the end time.
-    if ($2 == "exit_group" || $1 == "+++") {
-        # Use the latest timestamp for exit, in case of multiple exit-related lines.
-        if (timestamp > pids[pid]["end_time"]) {
+    if ($2 ~ /^exit_group/ || $2 == "+++") {
+        # Use the first timestamp encountered for exit (preferring exit_group).
+        if (pids[pid]["end_time"] == 0) {
             pids[pid]["end_time"] = timestamp
         }
     }
