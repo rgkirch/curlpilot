@@ -96,6 +96,5 @@ if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
   # Pass the correct log directories to the analysis scripts.
   bash ./src/tracing/collapsed_stack.bash "$BATS_RUN_TMPDIR"
   bash ./src/tracing/trace_event.bash "$BATS_RUN_TMPDIR"
+  bash ./src/tracing/strace/collapsed_stack.bash "$STRACE_LOG_DIR" > "$BATS_RUN_TMPDIR/collapsed_stack.txt"
 fi
-
-bash ./src/tracing/strace/collapsed_stack.bash "$STRACE_LOG_DIR" > "$BATS_RUN_TMPDIR/collapsed_stack.txt"

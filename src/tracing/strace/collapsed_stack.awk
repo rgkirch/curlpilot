@@ -18,9 +18,7 @@
 
     # Match process creation (clone/fork) to build the parent-child tree.
     if ($2 ~ /^(clone|fork|vfork)/) {
-        # The parent is the current PID.
         parent_pid = pid
-        # The child PID is the return value of the clone/fork call.
         child_pid = $NF
 
         if (child_pid > 0) {
@@ -30,11 +28,34 @@
     }
 
     # Match process execution (execve). This gives us the command name and a more accurate start time.
-    if (match($0, /execve\("([^"]+)"/, m)) {
+    if (match($0, /execve\("([^"]+)", \[(.+)\]/, m)) {
         pids[pid]["start_time"] = timestamp
-        cmd_path = m[1]
-        gsub(/.*\//, "", cmd_path) # Get basename
-        pids[pid]["cmd"] = cmd_path
+
+        executable_path = m[1]
+        args_str = m[2]
+
+        # Split the argument string into an array.
+        split(args_str, args, /, /)
+
+        # Clean up the arguments by removing quotes.
+        for (i in args) {
+            gsub(/^"|"$/, "", args[i])
+        }
+
+        basename_exe = executable_path
+        gsub(/.*\//, "", basename_exe)
+
+        # --- NEW LOGIC: Get better names ---
+        # If the executable is a shell, the real name is likely the script in argv[1].
+        if (basename_exe ~ /^(bash|sh)$/ && args[2] != "") {
+            basename_arg1 = args[2]
+            gsub(/.*\//, "", basename_arg1)
+            pids[pid]["cmd"] = basename_arg1
+        } else {
+            # Otherwise, just use the executable's basename.
+            pids[pid]["cmd"] = basename_exe
+        }
+        # --- END NEW LOGIC ---
     }
 
     # Match process exit to get the end time.
@@ -59,10 +80,11 @@ function get_stack(pid,   stack_str, current_pid) {
     current_pid = pid
     while (current_pid in pids) {
         # Prepend the command name to the stack string.
+        cmd_name = pids[current_pid]["cmd"] ? pids[current_pid]["cmd"] : "unknown"
         if (stack_str == "") {
-            stack_str = pids[current_pid]["cmd"]
+            stack_str = cmd_name
         } else {
-            stack_str = pids[current_pid]["cmd"] ";" stack_str
+            stack_str = cmd_name ";" stack_str
         }
 
         # Move up to the parent.
