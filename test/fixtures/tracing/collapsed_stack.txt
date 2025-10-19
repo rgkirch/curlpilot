@@ -1,0 +1,4 @@
+make 1000
+make;blackbox 1000
+make;blackbox;scriptA.bash 2000
+make;blackbox;scriptA.bash;scriptB.bash 1000
