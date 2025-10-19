@@ -73,7 +73,7 @@ fi
 
 trace_root="$1"
 
-echo "Generating wall" >&2
+#echo "Generating wall" >&2
 collapsed_stack_from_trace_root "$trace_root" wall > "$trace_root/collapsed-stacks-wall.txt" || true
-echo "Generating cpu" >&2
+#echo "Generating cpu" >&2
 collapsed_stack_from_trace_root "$trace_root" cpu > "$trace_root/collapsed-stacks-cpu.txt" || true

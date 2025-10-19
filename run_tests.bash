@@ -92,8 +92,10 @@ echo "Running command: '${FINAL_CMD[*]}'"
 
 # --- Phase 4: Post-Processing ---
 if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
-  echo "Processing trace data from $SESSION_TMPDIR..." >&2
+  #echo "Processing trace data from $SESSION_TMPDIR..." >&2
   # Pass the correct log directories to the analysis scripts.
-  bash ./src/tracing/collapsed_stack.bash "$PROFILE_LOG_DIR" "$STRACE_LOG_DIR"
-  bash ./src/tracing/trace_event.bash "$PROFILE_LOG_DIR" "$STRACE_LOG_DIR"
+  bash ./src/tracing/collapsed_stack.bash "$BATS_RUN_TMPDIR"
+  bash ./src/tracing/trace_event.bash "$BATS_RUN_TMPDIR"
 fi
+
+bash ./src/tracing/strace/collapsed_stack.bash "$STRACE_LOG_DIR" > "$BATS_RUN_TMPDIR/collapsed_stack.txt"
