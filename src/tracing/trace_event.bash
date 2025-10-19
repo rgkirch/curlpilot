@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 #
 # A function to generate the Trace Event Format from trace data.
@@ -31,7 +32,8 @@ trace_event_from_trace_root() {
   # and then concatenate their contents in that sorted order.
   # The entire stream is then piped into jq.
   find "$trace_root" -name record.ndjson -print0 | sort -z | xargs -0 --no-run-if-empty cat | \
-    jq -s '
+    jq -s \
+    '
     {
       "traceEvents": map(
         # Filter for records that have a valid, non-zero wall-clock duration.
@@ -59,6 +61,13 @@ trace_event_from_trace_root() {
     '
 }
 
+if [[ -z "${1-}" ]]; then
+  echo "Usage: $0 <trace_root>" >&2
+  exit 1
+fi
+
+trace_root="$1"
 output_file="$trace_root/trace.json"
+
 echo "Generating Trace Event file: $output_file" >&2
-trace_event_from_trace_root "$1" > "$output_file" || true
+trace_event_from_trace_root "$trace_root" > "$output_file" || true
