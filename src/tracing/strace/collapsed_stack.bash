@@ -1,7 +1,8 @@
 #!/bin/bash
 #
 # This script finds all 'trace.*' files in the given directories,
-# concatenates their content, and pipes the result to the awk script.
+# concatenates their content, SORTS IT BY TIMESTAMP, and pipes
+# the result to the awk script.
 #
 set -euo pipefail
 
@@ -22,6 +23,7 @@ if [[ ! -f "$AWK_SCRIPT_PATH" ]]; then
 fi
 
 # This function processes all directories passed as arguments.
+# It uses 'find -exec cat {} +' for efficiency instead of a while-read loop.
 process_logs() {
     for dir in "$@"; do
         if [[ ! -d "$dir" ]]; then
@@ -29,12 +31,9 @@ process_logs() {
             continue
         fi
 
-        # Find all trace files, and for each one, pipe the content directly.
-        find "$dir" -name 'trace.*' -print0 | while IFS= read -r -d '' file; do
-            cat "$file" # Pipe the file content directly.
-        done
+        # Find all trace files and efficiently cat their contents to stdout.
+        find "$dir" -name 'trace.*' -exec cat {} +
     done
 }
 
-# Pipe the processed log stream into the awk script for analysis.
-process_logs "$@" | gawk -f "$AWK_SCRIPT_PATH"
+process_logs "$@" | sort -k2,2n | gawk -f "$AWK_SCRIPT_PATH"

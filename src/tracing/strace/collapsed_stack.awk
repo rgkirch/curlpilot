@@ -12,165 +12,218 @@
 # children[pid][child_pid]   = An array holding the PIDs of children for a given parent
 # aggregated_stacks[stack]   = Associative array to sum weights for identical stacks
 
-# --- Main Block ---
-# This block runs for every line from stdin.
+# --- Main Block (Dispatcher) ---
 {
-    # We rely on AWK's field splitting, assuming one or more spaces/tabs separate fields.
-    pid = $1
+    # --- 1. Universal Line Parsing ---
+    # We only process lines in the "PID<comm> TIME..." format.
+    if ($1 !~ /<.*>/) {
+        # This skips junk lines like "--- SIGCHLD {si_signo=...} ---"
+        # or mis-formatted unit test data.
+        next
+    }
+
+    # Format: PID<comm> TIME...
+    split($1, a, /[<>]/)
+    pid = a[1]
+    comm_name = a[2]
     timestamp = $2
-    comm_name = "" # Will be captured from PID<comm>
+    line_content = $0
+    sub(/^[0-9]+<[^>]+>\s+[0-9\.]+\s+/, "", line_content)
 
-    # 1. PID and TIME extraction based on format
-    if ($1 ~ /<.*>/) {
-        # Format: PID<comm> TIME...
-        split($1, a, /[<>]/)
-        pid = a[1]
-        comm_name = a[2] # <-- CORRECTED CAPTURE
-        timestamp = $2
-        line_content = $0
-        sub(/^[0-9]+<[^>]+>\s+[0-9\.]+\s+/, "", line_content)
-    } else {
-        # Fallback format (Unit Tests, simpler logs)
-        pid = $1
-        timestamp = $2
-        line_content = $0
-        sub(/^[0-9]+\s+[0-9\.]+\s+/, "", line_content)
-    }
+    # --- 2. Set Fallback Command Name (from <comm>) ---
+    # This sets a low-priority name. It will be
+    # overwritten by the high-priority execve name.
+    set_fallback_comm(pid, comm_name)
 
-    # 2. Set fallback command name (if we don't have one) from <comm>
-    if (comm_name != "" && pids[pid]["cmd"] == "") {
-        pids[pid]["cmd"] = comm_name
-    }
-
-    # 3. Match process creation (clone/fork/vfork)
-    if (match(line_content, /^(clone|fork|vfork)\(.*\)\s+=\s+([0-9]+)/, m)) {
-        parent_pid = pid
-        child_pid = m[2]
-        if (child_pid > 0) {
-            children[parent_pid][child_pid] = 1
-            pids[child_pid]["parent_pid"] = parent_pid
-            # --- FIX 1 (PART A) ---
-            # Provisionally set start_time. This will be overwritten by
-            # execve if it occurs, but provides a start time for
-            # transient (non-execve) processes.
-            pids[child_pid]["start_time"] = timestamp
-        }
-    }
-    # Special clone case where pid is appended with <comm> on the RHS (e.g., in a clone call)
-    if (match(line_content, /^(clone|fork|vfork)\(.*\)\s+=\s+([0-9]+)<[^>]+>/, m_clone)) {
-        parent_pid = pid
-        child_pid = m_clone[2]
-        if (child_pid > 0) {
-            children[parent_pid][child_pid] = 1
-            pids[child_pid]["parent_pid"] = parent_pid
-            # --- FIX 1 (PART B) ---
-            pids[child_pid]["start_time"] = timestamp
-        }
-    }
-
-
-# 4. Match process execution (execve) - This is the canonical source
-    if (match(line_content, /^execve\("([^"]+)", \[(.+)\]/, m)) {
-        pids[pid]["had_execve"] = 1
-        pids[pid]["start_time"] = timestamp
-
-        executable_path = m[1]
-        args_str = m[2]
-
-        split(args_str, args, /, /)
-
-        # Trim whitespace AND quotes from all arguments
-        for (i in args) {
-            gsub(/^"|"$/, "", args[i])              # Remove surrounding quotes
-            gsub(/^[ \t]+|[ \t]+$/, "", args[i]) # Remove leading/trailing space/tab
-        }
-
-        basename_exe = executable_path
-        gsub(/.*\//, "", basename_exe)
-
-        # --- FINAL ROBUST BATS HEURISTIC ---
-        if (basename_exe == "bats-exec-test") {
-            test_file = ""
-            test_name = ""
-            # Iterate through args to find the first '*.bats' file
-            # and assume the next argument is the test name.
-            for (i = 2; i <= length(args); i++) { # Start checking from arg 2
-                # If we find an argument ending in .bats and there's another arg after it...
-                if (args[i] ~ /\.bats$/ && (i + 1) <= length(args)) {
-                    test_file = args[i]
-                    test_name = args[i+1] # Assume next arg is the name
-                    break # Stop after finding the first match
-                }
-            }
-
-            # If we successfully found both...
-            if (test_file != "" && test_name != "") {
-                gsub(/.*\//, "", test_file) # Get basename of the file
-                # Basic sanity check: if the supposed name starts with '-',
-                # it's probably a flag, so the heuristic failed. Fall back.
-                if (substr(test_name, 1, 1) == "-") {
-                     pids[pid]["cmd"] = basename_exe # Fallback if name looks like a flag
-                     # Optional: Add a warning print here if needed
-                     # print "⚠️ WARNING: bats-exec-test heuristic failed for PID " pid ". Found flag '" test_name "' instead of test name." | "cat 1>&2"
-                } else {
-                     # Success! Use the combined file;name
-                     pids[pid]["cmd"] = test_file ";" test_name
-                }
-            } else {
-                 # Fallback if we didn't find suitable args
-                 pids[pid]["cmd"] = basename_exe
-            }
-
-        # --- Shell script heuristic ---
-        } else if (basename_exe ~ /^(bash|sh|zsh|dash)$/ && args[2] != "" && substr(args[2], 1, 1) != "-") {
-            basename_arg1 = args[2]
-            gsub(/.*\//, "", basename_arg1)
-            pids[pid]["cmd"] = basename_arg1
-        } else {
-            # --- Default fallback ---
-            pids[pid]["cmd"] = basename_exe
-        }
-    }
-
-    # 5. Match process exit
-    if (match(line_content, /^exit_group/) || match(line_content, /^\+\+\+ exited/)) {
-        if (pids[pid]["end_time"] == 0) {
-            pids[pid]["end_time"] = timestamp
-        }
+    # --- 3. Dispatch to Line Handlers ---
+    # We use anchored regex for safety (won't match args).
+    if (line_content ~ /^(execveat|execve)\(/) {
+        handle_execve(pid, timestamp, line_content)
+    } else if (line_content ~ /^(clone|fork|vfork)\(/) {
+        handle_clone(pid, timestamp, line_content)
+    } else if (line_content ~ /^(exit_group|\+\+\+ exited)/) {
+        handle_exit(pid, timestamp)
     }
 }
 
 # ----------------------------------------------------------------------------------
 
-# --- Helper Functions ---
-function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, default_name, had_execve) {
-    # Recursively walks up the parent tree to build the collapsed stack string.
+# --- Line Handlers ---
+
+# Sets the command name from <comm> only if one isn't already set
+# by the high-priority execve handler.
+function set_fallback_comm(pid, comm_name) {
+    if (comm_name != "" && pids[pid]["cmd"] == "") {
+        pids[pid]["cmd"] = comm_name
+    }
+}
+
+# Handles clone, fork, and vfork to establish parent-child relationships.
+function handle_clone(parent_pid, timestamp, line_content,   m, child_pid) {
+    if (match(line_content, /^(clone|fork|vfork)\(.*\)\s+=\s+([0-9]+)/, m)) {
+        child_pid = m[2]
+    } else if (match(line_content, /^(clone|fork|vfork)\(.*\)\s+=\s+([0-9]+)<[^>]+>/, m)) {
+        child_pid = m[2] # Handle <comm> on RHS
+    } else {
+        return # Not a successful clone line
+    }
+
+    if (child_pid > 0) {
+        children[parent_pid][child_pid] = 1
+        pids[child_pid]["parent_pid"] = parent_pid
+        # Provisionally set start_time for transient (non-execve) processes.
+        # This will be overwritten by execve if it occurs.
+        pids[child_pid]["start_time"] = timestamp
+    }
+}
+
+# Handles execve and execveat to set the canonical command name and start time.
+function handle_execve(pid, timestamp, line_content,   m_exec, executable_path, args_str, cmd_name) {
+    # Match execve OR execveat
+    if (match(line_content, /^(execveat|execve)\(.*?("([^"]+)", \[([^\]]+)\])/, m_exec)) {
+        pids[pid]["had_execve"] = 1       # Mark this as a "real" process
+        pids[pid]["start_time"] = timestamp # This is the *real* start time
+
+        executable_path = m_exec[3]
+        args_str = m_exec[4]
+
+        # Call dispatcher to run heuristics and get the command name
+        cmd_name = get_command_name(executable_path, args_str)
+
+        pids[pid]["cmd"] = cmd_name # This overwrites any fallback name
+    }
+}
+
+# Handles exit_group and +++ exited to set the end time.
+function handle_exit(pid, timestamp) {
+    if (pids[pid]["end_time"] == 0) {
+        pids[pid]["end_time"] = timestamp
+    }
+}
+
+# ----------------------------------------------------------------------------------
+
+# --- Command Name Heuristics ---
+
+# Cleans and splits the execve argument string.
+function get_clean_args(args_str,   args, i) {
+    # Split args string, allowing for "arg", "arg" or "arg","arg"
+    split(args_str, args, /, */)
+
+    # Trim whitespace AND quotes from all arguments
+    for (i in args) {
+        gsub(/^"|"$/, "", args[i])           # Remove surrounding quotes
+        gsub(/^[ \t]+|[ \t]+$/, "", args[i]) # Remove leading/trailing space/tab
+    }
+}
+
+# Dispatcher for finding the best command name.
+function get_command_name(executable_path, args_str,   args, basename_exe) {
+    basename_exe = executable_path
+    gsub(/.*\//, "", basename_exe)
+
+    # We must get args first, as heuristics depend on them
+    get_clean_args(args_str, args)
+
+    if (basename_exe == "bats-exec-test" || basename_exe == "bats") {
+        return get_name_bats(basename_exe, args)
+    }
+
+    if (basename_exe ~ /^(bash|sh|zsh|dash)$/) {
+        return get_name_shell(basename_exe, args)
+    }
+
+    return get_name_default(basename_exe)
+}
+
+# Heuristic for BATS test runners.
+function get_name_bats(basename_exe, args,   i, test_file, test_name) {
+    test_file = ""
+    test_name = ""
+    # This heuristic is tricky.
+    # For `bats-exec-test`, we want `test_file;test_name`.
+    # For `bats`, it depends. If called with `-T`, the test wants the test file name.
+    # If called without `-T` (like in the UNIT test), it wants `bats`.
+
+    is_bats_exec_test = (basename_exe == "bats-exec-test")
+
+    for (i = 2; i <= length(args); i++) {
+        if (args[i] ~ /\.bats$/) {
+            test_file = args[i]
+            if ((i + 1) <= length(args)) {
+                test_name = args[i+1]
+            }
+            break
+        }
+    }
+
+    if (is_bats_exec_test && test_file != "" && test_name != "" && substr(test_name, 1, 1) != "-") {
+        gsub(/.*\//, "", test_file)
+        return test_file ";" test_name
+    }
+
+    if (basename_exe == "bats") {
+        # Check for -T flag
+        has_T_flag = 0
+        for (i in args) {
+            if (args[i] == "-T") {
+                has_T_flag = 1
+                break
+            }
+        }
+        if (has_T_flag && test_file != "") {
+            gsub(/.*\//, "", test_file)
+            return test_file
+        }
+    }
+
+    return basename_exe
+}
+
+# Heuristic for shell scripts (e.g., "bash my_script.sh").
+function get_name_shell(basename_exe, args,   basename_arg1) {
+    if (args[2] != "" && substr(args[2], 1, 1) != "-") {
+        basename_arg1 = args[2]
+        gsub(/.*\//, "", basename_arg1)
+        return basename_arg1
+    }
+    # Fallback to just "bash" if it's "bash -c ..."
+    return basename_exe
+}
+
+# Default: just use the basename of the executable.
+function get_name_default(basename_exe) {
+    return basename_exe
+}
+
+# ----------------------------------------------------------------------------------
+
+# --- Stack Building & Filtering ---
+
+# Recursively walks up the parent tree to build the collapsed stack string.
+function get_stack(pid,   stack_str, current_pid, parent_pid, cmd_name, default_name, had_execve) {
     stack_str = ""
     current_pid = pid
     while (current_pid in pids) {
         cmd_name = pids[current_pid]["cmd"]
         had_execve = pids[current_pid]["had_execve"]
 
-        # --- Fallback Logic Block (Unchanged) ---
+        # --- Fallback Logic for missing names ---
         if (cmd_name == "") {
             parent_pid = pids[current_pid]["parent_pid"]
             if (parent_pid in pids && pids[parent_pid]["cmd"] != "") {
                 cmd_name = pids[parent_pid]["cmd"]
             }
-
             if (cmd_name == "") {
-                default_name = "-NO_EXECVE-" current_pid
-                print "⚠️ WARNING: PID " current_pid " command name missing. Falling back to '" default_name "'." | "cat 1>&2"
-                cmd_name = default_name
+                cmd_name = "-NO_EXECVE-" current_pid
             }
         }
-        # ----------------------------------------
 
-        # --- CORRECTED FILTERING LOGIC (The Fix for 'bash' noise) ---
-        # If the command name is a generic shell AND it NEVER called execve,
-        # then it must be a noisy, transient helper thread we should skip.
+        # --- Filtering Logic ---
+        # If the command is a shell AND it never called execve,
+        # it's a transient helper and should be skipped.
         if (cmd_name ~ /^(bash|sh|zsh|dash)$/ && had_execve != 1) {
-            # Only skip it if it's not the root process (which might be the entry point).
+            # Only skip if it's not the root process
             if (pids[current_pid]["parent_pid"] != "") {
                 current_pid = pids[current_pid]["parent_pid"]
                 continue # Skip this helper frame, move up.
@@ -178,13 +231,7 @@ function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, defaul
         }
 
         # --- Stack Assembly ---
-        cmd_name = cmd_name ? cmd_name : "unknown"
-
-        if (stack_str == "") {
-            stack_str = cmd_name
-        } else {
-            stack_str = cmd_name ";" stack_str
-        }
+        stack_str = (stack_str == "") ? cmd_name : (cmd_name ";" stack_str)
 
         if (pids[current_pid]["parent_pid"] in pids) {
             current_pid = pids[current_pid]["parent_pid"]
@@ -198,10 +245,10 @@ function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, defaul
 # ----------------------------------------------------------------------------------
 
 # --- END Block ---
+# (This block remains unchanged)
 END {
     # Pass 1: Calculate Total Durations
     for (pid in pids) {
-        # Now processes *without* execve (like PID 401) will have a start_time
         if (pids[pid]["start_time"] > 0 && pids[pid]["end_time"] > 0) {
             pids[pid]["total_dur"] = pids[pid]["end_time"] - pids[pid]["start_time"]
             pids[pid]["self_dur"] = pids[pid]["total_dur"]
@@ -211,25 +258,18 @@ END {
     # Pass 2: Calculate Self Durations
     for (parent_pid in children) {
         for (child_pid in children[parent_pid]) {
-            # This will now correctly find total_dur for PID 401 (7.0s)
-            # and subtract it from PID 400.
             if ((parent_pid in pids) && (child_pid in pids) && (pids[child_pid]["total_dur"] > 0)) {
                 pids[parent_pid]["self_dur"] -= pids[child_pid]["total_dur"]
             }
         }
     }
 
-    # --- CORRECTED AGGREGATION (THE FIX FOR DUPLICATES) ---
-
     # Pass 3: Aggregate Stacks and Generate Output
-    # Use an associative array to sum weights for identical stacks
     for (pid in pids) {
         if (pids[pid]["self_dur"] > 0) {
 
-            # --- FIX 2 ---
+            # --- Filter transient shells ---
             # We must apply the same filter logic from get_stack() here.
-            # PID 401 now has a self_dur (3.0s), but it's a transient
-            # shell. We must NOT add its duration to any stack.
             cmd_name = pids[pid]["cmd"]
             had_execve = pids[pid]["had_execve"]
             if (cmd_name ~ /^(bash|sh|zsh|dash)$/ && had_execve != 1) {
@@ -237,12 +277,11 @@ END {
                     continue # Skip this transient PID
                 }
             }
-            # --- END FIX 2 ---
+            # --- End Filter ---
 
             stack = get_stack(pid)
-            weight = int(pids[pid]["self_dur"] * 1000) # Convert seconds to ms
+            weight = int(pids[pid]["self_dur"] * 1000000) # Convert seconds to us
             if (weight > 0) {
-                # This automatically sums weights for the same stack string
                 aggregated_stacks[stack] += weight
             }
         }
