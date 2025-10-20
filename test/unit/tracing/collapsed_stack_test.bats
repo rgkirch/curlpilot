@@ -539,3 +539,21 @@ EOF
   assert_success
   assert_output --partial "$expected_output"
 }
+
+@test "UNIT: collapsed_stack.awk correctly parses real world bats-exec-test" {
+  strace_data=$(cat <<EOF
+1000<bash> 1760982635.565700 clone() = 2734193
+2734193<bash> 1760982635.565760 execve("/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-exec-test", ["/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-exec-test", "--dummy-flag", "-T", "-x", "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/generate_help_text_test.bats", "test_generate-2d5fhelp-2d5ftext_outputs_expected_help_with_defaults", "14", "1", "1"], 0x56060db2c300 /* 117 vars */) = 0
+2734193<bats-exec-test> 1760982635.567105 +++ exited with 0 +++
+EOF
+)
+
+  expected_output=$(cat <<EOF
+bash;generate_help_text_test.bats;test_generate-2d5fhelp-2d5ftext_outputs_expected_help_with_defaults 1345
+EOF
+)
+
+  run gawk -f "src/tracing/strace/collapsed_stack.awk" <<< "$strace_data"
+  assert_success
+  assert_output --partial "$expected_output"
+}
