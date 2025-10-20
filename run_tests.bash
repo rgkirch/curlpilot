@@ -72,7 +72,15 @@ if [[ "${CURLPILOT_TRACE:-}" == "true" ]]; then
   echo "BASH_ENV logs will be in: $PROFILE_LOG_DIR" >&2
   echo "strace logs will be in: $STRACE_LOG_DIR" >&2
 
-  STRACE_CMD=(strace -ff -o "$STRACE_LOG_DIR/trace" -e trace=%process -ttt -y -s 4096)
+  STRACE_CMD=(strace \
+    --follow-forks --output-separately \
+    --output="$STRACE_LOG_DIR/trace" \
+    -e trace=%process \
+    --absolute-timestamps=format:unix,precision:us\
+    --decode-fds=path \
+    --string-limit=4096 \
+    --always-show-pid \
+    --decode-pids=comm)
 fi
 
 # --- Phase 3: Execute Bats ---

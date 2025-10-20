@@ -1,4 +1,4 @@
-1000.000000 execve("/usr/bin/make", ["make", "test"], ...) = 0
-1000.100000 clone(child_stack=NULL, flags=...) = 101
-1005.000000 exit_group(0) = ?
-1005.100000 +++ exited with 0 +++
+100<make> 1000.000000 execve("/usr/bin/make", ["make", "test"], ...) = 0
+100<make> 1000.100000 clone(child_stack=NULL, flags=...) = 101
+100<make> 1005.000000 exit_group(0) = ?
+100<make> 1005.100000 +++ exited with 0 +++

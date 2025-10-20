@@ -30,12 +30,9 @@ process_logs() {
             continue
         fi
 
-        # Find all trace files, and for each one, prepend the PID to every line.
+        # Find all trace files, and for each one, pipe the content directly.
         find "$dir" -name 'trace.*' -print0 | while IFS= read -r -d '' file; do
-            # Extract PID from filename (e.g., trace.123 -> 123)
-            pid=$(basename "$file" | sed 's/trace\.//')
-            # Prepend PID to each line of the file.
-            sed "s/^/$pid /" "$file"
+            cat "$file" # Pipe the file content directly.
         done
     done
 }

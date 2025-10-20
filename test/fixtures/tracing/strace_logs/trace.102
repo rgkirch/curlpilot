@@ -1,4 +1,4 @@
-1001.000000 execve("/usr/bin/bash", ["bash", "/home/user/scriptA.bash"], ...) = 0
-1002.000000 clone(child_stack=NULL, flags=...) = 103
-1004.000000 exit_group(0) = ?
-1004.100000 +++ exited with 0 +++
+102<bash> 1001.000000 execve("/usr/bin/bash", ["bash", "/home/user/scriptA.bash"], ...) = 0
+102<bash> 1002.000000 clone(child_stack=NULL, flags=...) = 103
+102<bash> 1004.000000 exit_group(0) = ?
+102<bash> 1004.100000 +++ exited with 0 +++
