@@ -2,29 +2,30 @@
 # collapsed stack file representing the process hierarchy and duration.
 
 # --- Global Data Structures ---
-# pids[pid]["parent_pid"]   = The parent PID of this process
-# pids[pid]["cmd"]          = The command name (basename from execve OR comm fallback)
-# pids[pid]["start_time"]   = The timestamp of the execve call
-# pids[pid]["end_time"]     = The timestamp of the exit_group call
-# pids[pid]["had_execve"]   = Flag (1) if this process called execve. <--- NEW
-# pids[pid]["total_dur"]    = Calculated total duration (end - start)
-# pids[pid]["self_dur"]     = Calculated self-duration (total - children)
-# children[pid][child_pid] = An array holding the PIDs of children for a given parent
+# pids[pid]["parent_pid"]      = The parent PID of this process
+# pids[pid]["cmd"]             = The command name (basename from execve OR comm fallback)
+# pids[pid]["start_time"]      = The timestamp of the execve call
+# pids[pid]["end_time"]        = The timestamp of the exit_group call
+# pids[pid]["had_execve"]      = Flag (1) if this process called execve.
+# pids[pid]["total_dur"]       = Calculated total duration (end - start)
+# pids[pid]["self_dur"]        = Calculated self-duration (total - children)
+# children[pid][child_pid]   = An array holding the PIDs of children for a given parent
+# aggregated_stacks[stack]   = Associative array to sum weights for identical stacks
 
 # --- Main Block ---
 # This block runs for every line from stdin.
 {
     # We rely on AWK's field splitting, assuming one or more spaces/tabs separate fields.
-    # Note: If $1 is PID<comm>, it is treated as one field.
-
     pid = $1
     timestamp = $2
+    comm_name = "" # Will be captured from PID<comm>
 
     # 1. PID and TIME extraction based on format
     if ($1 ~ /<.*>/) {
         # Format: PID<comm> TIME...
         split($1, a, /[<>]/)
         pid = a[1]
+        comm_name = a[2] # <-- CORRECTED CAPTURE
         timestamp = $2
         line_content = $0
         sub(/^[0-9]+<[^>]+>\s+[0-9\.]+\s+/, "", line_content)
@@ -36,13 +37,9 @@
         sub(/^[0-9]+\s+[0-9\.]+\s+/, "", line_content)
     }
 
-    # 2. Capture <comm> if present for initial naming (source of noise)
-    # This logic runs on every line and sets the "comm" name if 'cmd' is empty.
-    if (match($0, /<([^>]+)>(\s+)?$/, m_comm)) {
-        comm_name = m_comm[1]
-        if (pids[pid]["cmd"] == "") {
-            pids[pid]["cmd"] = comm_name
-        }
+    # 2. Set fallback command name (if we don't have one) from <comm>
+    if (comm_name != "" && pids[pid]["cmd"] == "") {
+        pids[pid]["cmd"] = comm_name
     }
 
     # 3. Match process creation (clone/fork/vfork)
@@ -82,12 +79,17 @@
         basename_exe = executable_path
         gsub(/.*\//, "", basename_exe)
 
+        # --- CORRECTED SHELL HEURISTIC (THE FIX FOR '-c') ---
         # Apply shell script heuristic
-        if (basename_exe ~ /^(bash|sh)$/ && args[2] != "") {
+        # Check if it's a shell, arg[2] exists, AND arg[2] does not start with "-"
+        if (basename_exe ~ /^(bash|sh|zsh|dash)$/ && args[2] != "" && substr(args[2], 1, 1) != "-") {
+            # It's 'bash script.sh ...', so use the script name
             basename_arg1 = args[2]
             gsub(/.*\//, "", basename_arg1)
             pids[pid]["cmd"] = basename_arg1
         } else {
+            # It's a non-shell (e.g., 'cat'), or 'bash -c', or 'bash -l', etc.
+            # In all these cases, the executable's basename is correct.
             pids[pid]["cmd"] = basename_exe
         }
     }
@@ -103,7 +105,7 @@
 # ----------------------------------------------------------------------------------
 
 # --- Helper Functions ---
-function get_stack(pid,   stack_str, current_pid, parent_pid, cmd_name, default_name, had_execve) {
+function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, default_name, had_execve) {
     # Recursively walks up the parent tree to build the collapsed stack string.
     stack_str = ""
     current_pid = pid
@@ -176,21 +178,26 @@ END {
         }
     }
 
-    # Pass 3: Generate Collapsed Stack Output
-    num_lines = 0
+    # --- CORRECTED AGGREGATION (THE FIX FOR DUPLICATES) ---
+
+    # Pass 3: Aggregate Stacks and Generate Output
+    # Use an associative array to sum weights for identical stacks
     for (pid in pids) {
         if (pids[pid]["self_dur"] > 0) {
             stack = get_stack(pid)
-            weight = int(pids[pid]["self_dur"] * 1000)
+            weight = int(pids[pid]["self_dur"] * 1000) # Convert seconds to ms
             if (weight > 0) {
-                lines[++num_lines] = stack " " weight
+                # This automatically sums weights for the same stack string
+                aggregated_stacks[stack] += weight
             }
         }
     }
 
-    asort(lines)
+    # Set the sort order to be by stack string (alphabetical)
+    PROCINFO["sorted_in"] = "@ind_str_asc"
 
-    for (i = 1; i <= num_lines; i++) {
-        print lines[i]
+    # Print the final, aggregated, and sorted lines
+    for (stack in aggregated_stacks) {
+        print stack " " aggregated_stacks[stack]
     }
 }

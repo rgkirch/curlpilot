@@ -1,9 +1,8 @@
 #!/bin/bash
 #
-# This script finds strace log files in given directories, prepends the PID
-# from the filename to each line, and pipes the result to the awk script.
+# This script finds all 'trace.*' files in the given directories,
+# concatenates their content, and pipes the result to the awk script.
 #
-
 set -euo pipefail
 
 # --- Validation ---
