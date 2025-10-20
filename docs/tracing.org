@@ -1,0 +1,1 @@
+src/tracing/strace/collapsed_stack.bash in conjunction with src/tracing/strace/collapsed_stack.awk can generate a collapsed stack format trace file from strace output
