@@ -1,44 +1,45 @@
+# This AWK script processes a stream of strace logs to produce a
+# collapsed stack file representing the process hierarchy and duration.
+
+# --- Global Data Structures ---
+# pids[pid]["parent_pid"]   = The parent PID of this process
+# pids[pid]["cmd"]          = The command name (basename from execve OR comm fallback)
+# pids[pid]["start_time"]   = The timestamp of the execve call
+# pids[pid]["end_time"]     = The timestamp of the exit_group call
+# pids[pid]["had_execve"]   = Flag (1) if this process called execve. <--- NEW
+# pids[pid]["total_dur"]    = Calculated total duration (end - start)
+# pids[pid]["self_dur"]     = Calculated self-duration (total - children)
+# children[pid][child_pid] = An array holding the PIDs of children for a given parent
+
 # --- Main Block ---
 # This block runs for every line from stdin.
 {
-    # Check if the first field contains the <comm> tag (new strace format: PID<comm>)
-    if ($1 ~ /<.*>/) {
-        # New parsing for PID<comm> TIME... format
+    # We rely on AWK's field splitting, assuming one or more spaces/tabs separate fields.
+    # Note: If $1 is PID<comm>, it is treated as one field.
 
-        # Split $1 (e.g., "100<make>") into the PID ("100") and the comm name ("make")
+    pid = $1
+    timestamp = $2
+
+    # 1. PID and TIME extraction based on format
+    if ($1 ~ /<.*>/) {
+        # Format: PID<comm> TIME...
         split($1, a, /[<>]/)
         pid = a[1]
-        # Note: a[2] holds the comm name, but we process it below
-
-        # Timestamp is now the second field
         timestamp = $2
-
-    } else {
-        # Fallback for old/simple format (PID TIME...)
-        pid = $1
-        timestamp = $2
-    }
-
-    # Now that PID and timestamp are correctly extracted, we must re-process the line content.
-
-    # 1. Strip the PID and TIME so line_content starts with the syscall.
-    line_content = $0
-
-    # We strip based on whether the <comm> tag exists in $1 or not.
-    if ($1 ~ /<.*>/) {
-        # Strip: "PID<comm> TIME "
+        line_content = $0
         sub(/^[0-9]+<[^>]+>\s+[0-9\.]+\s+/, "", line_content)
     } else {
-        # Strip: "PID TIME "
+        # Fallback format (Unit Tests, simpler logs)
+        pid = $1
+        timestamp = $2
+        line_content = $0
         sub(/^[0-9]+\s+[0-9\.]+\s+/, "", line_content)
     }
 
-    # 2. Capture and process <comm> if present. This logic is used for early naming of threads.
-    # We still check the original $0 because the comm tag might be on the RHS of clone()
+    # 2. Capture <comm> if present for initial naming (source of noise)
+    # This logic runs on every line and sets the "comm" name if 'cmd' is empty.
     if (match($0, /<([^>]+)>(\s+)?$/, m_comm)) {
         comm_name = m_comm[1]
-
-        # If the 'cmd' hasn't been set by execve yet, use the 'comm' as an early placeholder name.
         if (pids[pid]["cmd"] == "") {
             pids[pid]["cmd"] = comm_name
         }
@@ -53,7 +54,7 @@
             pids[child_pid]["parent_pid"] = parent_pid
         }
     }
-    # Special clone case where pid is appended with <comm> on the RHS
+    # Special clone case where pid is appended with <comm> on the RHS (e.g., in a clone call)
     if (match(line_content, /^(clone|fork|vfork)\(.*\)\s+=\s+([0-9]+)<[^>]+>/, m_clone)) {
         parent_pid = pid
         child_pid = m_clone[2]
@@ -64,8 +65,9 @@
     }
 
 
-    # 4. Match process execution (execve) - This logic is the canonical source for command name
+    # 4. Match process execution (execve) - This is the canonical source
     if (match(line_content, /^execve\("([^"]+)", \[(.+)\]/, m)) {
+        pids[pid]["had_execve"] = 1 # <--- THE CRITICAL FLAG
         pids[pid]["start_time"] = timestamp
 
         executable_path = m[1]
@@ -91,48 +93,51 @@
     }
 
     # 5. Match process exit
-    if (match(line_content, /^exit_group/)) {
+    if (match(line_content, /^exit_group/) || match(line_content, /^\+\+\+ exited/)) {
         if (pids[pid]["end_time"] == 0) {
             pids[pid]["end_time"] = timestamp
         }
     }
-    if (match(line_content, /^\+\+\+ exited/)) {
-          if (pids[pid]["end_time"] == 0) {
-             pids[pid]["end_time"] = timestamp
-         }
-    }
 }
 
-# --- Helper Functions (No change needed) ---
-function get_stack(pid,   stack_str, current_pid, parent_pid, cmd_name, default_name) {
+# ----------------------------------------------------------------------------------
+
+# --- Helper Functions ---
+function get_stack(pid,   stack_str, current_pid, parent_pid, cmd_name, default_name, had_execve) {
     # Recursively walks up the parent tree to build the collapsed stack string.
     stack_str = ""
     current_pid = pid
     while (current_pid in pids) {
-        # Check if the command name exists.
         cmd_name = pids[current_pid]["cmd"]
+        had_execve = pids[current_pid]["had_execve"]
 
+        # --- Fallback Logic Block (Unchanged) ---
         if (cmd_name == "") {
-            # --- Fallback logic to fix 'unknown' ---
-
-            # If command name is missing, attempt to inherit from the parent
             parent_pid = pids[current_pid]["parent_pid"]
             if (parent_pid in pids && pids[parent_pid]["cmd"] != "") {
                 cmd_name = pids[parent_pid]["cmd"]
             }
 
-            # If still no command name, use a traceable placeholder and log the event
             if (cmd_name == "") {
                 default_name = "-NO_EXECVE-" current_pid
-                # Log the fallback event to stderr to avoid breaking unit tests on stdout
                 print "⚠️ WARNING: PID " current_pid " command name missing. Falling back to '" default_name "'." | "cat 1>&2"
                 cmd_name = default_name
             }
+        }
+        # ----------------------------------------
 
-            # --- End of Fallback logic ---
+        # --- CORRECTED FILTERING LOGIC (The Fix for 'bash' noise) ---
+        # If the command name is a generic shell AND it NEVER called execve,
+        # then it must be a noisy, transient helper thread we should skip.
+        if (cmd_name ~ /^(bash|sh|zsh|dash)$/ && had_execve != 1) {
+            # Only skip it if it's not the root process (which might be the entry point).
+            if (pids[current_pid]["parent_pid"] != "") {
+                current_pid = pids[current_pid]["parent_pid"]
+                continue # Skip this helper frame, move up.
+            }
         }
 
-        # Original logic: If it passed the checks above but was still empty, use "unknown"
+        # --- Stack Assembly ---
         cmd_name = cmd_name ? cmd_name : "unknown"
 
         if (stack_str == "") {
@@ -150,8 +155,9 @@ function get_stack(pid,   stack_str, current_pid, parent_pid, cmd_name, default_
     return stack_str
 }
 
+# ----------------------------------------------------------------------------------
 
-# --- END Block (No change needed) ---
+# --- END Block ---
 END {
     # Pass 1: Calculate Total Durations
     for (pid in pids) {
