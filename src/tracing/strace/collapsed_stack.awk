@@ -4,7 +4,7 @@
 # --- Global Data Structures ---
 # pids[pid]["parent_pid"]      = The parent PID of this process
 # pids[pid]["cmd"]             = The command name (basename from execve OR comm fallback)
-# pids[pid]["start_time"]      = The timestamp of the execve call
+# pids[pid]["start_time"]      = The timestamp (from clone OR execve)
 # pids[pid]["end_time"]        = The timestamp of the exit_group call
 # pids[pid]["had_execve"]      = Flag (1) if this process called execve.
 # pids[pid]["total_dur"]       = Calculated total duration (end - start)
@@ -25,7 +25,7 @@
         # Format: PID<comm> TIME...
         split($1, a, /[<>]/)
         pid = a[1]
-        comm_name = a[2] # <-- CORRECTED CAPTURE
+        comm_name = a[2]
         timestamp = $2
         line_content = $0
         sub(/^[0-9]+<[^>]+>\s+[0-9\.]+\s+/, "", line_content)
@@ -49,6 +49,10 @@
         if (child_pid > 0) {
             children[parent_pid][child_pid] = 1
             pids[child_pid]["parent_pid"] = parent_pid
+            # Provisionally set start_time. This will be overwritten by
+            # execve if it occurs, but provides a start time for
+            # transient (non-execve) processes like PID 401.
+            pids[child_pid]["start_time"] = timestamp
         }
     }
     # Special clone case where pid is appended with <comm> on the RHS (e.g., in a clone call)
@@ -58,6 +62,7 @@
         if (child_pid > 0) {
             children[parent_pid][child_pid] = 1
             pids[child_pid]["parent_pid"] = parent_pid
+            pids[child_pid]["start_time"] = timestamp
         }
     }
 
@@ -65,7 +70,7 @@
     # 4. Match process execution (execve) - This is the canonical source
     if (match(line_content, /^execve\("([^"]+)", \[(.+)\]/, m)) {
         pids[pid]["had_execve"] = 1 # <--- THE CRITICAL FLAG
-        pids[pid]["start_time"] = timestamp
+        pids[pid]["start_time"] = timestamp # <--- Overwrites provisional clone time
 
         executable_path = m[1]
         args_str = m[2]
@@ -79,7 +84,6 @@
         basename_exe = executable_path
         gsub(/.*\//, "", basename_exe)
 
-        # --- CORRECTED SHELL HEURISTIC (THE FIX FOR '-c') ---
         # Apply shell script heuristic
         # Check if it's a shell, arg[2] exists, AND arg[2] does not start with "-"
         if (basename_exe ~ /^(bash|sh|zsh|dash)$/ && args[2] != "" && substr(args[2], 1, 1) != "-") {
@@ -128,7 +132,6 @@ function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, defaul
         }
         # ----------------------------------------
 
-        # --- CORRECTED FILTERING LOGIC (The Fix for 'bash' noise) ---
         # If the command name is a generic shell AND it NEVER called execve,
         # then it must be a noisy, transient helper thread we should skip.
         if (cmd_name ~ /^(bash|sh|zsh|dash)$/ && had_execve != 1) {
@@ -163,6 +166,7 @@ function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, defaul
 END {
     # Pass 1: Calculate Total Durations
     for (pid in pids) {
+        # Now processes *without* execve (like PID 401) will have a start_time
         if (pids[pid]["start_time"] > 0 && pids[pid]["end_time"] > 0) {
             pids[pid]["total_dur"] = pids[pid]["end_time"] - pids[pid]["start_time"]
             pids[pid]["self_dur"] = pids[pid]["total_dur"]
@@ -172,18 +176,31 @@ END {
     # Pass 2: Calculate Self Durations
     for (parent_pid in children) {
         for (child_pid in children[parent_pid]) {
+            # This will now correctly find total_dur for PID 401 (7.0s)
+            # and subtract it from PID 400.
             if ((parent_pid in pids) && (child_pid in pids) && (pids[child_pid]["total_dur"] > 0)) {
                 pids[parent_pid]["self_dur"] -= pids[child_pid]["total_dur"]
             }
         }
     }
 
-    # --- CORRECTED AGGREGATION (THE FIX FOR DUPLICATES) ---
 
     # Pass 3: Aggregate Stacks and Generate Output
     # Use an associative array to sum weights for identical stacks
     for (pid in pids) {
         if (pids[pid]["self_dur"] > 0) {
+
+            # We must apply the same filter logic from get_stack() here.
+            # PID 401 now has a self_dur (3.0s), but it's a transient
+            # shell. We must NOT add its duration to any stack.
+            cmd_name = pids[pid]["cmd"]
+            had_execve = pids[pid]["had_execve"]
+            if (cmd_name ~ /^(bash|sh|zsh|dash)$/ && had_execve != 1) {
+                if (pids[pid]["parent_pid"] != "") {
+                    continue # Skip this transient PID
+                }
+            }
+
             stack = get_stack(pid)
             weight = int(pids[pid]["self_dur"] * 1000) # Convert seconds to ms
             if (weight > 0) {
