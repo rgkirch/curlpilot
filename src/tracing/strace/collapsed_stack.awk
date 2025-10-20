@@ -25,7 +25,7 @@
         # Format: PID<comm> TIME...
         split($1, a, /[<>]/)
         pid = a[1]
-        comm_name = a[2]
+        comm_name = a[2] # <-- CORRECTED CAPTURE
         timestamp = $2
         line_content = $0
         sub(/^[0-9]+<[^>]+>\s+[0-9\.]+\s+/, "", line_content)
@@ -49,9 +49,10 @@
         if (child_pid > 0) {
             children[parent_pid][child_pid] = 1
             pids[child_pid]["parent_pid"] = parent_pid
+            # --- FIX 1 (PART A) ---
             # Provisionally set start_time. This will be overwritten by
             # execve if it occurs, but provides a start time for
-            # transient (non-execve) processes like PID 401.
+            # transient (non-execve) processes.
             pids[child_pid]["start_time"] = timestamp
         }
     }
@@ -62,38 +63,71 @@
         if (child_pid > 0) {
             children[parent_pid][child_pid] = 1
             pids[child_pid]["parent_pid"] = parent_pid
+            # --- FIX 1 (PART B) ---
             pids[child_pid]["start_time"] = timestamp
         }
     }
 
 
-    # 4. Match process execution (execve) - This is the canonical source
+# 4. Match process execution (execve) - This is the canonical source
     if (match(line_content, /^execve\("([^"]+)", \[(.+)\]/, m)) {
-        pids[pid]["had_execve"] = 1 # <--- THE CRITICAL FLAG
-        pids[pid]["start_time"] = timestamp # <--- Overwrites provisional clone time
+        pids[pid]["had_execve"] = 1
+        pids[pid]["start_time"] = timestamp
 
         executable_path = m[1]
         args_str = m[2]
 
         split(args_str, args, /, /)
 
+        # Trim whitespace AND quotes from all arguments
         for (i in args) {
-            gsub(/^"|"$/, "", args[i])
+            gsub(/^"|"$/, "", args[i])              # Remove surrounding quotes
+            gsub(/^[ \t]+|[ \t]+$/, "", args[i]) # Remove leading/trailing space/tab
         }
 
         basename_exe = executable_path
         gsub(/.*\//, "", basename_exe)
 
-        # Apply shell script heuristic
-        # Check if it's a shell, arg[2] exists, AND arg[2] does not start with "-"
-        if (basename_exe ~ /^(bash|sh|zsh|dash)$/ && args[2] != "" && substr(args[2], 1, 1) != "-") {
-            # It's 'bash script.sh ...', so use the script name
+        # --- FINAL ROBUST BATS HEURISTIC ---
+        if (basename_exe == "bats-exec-test") {
+            test_file = ""
+            test_name = ""
+            # Iterate through args to find the first '*.bats' file
+            # and assume the next argument is the test name.
+            for (i = 2; i <= length(args); i++) { # Start checking from arg 2
+                # If we find an argument ending in .bats and there's another arg after it...
+                if (args[i] ~ /\.bats$/ && (i + 1) <= length(args)) {
+                    test_file = args[i]
+                    test_name = args[i+1] # Assume next arg is the name
+                    break # Stop after finding the first match
+                }
+            }
+
+            # If we successfully found both...
+            if (test_file != "" && test_name != "") {
+                gsub(/.*\//, "", test_file) # Get basename of the file
+                # Basic sanity check: if the supposed name starts with '-',
+                # it's probably a flag, so the heuristic failed. Fall back.
+                if (substr(test_name, 1, 1) == "-") {
+                     pids[pid]["cmd"] = basename_exe # Fallback if name looks like a flag
+                     # Optional: Add a warning print here if needed
+                     # print "⚠️ WARNING: bats-exec-test heuristic failed for PID " pid ". Found flag '" test_name "' instead of test name." | "cat 1>&2"
+                } else {
+                     # Success! Use the combined file;name
+                     pids[pid]["cmd"] = test_file ";" test_name
+                }
+            } else {
+                 # Fallback if we didn't find suitable args
+                 pids[pid]["cmd"] = basename_exe
+            }
+
+        # --- Shell script heuristic ---
+        } else if (basename_exe ~ /^(bash|sh|zsh|dash)$/ && args[2] != "" && substr(args[2], 1, 1) != "-") {
             basename_arg1 = args[2]
             gsub(/.*\//, "", basename_arg1)
             pids[pid]["cmd"] = basename_arg1
         } else {
-            # It's a non-shell (e.g., 'cat'), or 'bash -c', or 'bash -l', etc.
-            # In all these cases, the executable's basename is correct.
+            # --- Default fallback ---
             pids[pid]["cmd"] = basename_exe
         }
     }
@@ -132,6 +166,7 @@ function get_stack(pid,     stack_str, current_pid, parent_pid, cmd_name, defaul
         }
         # ----------------------------------------
 
+        # --- CORRECTED FILTERING LOGIC (The Fix for 'bash' noise) ---
         # If the command name is a generic shell AND it NEVER called execve,
         # then it must be a noisy, transient helper thread we should skip.
         if (cmd_name ~ /^(bash|sh|zsh|dash)$/ && had_execve != 1) {
@@ -184,12 +219,14 @@ END {
         }
     }
 
+    # --- CORRECTED AGGREGATION (THE FIX FOR DUPLICATES) ---
 
     # Pass 3: Aggregate Stacks and Generate Output
     # Use an associative array to sum weights for identical stacks
     for (pid in pids) {
         if (pids[pid]["self_dur"] > 0) {
 
+            # --- FIX 2 ---
             # We must apply the same filter logic from get_stack() here.
             # PID 401 now has a self_dur (3.0s), but it's a transient
             # shell. We must NOT add its duration to any stack.
@@ -200,6 +237,7 @@ END {
                     continue # Skip this transient PID
                 }
             }
+            # --- END FIX 2 ---
 
             stack = get_stack(pid)
             weight = int(pids[pid]["self_dur"] * 1000) # Convert seconds to ms

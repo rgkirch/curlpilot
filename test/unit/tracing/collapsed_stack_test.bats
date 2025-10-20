@@ -145,3 +145,114 @@ EOF
   assert_success
   assert_output "$expected_output"
 }
+
+@test "UNIT: collapsed_stack.awk correctly parses 'bats-exec-test' [BUGFIX: Test Naming]" {
+  # This test ensures that 'bats-exec-test' is correctly parsed,
+  # and its command name is replaced with "test_file.bats;test_name".
+  strace_data=$(cat <<EOF
+500<bats> 1000.0 execve("/usr/bin/bats", ["bats"])
+500<bats> 1001.0 clone() = 501<bats>
+501<bats> 1002.0 execve("/usr/bin/bats-exec-suite", ["bats-exec-suite"])
+501<bats-exec-suite> 1003.0 clone() = 502<bats-exec-suite>
+502<bats-exec-suite> 1004.0 execve("/usr/bin/bats-exec-file", ["bats-exec-file"])
+502<bats-exec-file> 1005.0 clone() = 503<bats-exec-file>
+503<bats-exec-file> 1006.0 execve("/usr/bin/bats-exec-test", ["/usr/bin/bats-exec-test", "--dummy", "-T", "-x", "/full/path/to/my_test.bats", "test_name_mangled", "14", "1", "1"])
+503<my_test.bats> 1007.0 clone() = 504<my_test.bats>
+504<my_test.bats> 1008.0 execve("/bin/mkdir", ["mkdir", "-p", "foo"])
+504<mkdir> 1009.0 exit_group()
+503<my_test.bats> 1010.0 exit_group()
+502<bats-exec-file> 1011.0 exit_group()
+501<bats-exec-suite> 1012.0 exit_group()
+500<bats> 1013.0 exit_group()
+EOF
+)
+
+  # Expected:
+  # bats self: (1013-1000) - (1012-1002) = 13 - 10 = 3.0s
+  # bats-exec-suite self: (1012-1002) - (1011-1004) = 10 - 7 = 3.0s
+  # bats-exec-file self: (1011-1004) - (1010-1006) = 7 - 4 = 3.0s
+  # my_test.bats;test_name_mangled self: (1010-1006) - (1009-1008) = 4 - 1 = 3.0s
+  # mkdir self: 1009 - 1008 = 1.0s
+  expected_output=$(cat <<EOF
+bats 3000
+bats;bats-exec-suite 3000
+bats;bats-exec-suite;bats-exec-file 3000
+bats;bats-exec-suite;bats-exec-file;my_test.bats;test_name_mangled 3000
+bats;bats-exec-suite;bats-exec-file;my_test.bats;test_name_mangled;mkdir 1000
+EOF
+)
+
+  run gawk -f src/tracing/strace/collapsed_stack.awk <<< "$strace_data"
+  assert_success
+  assert_output "$expected_output"
+}
+
+@test "UNIT: collapsed_stack.awk shell heuristic fallback still works [REGRESSION]" {
+  # This test ensures that changing the 'if' to 'else if'
+  # for the shell heuristic didn't break it.
+  strace_data=$(cat <<EOF
+600<parent> 1000.0 execve("/usr/bin/parent", ["parent"])
+600<parent> 1001.0 clone() = 601<parent>
+601<parent> 1002.0 execve("/bin/bash", ["bash", "my_script.sh", "arg1"])
+601<my_script.sh> 1004.0 exit_group()
+600<parent> 1005.0 exit_group()
+EOF
+)
+
+  # Expected:
+  # parent self: (1005-1000) - (1004-1002) = 5 - 2 = 3.0s
+  # my_script.sh self: 1004 - 1002 = 2.0s
+  expected_output=$(cat <<EOF
+parent 3000
+parent;my_script.sh 2000
+EOF
+)
+
+  run gawk -f src/tracing/strace/collapsed_stack.awk <<< "$strace_data"
+  assert_success
+  assert_output "$expected_output"
+}
+
+@test "UNIT: collapsed_stack.awk correctly parses 'bats-exec-test' within BATS hierarchy [BUGFIX: Test Naming Realistic]" {
+  # This test uses a more realistic BATS process hierarchy to ensure
+  # the bats-exec-test heuristic works in context, not just in isolation.
+  strace_data=$(cat <<EOF
+700<bats> 1000.0 execve("/usr/bin/bats", ["bats", "test.bats"])
+700<bats> 1001.0 clone() = 701<bats>
+701<bats> 1002.0 execve("/usr/bin/bats-exec-suite", ["bats-exec-suite", "test.bats"])
+701<bats-exec-suite> 1003.0 clone() = 702<bats-exec-suite>
+702<bats-exec-suite> 1004.0 execve("/usr/bin/bats-exec-file", ["bats-exec-file", "test.bats"])
+702<bats-exec-file> 1005.0 clone() = 703<bats-exec-file>
+703<bats-exec-file> 1006.0 execve("/usr/bin/bats-exec-test", ["/usr/bin/bats-exec-test", "-x", "/path/to/my_test_file.bats", "test_actual_name", "1", "1", "1"])
+# Note: The awk script uses the basename 'my_test_file.bats' and 'test_actual_name'
+703<my_test_file.bats;test_actual_name> 1007.0 clone() = 704<my_test_file.bats;test_actual_name>
+704<my_test_file.bats;test_actual_name> 1008.0 execve("/bin/mkdir", ["mkdir", "foo"])
+704<mkdir> 1009.0 exit_group()
+703<my_test_file.bats;test_actual_name> 1010.0 exit_group()
+702<bats-exec-file> 1011.0 exit_group()
+701<bats-exec-suite> 1012.0 exit_group()
+700<bats> 1013.0 exit_group()
+EOF
+)
+
+  # Expected Durations:
+  # bats (700): (1013-1000) - (1012-1002) = 13 - 10 = 3s
+  # bats-exec-suite (701): (1012-1002) - (1011-1004) = 10 - 7 = 3s
+  # bats-exec-file (702): (1011-1004) - (1010-1006) = 7 - 4 = 3s
+  # my_test_file.bats;test_actual_name (703): (1010-1006) - (1009-1008) = 4 - 1 = 3s
+  # mkdir (704): 1009 - 1008 = 1s
+  expected_output=$(cat <<EOF
+bats 3000
+bats;bats-exec-suite 3000
+bats;bats-exec-suite;bats-exec-file 3000
+bats;bats-exec-suite;bats-exec-file;my_test_file.bats;test_actual_name 3000
+bats;bats-exec-suite;bats-exec-file;my_test_file.bats;test_actual_name;mkdir 1000
+EOF
+)
+
+  run gawk -f src/tracing/strace/collapsed_stack.awk <<< "$strace_data"
+  assert_success
+  # Use assert_output -- instead of assert_output "$expected_output"
+  # This makes multiline diffs much easier to read in case of failure.
+  assert_output -- "$expected_output"
+}
