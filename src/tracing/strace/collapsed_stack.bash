@@ -1,39 +1,16 @@
 #!/bin/bash
 #
-# This script is a wrapper that finds strace log files and passes them
-# to the awk processing script for analysis.
+# This script finds strace log files in given directories, prepends the PID
+# from the filename to each line, and pipes the result to the awk script.
 #
 
 set -euo pipefail
 
 # --- Validation ---
-if [[ "$#" -ne 1 ]]; then
-    echo "Usage: $0 <path-to-strace-logs-directory>" >&2
+if [[ "$#" -eq 0 ]]; then
+    echo "Usage: $0 <path-to-strace-logs-directory>..." >&2
     exit 1
 fi
-
-STRACE_LOG_DIR="$1"
-
-if [[ ! -d "$STRACE_LOG_DIR" ]]; then
-    echo "Error: Directory not found at '$STRACE_LOG_DIR'" >&2
-    exit 1
-fi
-# --- End Validation ---
-
-
-# --- File Gathering ---
-# Find all trace files.
-TRACE_FILES=()
-while IFS= read -r -d '' file; do
-    TRACE_FILES+=("$file")
-done < <(find "$STRACE_LOG_DIR" -name 'trace.*' -print0)
-
-if [[ ${#TRACE_FILES[@]} -eq 0 ]]; then
-    echo "Warning: No 'trace.*' files found in '$STRACE_LOG_DIR'" >&2
-    exit 0
-fi
-# --- End File Gathering ---
-
 
 # --- Processing ---
 # Get the directory containing this script to reliably find the .awk file.
@@ -45,5 +22,23 @@ if [[ ! -f "$AWK_SCRIPT_PATH" ]]; then
     exit 1
 fi
 
-# Execute the awk script, passing all found trace files to it.
-gawk -f "$AWK_SCRIPT_PATH" "${TRACE_FILES[@]}"
+# This function processes all directories passed as arguments.
+process_logs() {
+    for dir in "$@"; do
+        if [[ ! -d "$dir" ]]; then
+            echo "Warning: Directory not found at '$dir'. Skipping." >&2
+            continue
+        fi
+
+        # Find all trace files, and for each one, prepend the PID to every line.
+        find "$dir" -name 'trace.*' -print0 | while IFS= read -r -d '' file; do
+            # Extract PID from filename (e.g., trace.123 -> 123)
+            pid=$(basename "$file" | sed 's/trace\.//')
+            # Prepend PID to each line of the file.
+            sed "s/^/$pid /" "$file"
+        done
+    done
+}
+
+# Pipe the processed log stream into the awk script for analysis.
+process_logs "$@" | gawk -f "$AWK_SCRIPT_PATH"
