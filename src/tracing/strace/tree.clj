@@ -1,6 +1,6 @@
 #!/usr/bin/env bb
 
-(require '[clojure.data.json :as json]
+(require '[cheshire.core :as json]
          '[clojure.java.io :as io])
 
 (defn build-process-map
@@ -8,7 +8,7 @@
   []
   (with-open [rdr (io/reader *in*)]
     (->> (line-seq rdr)
-         (map #(json/read-str % :key-fn keyword))
+         (map #(json/parse-string % :key-fn keyword))
          ;; Key the entire map by PID for easy lookup
          (reduce (fn [acc proc] (assoc acc (:pid proc) proc))
                  {}))))
