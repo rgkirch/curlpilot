@@ -10,7 +10,7 @@ BEGIN {
 
     # --- Composed Regex Patterns ---
     # Matches syscalls like execve(...) = 0
-    execve_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (0)$"
+    execve_re = "^" pid_re comm_re " " timestamp_re " execve\\(" args_re "\\) = (0)$"
 
     # Matches syscalls like open(...) = -1 ENOENT (No such file or directory)
     no_such_file_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
@@ -40,7 +40,7 @@ BEGIN {
 
 {
     if (match($0, execve_re, fields)) {
-        print "execve", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        print "execve", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, no_such_file_re, fields)) {
         #print "no_such_file", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, clone_re, fields)) {

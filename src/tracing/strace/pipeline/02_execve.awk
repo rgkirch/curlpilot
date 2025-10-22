@@ -1,5 +1,10 @@
 #!/usr/bin/gawk -f
 
+BEGIN {
+    # Set the Input Field Separator to match the previous script's OFS.
+    FS = "\037"
+}
+
 # This custom function iteratively parses a string of quoted arguments and
 # populates a global array named `_parsed_args_global`.
 #
@@ -30,18 +35,13 @@ function parse_args(arg_string,   # Local variables below
     }
 }
 
-BEGIN {
-    # Set the Input Field Separator to match the previous script's OFS.
-    FS = "\037"
-}
-
 {
     # We only want to process lines that the previous script tagged as "execve".
     if ($1 == "execve") {
         # Assign the raw fields to named variables for clarity.
         pid = $2
         timestamp = $4
-        args_string = $6 # This is the string with all the execve arguments.
+        args_string = $5 # This is the string with all the execve arguments.
 
         # 1. Use your corrected regex to extract the program basename and the rest of the args.
         #    Using '[^"]*' instead of '[^"]+' correctly handles paths like "/foo".
