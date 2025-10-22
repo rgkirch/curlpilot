@@ -31,6 +31,27 @@ BEGIN {
         #    We include a "parent_key" to build the hierarchy in a flame graph.
         printf "{\"name\": \"%s\", \"start_us\": %s, \"key\": \"%s\", \"parent_key\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
 
+    } else if ($1 == "clone3") {
+
+        parent_pid  = $2
+        parent_comm = $3
+        timestamp   = $4
+        child_pid   = $6
+        child_comm  = $7
+
+        # 1. Convert timestamp to microseconds. This is the "start time" for the new child process.
+        start_us = sprintf("%.0f", timestamp * 1000000)
+
+        # 2. Create a temporary span name for the new child.
+        span_name = child_comm " <" child_pid "> (cloned3 from " parent_comm ")"
+
+        # 3. Escape any quotes in the span name to ensure valid JSON.
+        gsub(/"/, "\\\"", span_name)
+
+        # 4. Print the final JSON object. This represents the "birth" of a new span.
+        #    We include a "parent_key" to build the hierarchy in a flame graph.
+        printf "{\"name\": \"%s\", \"start_us\": %s, \"key\": \"%s\", \"parent_key\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
+
     } else {
         # Pass through any other lines (like the JSON from the execve script) unmodified.
         print $0
