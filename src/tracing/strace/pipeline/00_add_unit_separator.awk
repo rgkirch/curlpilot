@@ -53,10 +53,10 @@ BEGIN {
         #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, interrupted_call_re, fields)) {
         # This new block handles the interrupted call line
-        print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, exit_group_re, fields)) {
         # This new block handles the process exit line
-        #print "exit_group", fields[1], fields[2], fields[3], fields[4]
+        print "exit_group", fields[1], fields[2], fields[3], fields[4]
     } else if (match($0, exited_re, fields)) {
         # This new block handles the +++ exited with ... +++ line
         #print "exited", fields[1], fields[2], fields[3], fields[4]
