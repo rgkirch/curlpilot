@@ -46,11 +46,11 @@ BEGIN {
     } else if (match($0, clone_re, fields)) {
         print "clone", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]
     } else if (match($0, wait4_re, fields)) {
-        print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, wait4_error_re, fields)) {
-        print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5]
+        #print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, signal_re, fields)) {
-        print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
+        #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, interrupted_call_re, fields)) {
         # This new block handles the interrupted call line
         #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]

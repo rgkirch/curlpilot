@@ -18,7 +18,7 @@ SELF_NAME=$(basename "$0")
 
 # Find all executable files in the current directory (.), excluding this script itself.
 # Store them in a sorted array called 'scripts'.
-mapfile -t all_scripts < <(find . -maxdepth 1 -type f -executable -not -name "$SELF_NAME" | sort)
+mapfile -d $'\0' -t all_scripts < <(find . -maxdepth 1 -type f -executable -name '*.awk' -print0 | sort --zero-terminated)
 
 # Check if we found any scripts to run.
 if [ ${#all_scripts[@]} -eq 0 ]; then
