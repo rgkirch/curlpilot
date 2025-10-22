@@ -40,17 +40,17 @@ BEGIN {
 
 {
     if (match($0, execve_re, fields)) {
-        #print "execve", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        print "execve", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, no_such_file_re, fields)) {
         #print "no_such_file", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, clone_re, fields)) {
-        #print "clone", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]
+        print "clone", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]
     } else if (match($0, wait4_re, fields)) {
-        #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, wait4_error_re, fields)) {
-        #print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5]
+        print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, signal_re, fields)) {
-        #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
+        print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, interrupted_call_re, fields)) {
         # This new block handles the interrupted call line
         #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
@@ -59,7 +59,7 @@ BEGIN {
         print "exit_group", fields[1], fields[2], fields[3], fields[4]
     } else if (match($0, exited_re, fields)) {
         # This new block handles the +++ exited with ... +++ line
-        #print "exited", fields[1], fields[2], fields[3], fields[4]
+        print "exited", fields[1], fields[2], fields[3], fields[4]
     } else {
         # Keep this to see any other lines that are not matched
         print "unmatched", $0
