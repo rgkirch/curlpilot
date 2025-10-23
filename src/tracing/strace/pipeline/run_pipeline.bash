@@ -2,13 +2,13 @@
 
 # --- Configuration ---
 # The directory where your strace log files are located.
-LOG_FILES_PATTERN="/tmp/tmp.ULE8Mo2737/strace-logs/trace.*"
+LOG_FILES_PATTERN="/tmp/tmp.FnmDVBsD4z/strace-logs/trace.*"
 # The directory where your processing scripts are located.
 SCRIPT_DIR="."
 
 # --- Script Logic ---
 
-echo "Starting data generation pipeline..."
+echo "Starting data generation pipeline..." >&2
 
 # Find all executable awk scripts in the specified directory, sorted numerically.
 # The `sort -V` command handles version-style numbering (e.g., 2 is before 10).
@@ -20,8 +20,8 @@ if [ ${#scripts[@]} -eq 0 ]; then
     exit 1
 fi
 
-echo "Found ${#scripts[@]} scripts. Pipeline will be:"
-printf "  -> %s\n" "${scripts[@]}"
+echo "Found ${#scripts[@]} scripts. Pipeline will be:" >&2
+printf "  -> %s\n" "${scripts[@]}" >&2
 
 # Check if log files exist before trying to process them.
 shopt -s nullglob
@@ -42,11 +42,11 @@ done
 # The output will be a stream of JSON objects from your various awk scripts.
 # You can redirect this output to a file, e.g., by running:
 # ./generate_flamegraph_data.sh > flamegraph_events.json
-echo "---"
-echo "Running pipeline... Output will follow."
-echo "---"
+echo "---" >&2
+echo "Running pipeline... Output will follow." >&2
+echo "---" >&2
 
 eval "$pipeline_cmd"
 
-echo "---"
-echo "Pipeline finished."
+echo "---" >&2
+echo "Pipeline finished." >&2

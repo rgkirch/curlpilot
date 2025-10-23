@@ -22,7 +22,7 @@ BEGIN {
     esrch_error_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
 
     # New regex for process termination calls like exit(0) = ?
-    exit_re = "^" pid_re comm_re " " timestamp_re " exit\\(" args_re "\\) = \\?$"
+    exit_re = "^" pid_re comm_re " " timestamp_re " exit\\(" args_re "\\)   = \\?$"
 
     # New regex for process termination calls like exit_group(1) = ?
     exit_group_re = "^" pid_re comm_re " " timestamp_re " exit_group\\(" args_re "\\) = \\?$"
@@ -64,7 +64,7 @@ BEGIN {
         print "clone3", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]
     } else if (match($0, esrch_error_re, fields)) {
         # This will now catch ESRCH from kill, etc.
-        print "esrch_error", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "esrch_error", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, signal_re, fields)) {
         #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, interrupted_call_re, fields)) {
@@ -72,7 +72,7 @@ BEGIN {
         #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
     } else if (match($0, kill_success_re, fields)) {
         # This will now catch successful kill(...) = 0 lines
-        print "kill_success", fields[1], fields[2], fields[3], fields[4], fields[5]
+        #print "kill_success", fields[1], fields[2], fields[3], fields[4], fields[5]
     } else if (match($0, killed_by_signal_re, fields)) {
         # This will now catch +++ killed by ... +++ lines
         print "killed_by_signal", fields[1], fields[2], fields[3], fields[4]

@@ -28,8 +28,8 @@ BEGIN {
         gsub(/"/, "\\\"", span_name)
 
         # 4. Print the final JSON object. This represents the "birth" of a new span.
-        #    We include a "parent_key" to build the hierarchy in a flame graph.
-        printf "{\"name\": \"%s\", \"start_us\": %s, \"key\": \"%s\", \"parent_key\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
+        #    We include a "parent_pid" to build the hierarchy in a flame graph.
+        printf "{\"name\": \"%s\", \"start_us\": %s, \"pid\": \"%s\", \"parent_pid\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
 
     } else if ($1 == "clone3") {
 
@@ -49,8 +49,8 @@ BEGIN {
         gsub(/"/, "\\\"", span_name)
 
         # 4. Print the final JSON object. This represents the "birth" of a new span.
-        #    We include a "parent_key" to build the hierarchy in a flame graph.
-        printf "{\"name\": \"%s\", \"start_us\": %s, \"key\": \"%s\", \"parent_key\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
+        #    We include a "parent_pid" to build the hierarchy in a flame graph.
+        printf "{\"name\": \"%s\", \"start_us\": %s, \"pid\": \"%s\", \"parent_pid\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
 
     } else {
         # Pass through any other lines (like the JSON from the execve script) unmodified.

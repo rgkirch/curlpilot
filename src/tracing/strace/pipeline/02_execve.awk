@@ -92,7 +92,7 @@ function parse_args(arg_string,   # Local variables below
             gsub(/"/, "\\\"", span_name)
 
             # 6. Print the final JSON object.
-            printf "{\"name\": \"%s\", \"start_us\": %s, \"key\": \"%s\"}\n", span_name, start_us, pid
+            printf "{\"name\": \"%s\", \"start_us\": %s, \"pid\": \"%s\"}\n", span_name, start_us, pid
 
         } else {
             print $0

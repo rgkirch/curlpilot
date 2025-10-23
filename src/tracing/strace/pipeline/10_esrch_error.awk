@@ -33,8 +33,8 @@ BEGIN {
         gsub(/"/, "\\\"", event_name)
 
         # 5. Print a JSON object that represents a single event in the process's timeline.
-        #    The "key" is the PID, associating this event with the correct span.
-        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"key\": \"%s\"}\n", event_name, time_us, pid
+        #    The "pid" is the PID, associating this event with the correct span.
+        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"pid\": \"%s\"}\n", event_name, time_us, pid
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

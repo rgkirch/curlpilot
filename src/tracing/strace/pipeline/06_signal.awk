@@ -38,7 +38,7 @@ BEGIN {
                 end_us = sprintf("%.0f", timestamp * 1000000)
 
                 # 2. Print a JSON object that marks the end of the child's span.
-                printf "{\"key\": \"%s\", \"end_us\": %s, \"parent_key\": \"%s\"}\n", child_pid, end_us, parent_pid
+                printf "{\"pid\": \"%s\", \"end_us\": %s, \"parent_pid\": \"%s\"}\n", child_pid, end_us, parent_pid
             }
             # (Future enhancement: Other event_codes like CLD_STOPPED could be handled here).
         }

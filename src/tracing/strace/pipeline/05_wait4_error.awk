@@ -29,8 +29,8 @@ BEGIN {
         gsub(/"/, "\\\"", event_name)
 
         # 4. Print a JSON object that represents a single event in the parent's timeline.
-        #    The "key" is the parent's PID, associating this event with the correct span.
-        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"key\": \"%s\"}\n", event_name, time_us, parent_pid
+        #    The "pid" is the parent's PID, associating this event with the correct span.
+        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"pid\": \"%s\"}\n", event_name, time_us, parent_pid
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

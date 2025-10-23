@@ -2,7 +2,7 @@
 
 # --- Configuration ---
 # The directory where your strace log files are located.
-LOG_FILES_PATTERN="/tmp/tmp.ULE8Mo2737/strace-logs/*"
+LOG_FILES_PATTERN="/tmp/tmp.FnmDVBsD4z/strace-logs/trace.*"
 
 # --- Script Logic ---
 

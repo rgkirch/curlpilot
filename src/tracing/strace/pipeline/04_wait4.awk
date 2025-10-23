@@ -20,9 +20,9 @@ BEGIN {
         end_us = sprintf("%.0f", timestamp * 1000000)
 
         # 2. Print a JSON object that marks the end of the child's span.
-        #    The "key" is the child's PID, which will be used to join with the start event.
-        #    The "parent_key" identifies the process that reaped this child.
-        printf "{\"key\": \"%s\", \"end_us\": %s, \"parent_key\": \"%s\"}\n", child_pid_waited_for, end_us, parent_pid
+        #    The "pid" is the child's PID, which will be used to join with the start event.
+        #    The "parent_pid" identifies the process that reaped this child.
+        printf "{\"pid\": \"%s\", \"end_us\": %s, \"parent_pid\": \"%s\"}\n", child_pid_waited_for, end_us, parent_pid
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

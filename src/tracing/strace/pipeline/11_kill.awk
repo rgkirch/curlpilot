@@ -8,7 +8,6 @@ BEGIN {
 {
     # We only want to process lines that the first script tagged as "kill_success".
     if ($1 == "kill_success") {
-        print $0 > "/dev/stderr"
         #23492<bash> 1761175376.777539 kill(23990<bash>, 0) = 0
         #kill_success^_23492^_bash^_1761175376.777539^_23990<bash>, 0^_0
         # --- This is the logic for processing successful kill lines ---
@@ -37,8 +36,8 @@ BEGIN {
         gsub(/"/, "\\\"", event_name)
 
         # 5. Print a JSON object that represents a single event in the process's timeline.
-        #    The "key" is the PID, associating this event with the correct span.
-        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"key\": \"%s\"}\n", event_name, time_us, pid
+        #    The "pid" is the PID, associating this event with the correct span.
+        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"pid\": \"%s\"}\n", event_name, time_us, pid
 
     } else if ($1 == "killed_by_signal") {
         # 2749167<sleep> 1760982700.132394 +++ killed by SIGTERM +++
@@ -57,8 +56,8 @@ BEGIN {
         gsub(/"/, "\\\"", signal) # Escape for JSON
 
         # 3. Print a JSON object that marks the end of this process's span.
-        #    The "key" is the PID, which will be used to join with the start event.
-        printf "{\"key\": \"%s\", \"end_us\": %s, \"termination_signal\": \"%s\"}\n", pid, end_us, signal
+        #    The "pid" is the PID, which will be used to join with the start event.
+        printf "{\"pid\": \"%s\", \"end_us\": %s, \"termination_signal\": \"%s\"}\n", pid, end_us, signal
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.
