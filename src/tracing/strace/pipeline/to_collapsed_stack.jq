@@ -14,9 +14,9 @@ def get_stack($pid; $map):
   # Get the parent PID
   | ($span.parent_pid) as $ppid
 
-  # If the parent exists in the map, get its stack first.
+  # If the parent_pid is not null AND exists in the map, get its stack first.
   # Otherwise, start with an empty array (we are a root).
-  | (if $map | has($ppid) then get_stack($ppid; $map) else [] end)
+  | (if $ppid != null and ($map | has($ppid)) then get_stack($ppid; $map) else [] end)
 
   # Add our own name to the stack
   + [$span.name]

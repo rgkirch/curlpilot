@@ -2,7 +2,7 @@
 
 # --- Configuration ---
 # The directory where your strace log files are located.
-LOG_FILES_PATTERN="/tmp/tmp.ULE8Mo2737/strace-logs/trace.*"
+source ./log_dir.bash
 # The directory where your processing scripts are located.
 SCRIPT_DIR="."
 
