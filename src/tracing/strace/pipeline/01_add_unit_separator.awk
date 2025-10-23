@@ -21,6 +21,9 @@ BEGIN {
     # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
     esrch_error_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
 
+    # New regex for process termination calls like exit(0) = ?
+    exit_re = "^" pid_re comm_re " " timestamp_re " exit\\(" args_re "\\) = \\?$"
+
     # New regex for process termination calls like exit_group(1) = ?
     exit_group_re = "^" pid_re comm_re " " timestamp_re " exit_group\\(" args_re "\\) = \\?$"
 
@@ -76,6 +79,9 @@ BEGIN {
     } else if (match($0, exit_group_re, fields)) {
         # This new block handles the process exit line
         print "exit_group", fields[1], fields[2], fields[3], fields[4]
+    } else if (match($0, exit_re, fields)) {
+        # This new block handles the process exit(0) = ? line
+        print "exit", fields[1], fields[2], fields[3], fields[4]
     } else if (match($0, exited_re, fields)) {
         # This new block handles the +++ exited with ... +++ line
         print "exited", fields[1], fields[2], fields[3], fields[4]
