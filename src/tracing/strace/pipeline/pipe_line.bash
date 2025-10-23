@@ -1,8 +1,12 @@
 #!/bin/bash
+set -euo pipefail
 
 # --- Configuration ---
-# The directory where your processing scripts are located.
-SCRIPT_DIR="."
+# Get the absolute path to this script, resolving any symlinks.
+SCRIPT_PATH=$(readlink -f "$0")
+# Get the directory where this script itself is located.
+# This is a robust way to find the script's location, even when called by GNU Parallel.
+SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
 
 # --- Script Logic ---
 

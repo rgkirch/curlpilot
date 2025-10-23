@@ -9,7 +9,8 @@ BEGIN {
     # We only want to process lines that the first script tagged as "kill_success".
     if ($1 == "kill_success") {
         print $0 > "/dev/stderr"
-        #kill_success^_2743575^_bash^_1760982682.026727^_2744084<bash>, 0^_0
+        #23492<bash> 1761175376.777539 kill(23990<bash>, 0) = 0
+        #kill_success^_23492^_bash^_1761175376.777539^_23990<bash>, 0^_0
         # --- This is the logic for processing successful kill lines ---
 
         # Assign the raw fields to named variables for clarity.
