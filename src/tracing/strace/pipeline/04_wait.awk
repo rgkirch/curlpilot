@@ -22,7 +22,7 @@ BEGIN {
         # 2. Print a JSON object that marks the end of the child's span.
         #    The "pid" is the child's PID, which will be used to join with the start event.
         #    The "parent_pid" identifies the process that reaped this child.
-        printf "{\"pid\": \"%s\", \"end_us\": %s, \"parent_pid\": \"%s\"}\n", child_pid_waited_for, end_us, parent_pid
+        printf "{\"type\": \"wait4\", \"pid\": \"%s\", \"end_us\": %s, \"parent_pid\": \"%s\"}\n", child_pid_waited_for, end_us, parent_pid
 
     } else if ($1 == "wait4_error") {
         # --- This is the logic for processing wait4_error lines ---

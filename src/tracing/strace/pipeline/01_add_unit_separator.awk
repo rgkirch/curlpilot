@@ -78,10 +78,10 @@ BEGIN {
         print "killed_by_signal", fields[1], fields[2], fields[3], fields[4]
     } else if (match($0, exit_group_re, fields)) {
         # This new block handles the process exit line
-        print "exit_group", fields[1], fields[2], fields[3], fields[4]
+        #print "exit_group", fields[1], fields[2], fields[3], fields[4]
     } else if (match($0, exit_re, fields)) {
         # This new block handles the process exit(0) = ? line
-        print "exit", fields[1], fields[2], fields[3], fields[4]
+        #print "exit", fields[1], fields[2], fields[3], fields[4]
     } else if (match($0, exited_re, fields)) {
         # This new block handles the +++ exited with ... +++ line
         print "exited", fields[1], fields[2], fields[3], fields[4]

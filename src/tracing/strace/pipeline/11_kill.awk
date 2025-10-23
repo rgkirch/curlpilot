@@ -37,7 +37,7 @@ BEGIN {
 
         # 5. Print a JSON object that represents a single event in the process's timeline.
         #    The "pid" is the PID, associating this event with the correct span.
-        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"pid\": \"%s\"}\n", event_name, time_us, pid
+        printf "{\"type\": \"kill_success\", \"event_name\": \"%s\", \"time_us\": %s, \"pid\": \"%s\"}\n", event_name, time_us, pid
 
     } else if ($1 == "killed_by_signal") {
         # 2749167<sleep> 1760982700.132394 +++ killed by SIGTERM +++
@@ -57,7 +57,7 @@ BEGIN {
 
         # 3. Print a JSON object that marks the end of this process's span.
         #    The "pid" is the PID, which will be used to join with the start event.
-        printf "{\"pid\": \"%s\", \"end_us\": %s, \"termination_signal\": \"%s\"}\n", pid, end_us, signal
+        printf "{\"type\": \"killed_by_signal\", \"pid\": \"%s\", \"end_us\": %s, \"termination_signal\": \"%s\"}\n", pid, end_us, signal
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.
