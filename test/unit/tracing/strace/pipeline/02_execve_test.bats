@@ -26,11 +26,11 @@ _setup() {
 
 @test "Test 1: bats-preprocess (User's specific case)" {
   # This mocks the raw strace line and the parsed args string from 01_parse.awk
-  raw_line_1='13606<bash> 1761220544.057849 execve("/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-preprocess", ["/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-preprocess", "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/generate_help_text_test.bats"], 0x561920747ed0 /* 112 vars */) = 0'
   args_1='"/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-preprocess", ["/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-preprocess", "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/generate_help_text_test.bats"], 0x561920747ed0 /* 112 vars */'
+  raw_line_1="13606<bash> 1761220544.057849 execve(${args_1}) = 0"
 
   # Format: tag<US>pid<US>comm<US>timestamp<US>args<US>result<US>raw_line
-  input_data=$(printf "execve%s13606%sbash%s1761220544.057849%s%s%s0%s%s\n" "$US" "$US" "$US" "$args_1" "$US" "$US" "$raw_line_1")
+  input_data="execve${US}13606${US}bash${US}1761220544.057849${US}${args_1}${US}0${US}${raw_line_1}"
 
   # Expected format: json<US>name<US>span_name<US>start_us<US>us_val<US>pid<US>pid_val ...
   # The script should identify "generate_help_text_test.bats" as the primary action.
@@ -45,7 +45,7 @@ _setup() {
   raw_line_2='12345<bash> 1700000000.123456 execve("/usr/bin/ls", ["ls", "-l", "-a", "/tmp"], 0xABC) = 0'
   args_2='"/usr/bin/ls", ["ls", "-l", "-a", "/tmp"], 0xABC'
 
-  input_data=$(printf "execve%s12345%sbash%s1700000000.123456%s%s%s0%s%s\n" "$US" "$US" "$US" "$args_2" "$US" "$US" "$raw_line_2")
+  input_data="execve${US}12345${US}bash${US}1700000000.123456${US}${args_2}${US}0${US}${raw_line_2}"
 
   # The script should identify "/tmp" as primary action and "-l", "-a" as flags.
   # It should also take the basename of "/tmp".
@@ -60,7 +60,7 @@ _setup() {
   raw_line_3='12346<bash> 1700000001.000000 execve("/usr/bin/pwd", ["pwd"], 0xABC) = 0'
   args_3='"/usr/bin/pwd", ["pwd"], 0xABC'
 
-  input_data=$(printf "execve%s12346%sbash%s1700000001.000000%s%s%s0%s%s\n" "$US" "$US" "$US" "$args_3" "$US" "$US" "$raw_line_3")
+  input_data="execve${US}12346${US}bash${US}1700000001.000000${US}${args_3}${US}0${US}${raw_line_3}"
 
   # No primary action, no flags.
   expected_output=$(printf "json%sname%spwd <12346>%sstart_us%s1700000001000000%spid%s12346" "$US" "$US" "$US" "$US" "$US")
@@ -74,7 +74,7 @@ _setup() {
   raw_line_4='12347<bash> 1700000002.500000 execve("/usr/bin/ls", ["ls", "-l"], 0xABC) = 0'
   args_4='"/usr/bin/ls", ["ls", "-l"], 0xABC'
 
-  input_data=$(printf "execve%s12347%sbash%s1700000002.500000%s%s%s0%s%s\n" "$US" "$US" "$US" "$args_4" "$US" "$US" "$raw_line_4")
+  input_data="execve${US}12347${US}bash${US}1700000002.500000${US}${args_4}${US}0${US}${raw_line_4}"
 
   # No primary action, only flags.
   expected_output=$(printf "json%sname%sls [ -l ] <12347>%sstart_us%s1700000002500000%spid%s12347" "$US" "$US" "$US" "$US" "$US")
@@ -89,7 +89,7 @@ _setup() {
   raw_line_5='12349<bash> 1700000004.000000 execve("/usr/bin/grep", ["grep", "-e", "foo \"bar\" baz", "file.txt"], 0xABC) = 0'
   args_5='"/usr/bin/grep", ["grep", "-e", "foo \"bar\" baz", "file.txt"], 0xABC'
 
-  input_data=$(printf "execve%s12349%sbash%s1700000004.000000%s%s%s0%s%s\n" "$US" "$US" "$US" "$args_5" "$US" "$US" "$raw_line_5")
+  input_data="execve${US}12349${US}bash${US}1700000004.000000${US}${args_5}${US}0${US}${raw_line_5}"
 
   # Per your script's logic, the *first* non-flag arg is the primary action.
   # So, "foo \"bar\" baz" becomes the primary action, not "file.txt".
@@ -102,8 +102,9 @@ _setup() {
 
 @test "Test 6: Non-execve line (passthrough)" {
   # This mocks a "clone" line from 01_parse.awk
-  input_data=$(printf "clone%s12348%sbash%s1700000003.0%sCLONE_ARGS%s12349%sbash%sRAW_CLONE_LINE\n" "$US" "$US" "$US" "$US" "$US" "$US")
-  
+  # Format: tag<US>pid<US>comm<US>timestamp<US>args<US>new_pid<US>new_comm<US>raw_line
+  input_data="clone${US}12348${US}bash${US}1700000003.0${US}CLONE_ARGS${US}12349${US}bash${US}RAW_CLONE_LINE"
+
   # Expected output is the identical, unmodified input line
   expected_output="$input_data"
 
@@ -111,4 +112,3 @@ _setup() {
   assert_success
   assert_output "$expected_output"
 }
-
