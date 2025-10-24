@@ -13,7 +13,7 @@ source test/test_helper.bash
 #EOF
 #)
 #
-#  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$strace_data"
+#  run gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$strace_data"
 #  assert_success
 #  assert_output --partial "$expected_output"
 #}
@@ -36,7 +36,7 @@ _setup() {
   # The script should identify "generate_help_text_test.bats" as the primary action.
   expected_output="json${US}name${US}bats-preprocess: generate_help_text_test.bats <13606>${US}start_us${US}1761220544057849${US}pid${US}13606"
 
-  run --separate-stderr gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run --separate-stderr gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$input_data"
   echo "STDERR: $stderr"
   assert_success
   assert_output --partial "$expected_output"
@@ -52,7 +52,7 @@ _setup() {
   # It should also take the basename of "/tmp".
   expected_output="json${US}name${US}ls: tmp [ -l, -a ] <12345>${US}start_us${US}1700000000123456${US}pid${US}12345"
 
-  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$input_data"
   assert_success
   assert_output --partial "$expected_output"
 }
@@ -66,7 +66,7 @@ _setup() {
   # No primary action, no flags.
   expected_output="json${US}name${US}pwd <12346>${US}start_us${US}1700000001000000${US}pid${US}12346"
 
-  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$input_data"
   assert_success
   assert_output --partial "$expected_output"
 }
@@ -80,7 +80,7 @@ _setup() {
   # No primary action, only flags.
   expected_output="json${US}name${US}ls [ -l ] <12347>${US}start_us${US}1700000002500000${US}pid${US}12347"
 
-  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$input_data"
   assert_success
   assert_output --partial "$expected_output"
 }
@@ -96,7 +96,7 @@ _setup() {
   # So, "foo \"bar\" baz" becomes the primary action, not "file.txt".
   expected_output="json${US}name${US}grep: foo \"bar\" baz [ -e ] <12349>${US}start_us${US}1700000004000000${US}pid${US}12349"
 
-  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$input_data"
   assert_success
   assert_output --partial "$expected_output"
 }
@@ -109,7 +109,7 @@ _setup() {
   # Expected output is the identical, unmodified input line
   expected_output="$input_data"
 
-  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run gawk -f src/tracing/strace/pipeline/10_execve.awk <<< "$input_data"
   assert_success
   assert_output "$expected_output"
 }
