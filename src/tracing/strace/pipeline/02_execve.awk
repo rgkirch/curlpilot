@@ -3,6 +3,14 @@
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
     OFS = FS = "\037"
+
+    # This regex is a robust pattern for matching a complete quoted string
+    # while correctly handling any escaped quotes (\") inside it.
+    escaped_quote_re = /"([^"\\]*(?:\\.[^"\\]*)*)"/
+
+    # The regex for sub() is the same but without the capture group.
+    # It removes the matched string, the optional trailing comma, and spaces.
+    sub_re = /"[^"\\]*(?:\\.[^"\\]*)*",? */
 }
 
 # This custom function iteratively parses a string of quoted arguments and
@@ -13,14 +21,6 @@ function parse_args(arg_string,   # Local variables below
                     match_arr, single_arg) {
     # Clear the global array of any old data before populating it.
     delete _parsed_args_global
-
-    # This regex is a robust pattern for matching a complete quoted string
-    # while correctly handling any escaped quotes (\") inside it.
-    escaped_quote_re = /"([^"\\]*(?:\\.[^"\\]*)*)"/
-
-    # The regex for sub() is the same but without the capture group.
-    # It removes the matched string, the optional trailing comma, and spaces.
-    sub_re = /"[^"\\]*(?:\\.[^"\\]*)*",? */
 
     # Loop as long as we can find a quoted string in the remaining arg_string.
     while (match(arg_string, escaped_quote_re, match_arr)) {
@@ -43,10 +43,11 @@ function parse_args(arg_string,   # Local variables below
         timestamp = $4
         args_string = $5 # This is the string with all the execve arguments.
         strace_log = $7
+        debug_text = ""
 
         # 1. Use your corrected regex to extract the program basename and the rest of the args.
         #    Using '[^"]*' instead of '[^"]+' correctly handles paths like "/foo".
-        if (match(args_string, /^"[^"]*\/([^/"]+)", (.*)/, path_match)) {
+        if (match(args_string, /^"[^"]*\/([^\/"]+)", (.*)/, path_match)) {
             program_name = path_match[1]
             rest_of_args = path_match[2]
 
@@ -59,6 +60,11 @@ function parse_args(arg_string,   # Local variables below
 
                 # Call the function. It will populate the global `_parsed_args_global` array.
                 parse_args(arg_content)
+
+                debug_text = debug_text ", arg_content: '" arg_content "'"
+                for (j = 1; j <= length(_parsed_args_global); j++) {
+                    debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
+                }
 
                 # Loop through the globally populated array to find the primary action and all flags.
                 # We start at index 2 because index 1 is just the program name again.
@@ -76,6 +82,13 @@ function parse_args(arg_string,   # Local variables below
                 }
             }
 
+            # If primary_action looks like a path, extract the basename.
+            debug_text = debug_text ", primary_action before sub: '" primary_action "'"
+            if (primary_action ~ /\//) {
+                sub(/.*\//, "", primary_action)
+            }
+            debug_text = debug_text ", primary_action after sub: '" primary_action "'"
+
             # 3. Construct the final, meaningful span name from the parts.
             span_name = program_name
             if (primary_action != "") {
@@ -89,7 +102,7 @@ function parse_args(arg_string,   # Local variables below
             # 4. Convert timestamp to microseconds for start_us.
             start_us = sprintf("%.0f", timestamp * 1000000)
 
-            print "json", "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log
+            print "json", "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log, "debug_text", debug_text
 
         } else {
             print $0
