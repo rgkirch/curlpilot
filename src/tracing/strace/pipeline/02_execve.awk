@@ -15,8 +15,8 @@ BEGIN {
 #                   result[2] = the remainder of the string
 # @return           1 if an argument was successfully parsed,
 #                   0 if the end bracket or an error was found.
-function _parse_single_arg(arg_string, result,    # Local vars
-                           match_arr) {
+function _parse_single_arg(arg_string, result,     # Local vars
+                            match_arr, remainder) {
     # Clear previous results
     delete result
 
@@ -28,29 +28,36 @@ function _parse_single_arg(arg_string, result,    # Local vars
         result[1] = ""
         result[2] = substr(arg_string, 2) # Remainder is after ']'
         return 0 # Status code for "stop"
-    } else if (match(arg_string, /"((?:[^"\\]|\\.)*)",? *(.*)/, match_arr)) {
-        # This regex captures the arg (group 1) and the rest of the string (group 2).
-        # It handles the optional comma and spaces between.
-        # 3. If not a ']', try to match a quoted argument and the rest of the string.
-        # match_arr[1] is the arg, match_arr[2] is the rest of the string.
-        print "arg_string", arg_string
-        print
-        print "match_arr[1]", match_arr[1]
-        print
-        print "match_arr[2]", match_arr[2]
-        print
+    }
+
+    # 3. If not a ']', try to match *only* the first quoted string,
+    #    anchored to the start of the string.
+    #    NOTE: We have removed the ",? *(.*)" part from the regex!
+    else if (match(arg_string, /"([^"\\]*(?:\\.[^"\\]*)*)",? */, match_arr)) {
+
+        # match_arr[1] is the content (e.g., arg1)
         result[1] = match_arr[1]
-        result[2] = match_arr[2]
+
+        # gawk sets RLENGTH to the length of the *full match* (e.g., "arg1")
+        # We use substr() to get everything *after* that match.
+        remainder = substr(arg_string, RSTART + RLENGTH)
+
+        # Now we manually clean up the remainder string
+        # to remove the comma and spaces that the old regex
+        # was supposed to handle.
+        sub(/^[ \t]*,?[ \t]*/, "", remainder)
+
+        result[2] = remainder
         return 1 # Status code for "arg found"
-    } else {
-        # 4. No quoted string found, and not a ']'
-        # This is a malformed array or we're done.
+    }
+
+    # 4. No quoted string found, and not a ']'
+    else {
         result[1] = ""
         result[2] = arg_string
         return 0 # Status code for "stop"
     }
 }
-
 
 # This custom function iteratively parses a string of quoted arguments
 # from an execve array like ["arg1", "arg2"].
@@ -116,8 +123,6 @@ function parse_args(arg_string,    # Local variables below
             # Add debug info about the parsed args.
             for (j = 1; j <= length(_parsed_args_global); j++) {
                 debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
-                print "_parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
-                print
             }
 
             # Loop through the globally populated array to find the primary action and all flags.
