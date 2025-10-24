@@ -4,35 +4,85 @@ BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
     OFS = FS = "\037"
 
-    # This regex is a robust pattern for matching a complete quoted string
-    # while correctly handling any escaped quotes (\") inside it.
-    escaped_quote_re = /"([^"\\]*(?:\\.[^"\\]*)*)"/
-
-    # The regex for sub() is the same but without the capture group.
-    # It removes the matched string, the optional trailing comma, and spaces.
-    sub_re = /"[^"\\]*(?:\\.[^"\\]*)*",? */
+    # This regex captures the arg (group 1) and the rest of the string (group 2).
+    # It handles the optional comma and spaces between.
+    arg_and_rest_re = /"([^"\\]*(?:\\.[^"\\]*)*)",? *(.*)/
 }
 
-# This custom function iteratively parses a string of quoted arguments and
-# populates a global array named `_parsed_args_global`.
+# This helper function parses exactly one quoted argument from the start
+# of a string. It returns the argument and the remainder of the string
+# via the 'result' array (which is passed by reference).
 #
-# @param arg_string The raw string to parse (e.g., `"arg1", "arg2, with comma"`)
-function parse_args(arg_string,   # Local variables below
-                    match_arr, single_arg) {
+# @param arg_string The string to parse (e.g., "arg1", "arg2"]...)
+# @param result     An array to store results:
+#                   result[1] = the parsed argument (if found)
+#                   result[2] = the remainder of the string
+# @return           1 if an argument was successfully parsed,
+#                   0 if the end bracket or an error was found.
+function _parse_single_arg(arg_string, result,    # Local vars
+                           match_arr) {
+    # Clear previous results
+    delete result
+
+    # 1. Trim whitespace before the next token.
+    sub(/^[ \t]+/, "", arg_string)
+
+    # 2. Check if the next token is the closing bracket.
+    if (substr(arg_string, 1, 1) == "]") {
+        result[1] = ""
+        result[2] = substr(arg_string, 2) # Remainder is after ']'
+        return 0 # Status code for "stop"
+    } else if (match(arg_string, arg_and_rest_re, match_arr)) {
+        # 3. If not a ']', try to match a quoted argument and the rest of the string.
+        # match_arr[1] is the arg, match_arr[2] is the rest of the string.
+        result[1] = match_arr[1]
+        result[2] = match_arr[2]
+        return 1 # Status code for "arg found"
+    } else {
+        # 4. No quoted string found, and not a ']'
+        # This is a malformed array or we're done.
+        result[1] = ""
+        result[2] = arg_string
+        return 0 # Status code for "stop"
+    }
+}
+
+
+# This custom function iteratively parses a string of quoted arguments
+# from an execve array like ["arg1", "arg2"].
+# It populates a global array named `_parsed_args_global`.
+#
+# @param arg_string The raw string to parse, STARTING from the array.
+#                   e.g., ["arg1", "arg2, with comma"], 0xABC ...
+# @return           The remainder of the string *after* the closing bracket.
+function parse_args(arg_string,    # Local variables below
+                    parse_result, single_arg) {
     # Clear the global array of any old data before populating it.
     delete _parsed_args_global
 
-    # Loop as long as we can find a quoted string in the remaining arg_string.
-    while (match(arg_string, escaped_quote_re, match_arr)) {
-        # match_arr[1] contains the content inside the quotes.
-        single_arg = match_arr[1]
-        # Populate the global array.
-        _parsed_args_global[length(_parsed_args_global) + 1] = single_arg
-
-        # After finding an argument, remove it and any following comma/space
-        # from the string so the next iteration can find the next argument.
-        sub(sub_re, "", arg_string)
+    # 1. Trim leading whitespace and find the opening bracket.
+    sub(/^[ \t]+/, "", arg_string)
+    if (substr(arg_string, 1, 1) != "[") {
+        # Not an array, nothing to parse.
+        return arg_string
     }
+
+    # 2. Remove the opening bracket.
+    arg_string = substr(arg_string, 2)
+
+    # 3. Loop as long as _parse_single_arg returns 1 (arg found).
+    while (_parse_single_arg(arg_string, parse_result)) {
+        single_arg = parse_result[1] # The parsed arg
+        arg_string = parse_result[2] # The new remainder
+        _parsed_args_global[length(_parsed_args_global) + 1] = single_arg
+    }
+
+    # Loop stopped, so _parse_single_arg returned 0.
+    # The final remainder is in parse_result[2].
+    arg_string = parse_result[2]
+
+    # Return the rest of the string *after* the closing bracket.
+    return arg_string
 }
 
 {
@@ -45,46 +95,37 @@ function parse_args(arg_string,   # Local variables below
         strace_log = $7
         debug_text = ""
 
-        # 1. Use your corrected regex to extract the program basename and the rest of the args.
-        #    Using '[^"]*' instead of '[^"]+' correctly handles paths like "/foo".
+        # 1. Extract the program basename and the rest of the args string.
         if (match(args_string, /^"[^"]*\/([^\/"]+)", (.*)/, path_match)) {
             program_name = path_match[1]
-            rest_of_args = path_match[2]
+            rest_of_args = path_match[2] # e.g., ["arg1", "arg2"], 0xABC ...
 
-            print "program_name", program_name > "/dev/stderr"
-            print "rest_of_args", rest_of_args > "/dev/stderr"
-
-            # 2. Isolate and parse the argument array using our new robust function.
+            # 2. Isolate and parse the argument array.
+            # parse_args now handles finding the [ ... ] block,
+            # populates _parsed_args_global, and returns the rest of the line.
             primary_action = ""
             flags_string = ""
-            if (match(rest_of_args, /\[(.*)\]/, arg_array_match)) {
-                # Get the content inside the brackets.
-                arg_content = arg_array_match[1]
 
-                # Call the function. It will populate the global `_parsed_args_global` array.
-                parse_args(arg_content)
+            # This function call populates _parsed_args_global as a side-effect.
+            parse_args(rest_of_args)
 
-                print "_parsed_args_global[0]", _parsed_args_global[0] > "/dev/stderr"
-                print "_parsed_args_global[1]", _parsed_args_global[1] > "/dev/stderr"
+            # Add debug info about the parsed args.
+            for (j = 1; j <= length(_parsed_args_global); j++) {
+                debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
+            }
 
-                debug_text = debug_text ", arg_content: '" arg_content "'"
-                for (j = 1; j <= length(_parsed_args_global); j++) {
-                    debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
-                }
+            # Loop through the globally populated array to find the primary action and all flags.
+            # We start at index 2 because index 1 is just the program name again.
+            for (i = 2; i in _parsed_args_global; i++) {
+                arg = _parsed_args_global[i]
+                gsub(/^[ \t]+|[ \t]+$/, "", arg) # Trim leading/trailing whitespace.
 
-                # Loop through the globally populated array to find the primary action and all flags.
-                # We start at index 2 because index 1 is just the program name again.
-                for (i = 2; i in _parsed_args_global; i++) {
-                    arg = _parsed_args_global[i]
-                    gsub(/^[ \t]+|[ \t]+$/, "", arg) # Trim leading/trailing whitespace.
-
-                    if (substr(arg, 1, 1) == "-") {
-                        # If it starts with a '-', it's a flag.
-                        flags_string = (flags_string == "" ? "" : flags_string ", ") arg
-                    } else if (primary_action == "") {
-                        # This is the first non-flag argument; call it the primary action.
-                        primary_action = arg
-                    }
+                if (substr(arg, 1, 1) == "-") {
+                    # If it starts with a '-', it's a flag.
+                    flags_string = (flags_string == "" ? "" : flags_string ", ") arg
+                } else if (primary_action == "") {
+                    # This is the first non-flag argument; call it the primary action.
+                    primary_string = arg
                 }
             }
 
@@ -111,6 +152,7 @@ function parse_args(arg_string,   # Local variables below
             print "json", "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log, "debug_text", debug_text
 
         } else {
+            # Pass through if the initial path regex didn't match.
             print $0
         }
 
