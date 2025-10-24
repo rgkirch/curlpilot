@@ -3,10 +3,6 @@
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
     OFS = FS = "\037"
-
-    # This regex captures the arg (group 1) and the rest of the string (group 2).
-    # It handles the optional comma and spaces between.
-    arg_and_rest_re = /"([^"\\]*(?:\\.[^"\\]*)*)",? *(.*)/
 }
 
 # This helper function parses exactly one quoted argument from the start
@@ -32,9 +28,17 @@ function _parse_single_arg(arg_string, result,    # Local vars
         result[1] = ""
         result[2] = substr(arg_string, 2) # Remainder is after ']'
         return 0 # Status code for "stop"
-    } else if (match(arg_string, arg_and_rest_re, match_arr)) {
+    } else if (match(arg_string, /"((?:[^"\\]|\\.)*)",? *(.*)/, match_arr)) {
+        # This regex captures the arg (group 1) and the rest of the string (group 2).
+        # It handles the optional comma and spaces between.
         # 3. If not a ']', try to match a quoted argument and the rest of the string.
         # match_arr[1] is the arg, match_arr[2] is the rest of the string.
+        print "arg_string", arg_string
+        print
+        print "match_arr[1]", match_arr[1]
+        print
+        print "match_arr[2]", match_arr[2]
+        print
         result[1] = match_arr[1]
         result[2] = match_arr[2]
         return 1 # Status code for "arg found"
@@ -112,6 +116,8 @@ function parse_args(arg_string,    # Local variables below
             # Add debug info about the parsed args.
             for (j = 1; j <= length(_parsed_args_global); j++) {
                 debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
+                print "_parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
+                print
             }
 
             # Loop through the globally populated array to find the primary action and all flags.
@@ -125,7 +131,7 @@ function parse_args(arg_string,    # Local variables below
                     flags_string = (flags_string == "" ? "" : flags_string ", ") arg
                 } else if (primary_action == "") {
                     # This is the first non-flag argument; call it the primary action.
-                    primary_string = arg
+                    primary_action = arg
                 }
             }
 
