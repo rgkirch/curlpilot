@@ -36,7 +36,8 @@ _setup() {
   # The script should identify "generate_help_text_test.bats" as the primary action.
   expected_output="json${US}name${US}bats-preprocess: generate_help_text_test.bats <13606>${US}start_us${US}1761220544057849${US}pid${US}13606"
 
-  run gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  run --separate-stderr gawk -f src/tracing/strace/pipeline/02_execve.awk <<< "$input_data"
+  echo "STDERR: $stderr"
   assert_success
   assert_output --partial "$expected_output"
 }

@@ -51,6 +51,9 @@ function parse_args(arg_string,   # Local variables below
             program_name = path_match[1]
             rest_of_args = path_match[2]
 
+            print "program_name", program_name > "/dev/stderr"
+            print "rest_of_args", rest_of_args > "/dev/stderr"
+
             # 2. Isolate and parse the argument array using our new robust function.
             primary_action = ""
             flags_string = ""
@@ -60,6 +63,9 @@ function parse_args(arg_string,   # Local variables below
 
                 # Call the function. It will populate the global `_parsed_args_global` array.
                 parse_args(arg_content)
+
+                print "_parsed_args_global[0]", _parsed_args_global[0] > "/dev/stderr"
+                print "_parsed_args_global[1]", _parsed_args_global[1] > "/dev/stderr"
 
                 debug_text = debug_text ", arg_content: '" arg_content "'"
                 for (j = 1; j <= length(_parsed_args_global); j++) {
