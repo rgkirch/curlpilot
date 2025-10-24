@@ -2,11 +2,10 @@
 
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
-    FS = "\037"
+    OFS = FS = "\037"
 }
 
 {
-    # We only want to process lines that the first script tagged as "wait4".
     if ($1 == "wait4") {
         # --- This is the logic for processing wait4 lines ---
 
@@ -15,14 +14,12 @@ BEGIN {
         parent_pid           = $2
         timestamp            = $4
         child_pid_waited_for = $6
+        strace_log           = $NF
 
         # 1. Convert timestamp to microseconds. This is a potential "end time" for the child process.
         end_us = sprintf("%.0f", timestamp * 1000000)
 
-        # 2. Print a JSON object that marks the end of the child's span.
-        #    The "pid" is the child's PID, which will be used to join with the start event.
-        #    The "parent_pid" identifies the process that reaped this child.
-        printf "{\"type\": \"wait4\", \"pid\": \"%s\", \"end_us\": %s, \"parent_pid\": \"%s\"}\n", child_pid_waited_for, end_us, parent_pid
+        print "json", "type", "wait4", "pid", child_pid_waited_for, "end_us", end_us, "parent_pid", parent_pid, "strace", strace_log
 
     } else if ($1 == "wait4_error") {
         # --- This is the logic for processing wait4_error lines ---
@@ -31,6 +28,7 @@ BEGIN {
         parent_pid = $2
         timestamp  = $4
         error_msg  = $6 # e.g., "-1 ECHILD (No child processes)"
+        strace_log = $NF
 
         # 1. Convert timestamp to microseconds.
         time_us = sprintf("%.0f", timestamp * 1000000)
@@ -42,12 +40,7 @@ BEGIN {
             event_name = "wait4_error: " err_match[1]
         }
 
-        # 3. Escape any quotes in the event name to ensure valid JSON.
-        gsub(/"/, "\\\"", event_name)
-
-        # 4. Print a JSON object that represents a single event in the parent's timeline.
-        #    The "pid" is the parent's PID, associating this event with the correct span.
-        printf "{\"event_name\": \"%s\", \"time_us\": %s, \"pid\": \"%s\"}\n", event_name, time_us, parent_pid
+        print "json", "type", "wait4_error", "event_name", event_name, "time_us", time_us, "pid", parent_pid, "strace", strace_log
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

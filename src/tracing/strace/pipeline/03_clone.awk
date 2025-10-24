@@ -2,7 +2,7 @@
 
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
-    FS = "\037"
+    OFS = FS = "\037"
 }
 
 {
@@ -16,6 +16,7 @@ BEGIN {
         timestamp   = $4
         child_pid   = $6
         child_comm  = $7
+        strace_log  = $9
 
         # 1. Convert timestamp to microseconds. This is the "start time" for the new child process.
         start_us = sprintf("%.0f", timestamp * 1000000)
@@ -24,12 +25,7 @@ BEGIN {
         #    updated later when this child process calls execve.
         span_name = child_comm " <" child_pid "> (cloned from " parent_comm ")"
 
-        # 3. Escape any quotes in the span name to ensure valid JSON.
-        gsub(/"/, "\\\"", span_name)
-
-        # 4. Print the final JSON object. This represents the "birth" of a new span.
-        #    We include a "parent_pid" to build the hierarchy in a flame graph.
-        printf "{\"name\": \"%s\", \"start_us\": %s, \"pid\": \"%s\", \"parent_pid\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
+        print "json", "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
 
     } else if ($1 == "clone3") {
 
@@ -38,6 +34,7 @@ BEGIN {
         timestamp   = $4
         child_pid   = $6
         child_comm  = $7
+        strace_log  = $9
 
         # 1. Convert timestamp to microseconds. This is the "start time" for the new child process.
         start_us = sprintf("%.0f", timestamp * 1000000)
@@ -46,11 +43,7 @@ BEGIN {
         span_name = child_comm " <" child_pid "> (cloned3 from " parent_comm ")"
 
         # 3. Escape any quotes in the span name to ensure valid JSON.
-        gsub(/"/, "\\\"", span_name)
-
-        # 4. Print the final JSON object. This represents the "birth" of a new span.
-        #    We include a "parent_pid" to build the hierarchy in a flame graph.
-        printf "{\"name\": \"%s\", \"start_us\": %s, \"pid\": \"%s\", \"parent_pid\": \"%s\"}\n", span_name, start_us, child_pid, parent_pid
+        print "json", "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
 
     } else {
         # Pass through any other lines (like the JSON from the execve script) unmodified.

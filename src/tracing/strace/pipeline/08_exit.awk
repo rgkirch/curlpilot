@@ -2,7 +2,7 @@
 
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
-    FS = "\037"
+    OFS = FS = "\037"
 }
 
 {
@@ -10,26 +10,21 @@ BEGIN {
         pid       = $2
         timestamp = $4
         exit_code = $5
-
+        strace_log = $NF
         end_us = sprintf("%.0f", timestamp * 1000000)
 
-        # 2. Print a JSON object that marks the end of this process's span.
-        #    The "pid" is the PID, which will be used to join with the start event.
-        #    We also include the exit_code for context.
-        printf "{\"type\": \"exited\", \"pid\": \"%s\", \"end_us\": %s, \"exit_code\": %s}\n", pid, end_us, exit_code
+        print "json", "type", "exited", "pid", pid, "end_us", end_us, "exit_code", exit_code, "strace", strace_log
 
     } else if ($1 == "exit_group") {
         # Assign the raw fields to named variables for clarity.
         pid       = $2
         timestamp = $4
         exit_code = $5
+        strace_log = $NF
 
         end_us = sprintf("%.0f", timestamp * 1000000)
 
-        # 2. Print a JSON object that marks the end of this process's span.
-        #    The "pid" is the PID, which will be used to join with the start event.
-        #    We also include the exit_code for context.
-        printf "{\"type\": \"exit_group\", \"pid\": \"%s\", \"end_us\": %s, \"exit_code\": %s}\n", pid, end_us, exit_code
+        print "json", "type", "exit_group", "pid", pid, "end_us", end_us, "exit_code", exit_code, "strace", strace_log
 
     } else if ($1 == "exit") {
         # This new block handles lines tagged as "exit" from script 01
@@ -37,12 +32,12 @@ BEGIN {
         pid       = $2
         timestamp = $4
         exit_code = $5 # This is the "0" from exit(0)
+        strace_log = $NF
 
         # 1. Convert timestamp to microseconds. This is an "end time".
         end_us = sprintf("%.0f", timestamp * 1000000)
 
-        # 2. Print a JSON object that marks the end of this process's span.
-        printf "{\"type\": \"exit\", \"pid\": \"%s\", \"end_us\": %s, \"exit_code\": %s}\n", pid, end_us, exit_code
+        print "json", "type", "exit", "pid", pid, "end_us", end_us, "exit_code", exit_code, "strace", strace_log
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

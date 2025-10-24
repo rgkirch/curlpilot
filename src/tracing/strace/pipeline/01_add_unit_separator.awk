@@ -54,41 +54,41 @@ BEGIN {
 
 {
     if (match($0, execve_re, fields)) {
-        print "execve", fields[1], fields[2], fields[3], fields[4], fields[5]
+        print "execve", fields[1], fields[2], fields[3], fields[4], fields[5], $0
     } else if (match($0, no_such_file_re, fields)) {
-        #print "no_such_file", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "no_such_file", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, clone_re, fields)) {
-        print "clone", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]
+        print "clone", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], $0
     } else if (match($0, clone3_re, fields)) {
         # This will now catch clone3(...) lines
-        print "clone3", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]
+        print "clone3", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], $0
     } else if (match($0, esrch_error_re, fields)) {
         # This will now catch ESRCH from kill, etc.
-        #print "esrch_error", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "esrch_error", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, signal_re, fields)) {
-        #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5]
+        #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5], $0
     } else if (match($0, interrupted_call_re, fields)) {
         # This new block handles the interrupted call line
-        #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, kill_success_re, fields)) {
         # This will now catch successful kill(...) = 0 lines
-        #print "kill_success", fields[1], fields[2], fields[3], fields[4], fields[5]
+        #print "kill_success", fields[1], fields[2], fields[3], fields[4], fields[5], $0
     } else if (match($0, killed_by_signal_re, fields)) {
         # This will now catch +++ killed by ... +++ lines
-        print "killed_by_signal", fields[1], fields[2], fields[3], fields[4]
+        print "killed_by_signal", fields[1], fields[2], fields[3], fields[4], $0
     } else if (match($0, exit_group_re, fields)) {
         # This new block handles the process exit line
-        #print "exit_group", fields[1], fields[2], fields[3], fields[4]
+        #print "exit_group", fields[1], fields[2], fields[3], fields[4], $0
     } else if (match($0, exit_re, fields)) {
         # This new block handles the process exit(0) = ? line
-        #print "exit", fields[1], fields[2], fields[3], fields[4]
+        #print "exit", fields[1], fields[2], fields[3], fields[4], $0
     } else if (match($0, exited_re, fields)) {
         # This new block handles the +++ exited with ... +++ line
-        print "exited", fields[1], fields[2], fields[3], fields[4]
+        print "exited", fields[1], fields[2], fields[3], fields[4], $0
     } else if (match($0, wait4_re, fields)) {
-        #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]
+        #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, wait4_error_re, fields)) {
-        #print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5]
+        #print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5], $0
     } else {
         # Keep this to see any other lines that are not matched
         print "unmatched", $0

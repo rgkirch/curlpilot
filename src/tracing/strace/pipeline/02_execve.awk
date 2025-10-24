@@ -2,7 +2,7 @@
 
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
-    FS = "\037"
+    OFS = FS = "\037"
 }
 
 # This custom function iteratively parses a string of quoted arguments and
@@ -42,6 +42,7 @@ function parse_args(arg_string,   # Local variables below
         pid = $2
         timestamp = $4
         args_string = $5 # This is the string with all the execve arguments.
+        strace_log = $7
 
         # 1. Use your corrected regex to extract the program basename and the rest of the args.
         #    Using '[^"]*' instead of '[^"]+' correctly handles paths like "/foo".
@@ -88,11 +89,7 @@ function parse_args(arg_string,   # Local variables below
             # 4. Convert timestamp to microseconds for start_us.
             start_us = sprintf("%.0f", timestamp * 1000000)
 
-            # 5. Escape any quotes in the span name to ensure valid JSON.
-            gsub(/"/, "\\\"", span_name)
-
-            # 6. Print the final JSON object.
-            printf "{\"name\": \"%s\", \"start_us\": %s, \"pid\": \"%s\"}\n", span_name, start_us, pid
+            print "json", "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log
 
         } else {
             print $0

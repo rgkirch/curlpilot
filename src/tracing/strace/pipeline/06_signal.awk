@@ -2,7 +2,7 @@
 
 BEGIN {
     # Set the Input Field Separator to match the previous script's OFS.
-    FS = "\037"
+    OFS = FS = "\037"
 }
 
 {
@@ -36,9 +36,9 @@ BEGIN {
             if (child_pid != "" && event_code == "CLD_EXITED") {
                 # 1. Convert timestamp to microseconds.
                 end_us = sprintf("%.0f", timestamp * 1000000)
+                strace_log = $NF
 
-                # 2. Print a JSON object that marks the end of the child's span.
-                printf "{\"pid\": \"%s\", \"end_us\": %s, \"parent_pid\": \"%s\"}\n", child_pid, end_us, parent_pid
+                print "json", "type", "cld_exited", "pid", child_pid, "end_us", end_us, "parent_pid", parent_pid, "strace", strace_log
             }
             # (Future enhancement: Other event_codes like CLD_STOPPED could be handled here).
         }

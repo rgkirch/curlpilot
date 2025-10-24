@@ -26,7 +26,7 @@ def get_stack($pid; $map):
 
 # 1. Filter out any orphan end events (which have no start_us)
 #    and calculate the duration (weight) for all valid spans.
-map(select(.start_us != null and .end_us != null) | .duration = (.end_us - .start_us)) as $completed_spans
+map(select(.start_us != null and .end_us != null) | .duration = ((.end_us | tonumber) - (.start_us | tonumber))) as $completed_spans
 
 # 2. Create an object (a map) for fast lookups by PID
 | INDEX($completed_spans[]; .pid) as $spans_map
