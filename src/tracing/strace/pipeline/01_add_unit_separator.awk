@@ -22,7 +22,7 @@ BEGIN {
     esrch_error_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
 
     # New regex for process termination calls like exit(0) = ?
-    exit_re = "^" pid_re comm_re " " timestamp_re " exit\\(" args_re "\\)   = \\?$"
+    exit_re = "^" pid_re comm_re " " timestamp_re " exit\\(" args_re "\\) += \\?$"
 
     # New regex for process termination calls like exit_group(1) = ?
     exit_group_re = "^" pid_re comm_re " " timestamp_re " exit_group\\(" args_re "\\) = \\?$"
