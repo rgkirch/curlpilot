@@ -34,7 +34,7 @@ _setup() {
 
   # Expected format: json<US>name<US>span_name<US>start_us<US>us_val<US>pid<US>pid_val ...
   # The script should identify "generate_help_text_test.bats" as the primary action.
-  expected_output="json${US}name${US}bats-preprocess: generate_help_text_test.bats <13606>${US}start_us${US}1761220544057849${US}pid${US}13606"
+  expected_output="json${US}type${US}execve${US}name${US}bats-preprocess: generate_help_text_test.bats <13606>${US}start_us${US}1761220544057849${US}pid${US}13606"
 
   run --separate-stderr gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"
   echo "STDERR: $stderr"
@@ -50,7 +50,7 @@ _setup() {
 
   # The script should identify "/tmp" as primary action and "-l", "-a" as flags.
   # It should also take the basename of "/tmp".
-  expected_output="json${US}name${US}ls: tmp [ -l, -a ] <12345>${US}start_us${US}1700000000123456${US}pid${US}12345"
+  expected_output="json${US}type${US}execve${US}name${US}ls: tmp [ -l, -a ] <12345>${US}start_us${US}1700000000123456${US}pid${US}12345"
 
   run gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"
   assert_success
@@ -64,7 +64,7 @@ _setup() {
   input_data="execve${US}12346${US}bash${US}1700000001.000000${US}${args_3}${US}0${US}${raw_line_3}"
 
   # No primary action, no flags.
-  expected_output="json${US}name${US}pwd <12346>${US}start_us${US}1700000001000000${US}pid${US}12346"
+  expected_output="json${US}type${US}execve${US}name${US}pwd <12346>${US}start_us${US}1700000001000000${US}pid${US}12346"
 
   run gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"
   assert_success
@@ -78,7 +78,7 @@ _setup() {
   input_data="execve${US}12347${US}bash${US}1700000002.500000${US}${args_4}${US}0${US}${raw_line_4}"
 
   # No primary action, only flags.
-  expected_output="json${US}name${US}ls [ -l ] <12347>${US}start_us${US}1700000002500000${US}pid${US}12347"
+  expected_output="json${US}type${US}execve${US}name${US}ls [ -l ] <12347>${US}start_us${US}1700000002500000${US}pid${US}12347"
 
   run gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"
   assert_success
@@ -94,7 +94,7 @@ _setup() {
 
   # Per your script's logic, the *first* non-flag arg is the primary action.
   # So, "foo \"bar\" baz" becomes the primary action, not "file.txt".
-  expected_output="json${US}name${US}grep: foo \"bar\" baz [ -e ] <12349>${US}start_us${US}1700000004000000${US}pid${US}12349"
+  expected_output="json${US}type${US}execve${US}name${US}grep: foo \"bar\" baz [ -e ] <12349>${US}start_us${US}1700000004000000${US}pid${US}12349"
 
   run gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"
   assert_success

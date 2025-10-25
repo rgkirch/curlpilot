@@ -214,7 +214,7 @@ function find_flags(program_name,    # Local vars
             # 6. Convert timestamp to microseconds for start_us.
             start_us = sprintf("%.0f", timestamp * 1000000)
 
-            print "json", "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log, "debug_text", debug_text
+            print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log, "debug_text", debug_text
 
         } else {
             # Pass through if the initial path regex didn't match.

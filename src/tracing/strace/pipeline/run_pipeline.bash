@@ -12,7 +12,7 @@ echo "Starting data generation pipeline..." >&2
 
 # Find all executable awk scripts in the specified directory, sorted numerically.
 # The `sort -V` command handles version-style numbering (e.g., 2 is before 10).
-mapfile -t scripts < <(find "$SCRIPT_DIR" -maxdepth 1 -type f -executable -name '[0-9][0-9]_*.awk' | sort -V)
+mapfile -t scripts < <(find "$SCRIPT_DIR" -maxdepth 1 -type f -executable -name '[0-9][0-9][0-9]_*.awk' | sort -V)
 
 # Check if we found any scripts to run.
 if [ ${#scripts[@]} -eq 0 ]; then

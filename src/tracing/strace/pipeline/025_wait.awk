@@ -19,7 +19,7 @@ BEGIN {
         # 1. Convert timestamp to microseconds. This is a potential "end time" for the child process.
         end_us = sprintf("%.0f", timestamp * 1000000)
 
-        print "json", "type", "wait4", "pid", child_pid_waited_for, "end_us", end_us, "parent_pid", parent_pid, "strace", strace_log
+        print "json", "type", $1, "pid", child_pid_waited_for, "end_us", end_us, "parent_pid", parent_pid, "strace", strace_log
 
     } else if ($1 == "wait4_error") {
         # --- This is the logic for processing wait4_error lines ---

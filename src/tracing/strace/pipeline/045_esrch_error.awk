@@ -28,7 +28,7 @@ BEGIN {
         # 3. Create a descriptive name for the event.
         event_name = "ESRCH: " syscall_name " on PID " target_pid
 
-        print "json", "type", "esrch_error", "event_name", event_name, "time_us", time_us, "pid", pid, "strace", strace_log
+        print "json", "type", $1, "name", event_name, "time_us", time_us, "pid", pid, "strace", strace_log
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

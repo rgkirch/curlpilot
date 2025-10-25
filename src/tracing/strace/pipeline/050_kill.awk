@@ -31,7 +31,7 @@ BEGIN {
         # 3. Create a descriptive name for the event.
         event_name = "Process Check (kill 0) on PID " target_pid ": Success"
 
-        print "json", "type", "kill_success", "event_name", event_name, "time_us", time_us, "pid", pid, "strace", strace_log
+        print "json", "type", $1, "name", event_name, "time_us", time_us, "pid", pid, "strace", strace_log
 
     } else if ($1 == "killed_by_signal") {
         # 2749167<sleep> 1760982700.132394 +++ killed by SIGTERM +++
@@ -47,7 +47,7 @@ BEGIN {
         # 1. Convert timestamp to microseconds. This is a definitive "end time".
         end_us = sprintf("%.0f", timestamp * 1000000)
 
-        print "json", "type", "killed_by_signal", "pid", pid, "end_us", end_us, "termination_signal", signal, "strace", strace_log
+        print "json", "type", $1, "pid", pid, "end_us", end_us, "termination_signal", signal, "strace", strace_log
 
     } else {
         # Pass through any other lines (like JSON from previous scripts) unmodified.

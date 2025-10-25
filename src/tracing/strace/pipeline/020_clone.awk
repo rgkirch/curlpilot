@@ -25,7 +25,7 @@ BEGIN {
         #    updated later when this child process calls execve.
         span_name = child_comm " <" child_pid "> (cloned from " parent_comm ")"
 
-        print "json", "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
+        print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
 
     } else if ($1 == "clone3") {
 
@@ -43,7 +43,7 @@ BEGIN {
         span_name = child_comm " <" child_pid "> (cloned3 from " parent_comm ")"
 
         # 3. Escape any quotes in the span name to ensure valid JSON.
-        print "json", "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
+        print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
 
     } else {
         # Pass through any other lines (like the JSON from the execve script) unmodified.
