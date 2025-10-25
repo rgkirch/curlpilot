@@ -52,11 +52,14 @@ group_by(.pid)
           if .open != null then
             # A span is open. This event closes it.
             .spans += [
-              # Merge the 'end' info into the 'open' span
-              .open * $fragment
-              # Keep the original start_us and name from the open span
-              | .start_us = .open.start_us
-              | .name = .open.name
+              # --- FIX ---
+              # Use simple object addition (+).
+              # This merges the two objects. For conflicting keys (like 'strace'),
+              # the value from the right-hand side ($fragment) is used.
+              # For non-conflicting keys (like 'name' and 'start_us',
+              # which are only in .open), their values are kept.
+              .open + $fragment
+              # --- END FIX ---
             ]
             # The span is now closed.
             | .open = null
