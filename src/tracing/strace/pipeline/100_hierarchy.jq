@@ -51,8 +51,17 @@ def build_tree($pid; $data_map; $child_map):
   {
     "pid": $pid,
 
-    # 'fragments' will be an array of all raw log objects for this PID
-    "fragments": $data_map[$pid] // [],
+    # 'fragments' will be an array of all raw log objects for this PID.
+    # We sort them by time and add a simple numeric index.
+    "fragments": (
+      $data_map[$pid] // []
+      | sort_by(.start_us // .end_us)
+      # Now add an index to each fragment
+      | . as $sorted_fragments
+      | [range(0; $sorted_fragments | length), $sorted_fragments]
+      | transpose
+      | map({fragment_index: .[0]} + .[1])
+    ),
 
     # 'children' is an array of nodes built by recursing on this PID's children
     "children": (
