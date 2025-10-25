@@ -14,6 +14,7 @@ BEGIN {
         parent_pid  = $2
         parent_comm = $3
         timestamp   = $4
+        clone_args  = $5  # <-- Capture the clone() arguments
         child_pid   = $6
         child_comm  = $7
         strace_log  = $9
@@ -23,7 +24,8 @@ BEGIN {
 
         # 2. Create a temporary span name for the new child. This name can be
         #    updated later when this child process calls execve.
-        span_name = child_comm " <" child_pid "> (cloned from " parent_comm ")"
+        #    This is the new, more descriptive name:
+        span_name = child_comm " <" child_pid "> clone(" clone_args ") from " parent_comm " <" parent_pid ">"
 
         print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
 
@@ -32,6 +34,7 @@ BEGIN {
         parent_pid  = $2
         parent_comm = $3
         timestamp   = $4
+        clone_args  = $5  # <-- Capture the clone3() arguments
         child_pid   = $6
         child_comm  = $7
         strace_log  = $9
@@ -40,7 +43,8 @@ BEGIN {
         start_us = sprintf("%.0f", timestamp * 1000000)
 
         # 2. Create a temporary span name for the new child.
-        span_name = child_comm " <" child_pid "> (cloned3 from " parent_comm ")"
+        #    This is the new, more descriptive name:
+        span_name = child_comm " <" child_pid "> clone3(" clone_args ") from " parent_comm " <" parent_pid ">"
 
         # 3. Escape any quotes in the span name to ensure valid JSON.
         print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
