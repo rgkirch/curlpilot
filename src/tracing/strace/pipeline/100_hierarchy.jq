@@ -58,7 +58,8 @@ def build_tree($pid; $data_map; $child_map):
       | sort_by(.start_us // .end_us)
       # Now add an index to each fragment
       | . as $sorted_fragments
-      | [range(0; $sorted_fragments | length), $sorted_fragments]
+      # We must wrap range() in [] to capture its stream as an array
+      | [ [range(0; $sorted_fragments | length)], $sorted_fragments ]
       | transpose
       | map({fragment_index: .[0]} + .[1])
     ),
