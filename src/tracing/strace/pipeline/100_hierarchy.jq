@@ -62,11 +62,10 @@ def build_tree($pid; $data_map; $child_map):
     )
   }
 ;
-# 5. Build the tree, starting from the first root PID found.
-#    (We assume there is one primary root in the trace)
-if ($root_pids | length) > 0 then
-  build_tree($root_pids[0]; $data_map; $child_map)
-else
-  # Handle empty input
-  {}
-end
+# 5. Build a tree for *each* root PID found.
+#    This results in an array of one or more trees.
+(
+  $root_pids
+  | sort # Sort root pids for consistent output
+  | map(build_tree(.; $data_map; $child_map))
+)
