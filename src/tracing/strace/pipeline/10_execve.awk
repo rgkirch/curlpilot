@@ -182,10 +182,10 @@ function find_flags(program_name,    # Local vars
             # This function call populates _parsed_args_global as a side-effect.
             parse_args(rest_of_args)
 
-            # Add debug info about the parsed args.
-            for (j = 1; j <= length(_parsed_args_global); j++) {
-                debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
-            }
+            ## Add debug info about the parsed args.
+            #for (j = 1; j <= length(_parsed_args_global); j++) {
+            #    debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
+            #}
 
             # 3. --- REPLACED LOGIC ---
             # Find the primary action and flags using the new functions.
