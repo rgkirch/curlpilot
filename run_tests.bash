@@ -17,6 +17,11 @@ BATS_ARGS=()
 STRACE_CMD=()
 SESSION_TMPDIR=""
 
+# Set a default memory limit (in KiB). 8 GiB = 8 * 1024 * 1024 = 8388608 KiB
+# This can be overridden by the environment variable or the --memory-limit flag.
+DEFAULT_MEM_LIMIT_KB=$((8 * 1024 * 1024))
+MEMORY_LIMIT_KB="${CURLPILOT_MEM_LIMIT_KB:-$DEFAULT_MEM_LIMIT_KB}"
+
 # --- Phase 1: Argument Parsing ---
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -38,6 +43,11 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --tempdir)
       SESSION_TMPDIR="$2"
+      shift 2
+      ;;
+    --memory-limit)
+      MEMORY_LIMIT_KB="$2"
+      echo "Memory limit set to ${MEMORY_LIMIT_KB} KiB" >&2
       shift 2
       ;;
     *)
@@ -95,7 +105,17 @@ fi
 FINAL_CMD=("${STRACE_CMD[@]}" "$BATS_EXECUTABLE" --timing "${BATS_ARGS[@]}" --tempdir "$BATS_RUN_TMPDIR")
 
 echo "Running command: '${FINAL_CMD[*]}'"
-"${FINAL_CMD[@]}"
+echo "Applying memory limit (virtual memory): ${MEMORY_LIMIT_KB} KiB" >&2
+
+# We run the command inside a subshell (...)
+# This ensures the ulimit setting only applies to this command
+# and does not affect the rest of this script (e.g., Phase 4).
+(
+  # Set the hard limit for virtual memory (-v) in KiB.
+  # If the process exceeds this, it will be killed.
+  ulimit -v "$MEMORY_LIMIT_KB"
+  "${FINAL_CMD[@]}"
+)
 
 
 # --- Phase 4: Post-Processing ---

@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# --- Configuration ---
-# The directory where your strace log files are located.
-source ./log_dir.bash
-# The directory where your processing scripts are located.
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-
-# --- Script Logic ---
+source $SCRIPT_DIR/log_dir.bash
 
 echo "Starting data generation pipeline..." >&2
 
