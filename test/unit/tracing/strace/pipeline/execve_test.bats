@@ -24,6 +24,18 @@ _setup() {
   US=$(printf '\037')
 }
 
+@test "test execve" {
+  raw_args="\"/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/bin/bats\", [\"/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/bin/bats\", \"--timing\", \"-r\", \"test\", \"--no-tempdir-cleanup\", \"--tempdir\", \"/tmp/tmp.xP8irs59KZ/bats-run\"], 0x7fffe22ad1e0 /* 85 vars */"
+  raw_line="11440<strace> 1761391437.673809 execve(${raw_args}) = 0"
+  input_data="execve${US}11440${US}strace${US}1761220544.057849${US}${raw_args}${US}0${US}${raw_line}"
+  expected_output="json${US}type${US}execve${US}name${US}bats bats --timing -r test --no-tempdir-cleanup --tempdir bats-run${US}start_us${US}1761220544057849${US}pid${US}11440"
+
+  run --separate-stderr gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"
+  echo "STDERR: $stderr"
+  assert_success
+  assert_output --partial "${expected_output}${US}debug_text${US}"
+}
+
 @test "Test 1: bats-preprocess (User's specific case)" {
   # This mocks the raw strace line and the parsed args string from 01_parse.awk
   args_1='"/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-preprocess", ["/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/libs/bats/libexec/bats-core/bats-preprocess", "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/test/generate_help_text_test.bats"], 0x561920747ed0 /* 112 vars */'
@@ -92,8 +104,6 @@ _setup() {
 
   input_data="execve${US}12349${US}bash${US}1700000004.000000${US}${args_5}${US}0${US}${raw_line_5}"
 
-  # Per your script's logic, the *first* non-flag arg is the primary action.
-  # So, "foo \"bar\" baz" becomes the primary action, not "file.txt".
   expected_output="json${US}type${US}execve${US}name${US}grep: foo \"bar\" baz [ -e ] <12349>${US}start_us${US}1700000004000000${US}pid${US}12349"
 
   run gawk -f src/tracing/strace/pipeline/???_execve.awk <<< "$input_data"

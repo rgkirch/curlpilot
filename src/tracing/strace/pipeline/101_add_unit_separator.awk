@@ -10,46 +10,46 @@ BEGIN {
 
     # --- Composed Regex Patterns ---
     # Matches clone(...) = 2732203<bash>
-    clone_re = "^" pid_re comm_re " " timestamp_re " clone\\(" args_re "\\) = " pid_re comm_re "$"
+    clone_re = "^" pid_re comm_re " +" timestamp_re " clone\\(" args_re "\\) = " pid_re comm_re "$"
 
     # Matches clone3(...) = 2744395<sh>
-    clone3_re = "^" pid_re comm_re " " timestamp_re " clone3\\(" args_re "\\) = " pid_re comm_re "$"
+    clone3_re = "^" pid_re comm_re " +" timestamp_re " clone3\\(" args_re "\\) = " pid_re comm_re "$"
 
     # Matches syscalls like execve(...) = 0
-    execve_re = "^" pid_re comm_re " " timestamp_re " execve\\(" args_re "\\) = (0)$"
+    execve_re = "^" pid_re comm_re " +" timestamp_re " execve\\(" args_re "\\) = (0)$"
 
     # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
-    esrch_error_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
+    esrch_error_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
 
     # New regex for process termination calls like exit(0) = ?
-    exit_re = "^" pid_re comm_re " " timestamp_re " exit\\(" args_re "\\) += \\?$"
+    exit_re = "^" pid_re comm_re " +" timestamp_re " exit\\(" args_re "\\) += \\?$"
 
     # New regex for process termination calls like exit_group(1) = ?
-    exit_group_re = "^" pid_re comm_re " " timestamp_re " exit_group\\(" args_re "\\) = \\?$"
+    exit_group_re = "^" pid_re comm_re " +" timestamp_re " exit_group\\(" args_re "\\) += \\?$"
 
     # New regex for process exit status lines like +++ exited with 1 +++
-    exited_re = "^" pid_re comm_re " " timestamp_re " \\+\\+\\+ exited with ([0-9]+) \\+\\+\\+$"
+    exited_re = "^" pid_re comm_re " +" timestamp_re " \\+\\+\\+ exited with ([0-9]+) \\+\\+\\+$"
 
     # New regex for interrupted system calls like wait4(...) = ? ERESTARTSYS ...
-    interrupted_call_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = \\? (ERESTARTSYS.*)$"
+    interrupted_call_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = \\? (ERESTARTSYS.*)$"
 
     # Matches kill(...) = 0
-    kill_success_re = "^" pid_re comm_re " " timestamp_re " kill\\(" args_re "\\) = (0)$"
+    kill_success_re = "^" pid_re comm_re " +" timestamp_re " kill\\(" args_re "\\) = (0)$"
 
     # Matches +++ killed by SIGTERM +++
-    killed_by_signal_re = "^" pid_re comm_re " " timestamp_re " \\+\\+\\+ killed by ([A-Z]+) \\+\\+\\+$"
+    killed_by_signal_re = "^" pid_re comm_re " +" timestamp_re " \\+\\+\\+ killed by ([A-Z]+) \\+\\+\\+$"
 
     # Matches syscalls like open(...) = -1 ENOENT (No such file or directory)
-    no_such_file_re = "^" pid_re comm_re " " timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
+    no_such_file_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
 
     # Matches signal notifications like --- SIGCHLD { ... } ---
-    signal_re = "^" pid_re comm_re " " timestamp_re " --- ([A-Z]+) (\\{.*\\}) ---$"
+    signal_re = "^" pid_re comm_re " +" timestamp_re " --- ([A-Z]+) (\\{.*\\}) ---$"
 
     # Matches wait4(...) = 2732203
-    wait4_re = "^" pid_re comm_re " " timestamp_re " wait4\\(" args_re "\\) = " pid_re "$"
+    wait4_re = "^" pid_re comm_re " +" timestamp_re " wait4\\(" args_re "\\) = " pid_re "$"
 
     # Matches wait4(...) = -1 ECHILD (No child processes)
-    wait4_error_re = "^" pid_re comm_re " " timestamp_re " wait4\\(" args_re "\\) = (-1 ECHILD \\(No child processes\\))$"
+    wait4_error_re = "^" pid_re comm_re " +" timestamp_re " wait4\\(" args_re "\\) = (-1 ECHILD \\(No child processes\\))$"
 }
 
 {
@@ -89,6 +89,7 @@ BEGIN {
         #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, wait4_error_re, fields)) {
         #print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5], $0
+    } else if (match($0, /[ \t]*/)) {
     } else {
         # Keep this to see any other lines that are not matched
         print "unmatched", $0

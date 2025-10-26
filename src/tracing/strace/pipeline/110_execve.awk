@@ -32,7 +32,6 @@ function _parse_single_arg(arg_string, result,     # Local vars
 
     # 3. If not a ']', try to match *only* the first quoted string,
     #    anchored to the start of the string.
-    #    NOTE: We have removed the ",? *(.*)" part from the regex!
     else if (match(arg_string, /^"([^"\\]*(?:\\.[^"\\]*)*)",? */, match_arr)) {
 
         # match_arr[1] is the content (e.g., arg1)
@@ -66,8 +65,7 @@ function _parse_single_arg(arg_string, result,     # Local vars
 # @param arg_string The raw string to parse, STARTING from the array.
 #                   e.g., ["arg1", "arg2, with comma"], 0xABC ...
 # @return            The remainder of the string *after* the closing bracket.
-function parse_args(arg_string,     # Local variables below
-                    parse_result, single_arg) {
+function parse_args(arg_string,     parse_result, single_arg) {
     # Clear the global array of any old data before populating it.
     delete _parsed_args_global
 
@@ -96,13 +94,8 @@ function parse_args(arg_string,     # Local variables below
     return arg_string
 }
 
-# --- NEW FUNCTION ---
-# Iterates through global args and finds the best "primary action"
-# based on special command-specific rules.
-function find_primary_action(program_name,    # Local vars
-                             i, arg, primary_action_str) {
+function name_span(program_name, args_string,    i, arg, primary_action_str) {
 
-    # --- Special handling for 'bats-exec-file' ---
     if (program_name == "bats-exec-file") {
         # Find the first argument that ends in .bats
         for (i = 2; i in _parsed_args_global; i++) {
@@ -111,66 +104,18 @@ function find_primary_action(program_name,    # Local vars
                 return arg # Return the .bats file path
             }
         }
-        # If no .bats file found, return empty.
+        return program_name " " args_string
+    } else {
         return ""
     }
-
-    # --- Add other special cases here ---
-    # else if (program_name == "gcc") {
-    #     # find first .c file, etc.
-    # }
-
-    # --- NEW Default Heuristic ---
-    # For all other commands, concatenate all non-flag arguments.
-    else {
-        primary_action_str = ""
-        for (i = 2; i in _parsed_args_global; i++) {
-            arg = _parsed_args_global[i]
-            gsub(/^[ \t]+|[ \t]+$/, "", arg) # Trim whitespace.
-
-            if (substr(arg, 1, 1) != "-") {
-                # This is a non-flag argument, add it to the string.
-                primary_action_str = (primary_action_str == "" ? "" : primary_action_str " ") arg
-            }
-        }
-        return primary_action_str
-    }
-
-    return "" # No suitable primary action found
 }
-
-# --- NEW FUNCTION ---
-# Iterates through global args and concatenates all flags.
-function find_flags(program_name,    # Local vars
-                     i, arg, flags_str) {
-
-    # --- Special handling for 'bats-exec-file' ---
-    if (program_name == "bats-exec-file") {
-        return "" # User doesn't want to see flags for this command
-    }
-    # --- End special handling ---
-
-    flags_str = ""
-    for (i = 2; i in _parsed_args_global; i++) {
-        arg = _parsed_args_global[i]
-        gsub(/^[ \t]+|[ \t]+$/, "", arg) # Trim whitespace.
-
-        if (substr(arg, 1, 1) == "-") {
-            flags_str = (flags_str == "" ? "" : flags_str ", ") arg
-        }
-    }
-    return flags_str
-}
-
 
 {
-    # We only want to process lines that the previous script tagged as "execve".
     if ($1 == "execve") {
-        # Assign the raw fields to named variables for clarity.
         pid = $2
         timestamp = $4
         args_string = $5 # This is the string with all the execve arguments.
-        strace_log = $7
+        strace_log = $NF
         debug_text = ""
 
         # 1. Extract the program basename and the rest of the args string.
@@ -181,44 +126,12 @@ function find_flags(program_name,    # Local vars
             # 2. Isolate and parse the argument array.
             # This function call populates _parsed_args_global as a side-effect.
             parse_args(rest_of_args)
-
-            ## Add debug info about the parsed args.
-            #for (j = 1; j <= length(_parsed_args_global); j++) {
-            #    debug_text = debug_text ", _parsed_args_global[" j "]: '" _parsed_args_global[j] "'"
-            #}
-
-            # 3. --- REPLACED LOGIC ---
-            # Find the primary action and flags using the new functions.
-            primary_action = find_primary_action(program_name)
-            flags_string = find_flags(program_name) # <-- Pass program_name
-            # --- END REPLACED LOGIC ---
-
-            # 4. If primary_action looks like a SINGLE path, extract the basename.
-            debug_text = debug_text ", primary_action before sub: '" primary_action "'"
-            # Only run sub() if it's a path AND not a multi-arg string
-            if (primary_action ~ /\// && primary_action !~ / /) {
-                sub(/.*\//, "", primary_action)
-            }
-            debug_text = debug_text ", primary_action after sub: '" primary_action "'"
-
-            # 5. Construct the final, meaningful span name from the parts.
-            span_name = program_name
-            if (primary_action != "") {
-                span_name = span_name ": " primary_action
-            }
-            if (flags_string != "") {
-                span_name = span_name " [ " flags_string " ]"
-            }
-            span_name = span_name " <" pid ">"
-
-            # 6. Convert timestamp to microseconds for start_us.
+            span_name = name_span(program_name, args_string)
             start_us = sprintf("%.0f", timestamp * 1000000)
-
             print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log, "debug_text", debug_text
 
         } else {
-            # Pass through if the initial path regex didn't match.
-            print $0
+            print "unmatched", $0
         }
 
     } else {
