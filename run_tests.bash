@@ -26,6 +26,10 @@ MEMORY_LIMIT_KB="${CURLPILOT_MEM_LIMIT_KB:-$DEFAULT_MEM_LIMIT_KB}"
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     -j|--jobs)
+      if [[ -z "$2" || "$2" == -* ]]; then
+        echo "Error: Flag '$1' requires an argument." >&2
+        exit 1
+      fi
       export BATS_NUMBER_OF_PARALLEL_JOBS="$2"
       BATS_ARGS+=("$1" "$2")
       shift 2
@@ -42,10 +46,18 @@ while [[ "$#" -gt 0 ]]; do
       shift
       ;;
     --tempdir)
+      if [[ -z "$2" || "$2" == -* ]]; then
+        echo "Error: Flag '$1' requires an argument." >&2
+        exit 1
+      fi
       SESSION_TMPDIR="$2"
       shift 2
       ;;
     --memory-limit)
+      if [[ -z "$2" || "$2" == -* ]]; then
+        echo "Error: Flag '$1' requires an argument." >&2
+        exit 1
+      fi
       MEMORY_LIMIT_KB="$2"
       echo "Memory limit set to ${MEMORY_LIMIT_KB} KiB" >&2
       shift 2

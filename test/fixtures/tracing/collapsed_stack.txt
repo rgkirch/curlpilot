@@ -1,4 +1,4 @@
-make: test <100> 5100000
-blackbox [ --run ] <101> 4100000
-bash: scriptA.bash <102> 3100000
-bash: scriptB.bash <103> 1100000
+make test 5100000
+blackbox --run 4100000
+bash scriptA.bash 3100000
+bash scriptB.bash 1100000
