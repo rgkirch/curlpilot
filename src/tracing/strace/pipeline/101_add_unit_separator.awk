@@ -2,6 +2,7 @@
 
 @include "clone.awk"
 @include "execve.awk"
+@include "exit.awk"
 @include "json.awk"
 @include "kill.awk"
 
@@ -17,15 +18,6 @@ BEGIN {
 
     # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
     esrch_error_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
-
-    # New regex for process termination calls like exit(0) = ?
-    exit_re = "^" pid_re comm_re " +" timestamp_re " exit\\(" args_re "\\) += \\?$"
-
-    # New regex for process termination calls like exit_group(1) = ?
-    exit_group_re = "^" pid_re comm_re " +" timestamp_re " exit_group\\(" args_re "\\) += \\?$"
-
-    # New regex for process exit status lines like +++ exited with 1 +++
-    exited_re = "^" pid_re comm_re " +" timestamp_re " \\+\\+\\+ exited with ([0-9]+) \\+\\+\\+$"
 
     # New regex for interrupted system calls like wait4(...) = ? ERESTARTSYS ...
     interrupted_call_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = \\? (ERESTARTSYS.*)$"
@@ -68,7 +60,7 @@ BEGIN {
         #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match_kill_success_re($0, fields)) {
         delete json_data
-        #process_kill_success(fields, json_data, $0)
+        process_kill_success(fields, json_data, $0)
         if (length(json_data) > 0) {
             #print_json(json_data)
         }
@@ -78,15 +70,24 @@ BEGIN {
         if (length(json_data) > 0) {
             print_json(json_data)
         }
-    } else if (match($0, exit_group_re, fields)) {
-        # This new block handles the process exit line
-        #print "exit_group", fields[1], fields[2], fields[3], fields[4], $0
-    } else if (match($0, exit_re, fields)) {
-        # This new block handles the process exit(0) = ? line
-        #print "exit", fields[1], fields[2], fields[3], fields[4], $0
-    } else if (match($0, exited_re, fields)) {
-        # This new block handles the +++ exited with ... +++ line
-        print "exited", fields[1], fields[2], fields[3], fields[4], $0
+    } else if (match_exited_re($0, fields)) {
+        delete json_data
+        process_exited(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            print_json(json_data)
+        }
+    } else if (match_exit_group_re($0, fields)) {
+        delete json_data
+        process_exit_group(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            #print_json(json_data)
+        }
+    } else if (match_exit_re($0, fields)) {
+        delete json_data
+        process_exit(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            #print_json(json_data)
+        }
     } else if (match($0, wait4_re, fields)) {
         #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, wait4_error_re, fields)) {
