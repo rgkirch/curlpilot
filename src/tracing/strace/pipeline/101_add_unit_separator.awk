@@ -1,8 +1,9 @@
 #!/usr/bin/gawk -f
 
-@include "execve.awk"
 @include "clone.awk"
+@include "execve.awk"
 @include "json.awk"
+@include "kill.awk"
 
 BEGIN {
     OFS="\037"
@@ -28,12 +29,6 @@ BEGIN {
 
     # New regex for interrupted system calls like wait4(...) = ? ERESTARTSYS ...
     interrupted_call_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = \\? (ERESTARTSYS.*)$"
-
-    # Matches kill(...) = 0
-    kill_success_re = "^" pid_re comm_re " +" timestamp_re " kill\\(" args_re "\\) = (0)$"
-
-    # Matches +++ killed by SIGTERM +++
-    killed_by_signal_re = "^" pid_re comm_re " +" timestamp_re " \\+\\+\\+ killed by ([A-Z]+) \\+\\+\\+$"
 
     # Matches syscalls like open(...) = -1 ENOENT (No such file or directory)
     no_such_file_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
@@ -71,12 +66,18 @@ BEGIN {
     } else if (match($0, interrupted_call_re, fields)) {
         # This new block handles the interrupted call line
         #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
-    } else if (match($0, kill_success_re, fields)) {
-        # This will now catch successful kill(...) = 0 lines
-        #print "kill_success", fields[1], fields[2], fields[3], fields[4], fields[5], $0
-    } else if (match($0, killed_by_signal_re, fields)) {
-        # This will now catch +++ killed by ... +++ lines
-        print "killed_by_signal", fields[1], fields[2], fields[3], fields[4], $0
+    } else if (match_kill_success_re($0, fields)) {
+        delete json_data
+        #process_kill_success(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            #print_json(json_data)
+        }
+    } else if (match_killed_by_signal_re($0, fields)) {
+        delete json_data
+        process_killed_by_signal(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            print_json(json_data)
+        }
     } else if (match($0, exit_group_re, fields)) {
         # This new block handles the process exit line
         #print "exit_group", fields[1], fields[2], fields[3], fields[4], $0

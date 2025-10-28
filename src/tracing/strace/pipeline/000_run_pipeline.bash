@@ -43,7 +43,6 @@ cat $LOG_FILES_PATTERN |
     "$SCRIPT_DIR/135_interrupted_call.awk" |
     "$SCRIPT_DIR/140_exit.awk" |
     "$SCRIPT_DIR/145_esrch_error.awk" |
-    "$SCRIPT_DIR/150_kill.awk" |
     "$SCRIPT_DIR/190_json.awk"
 
 echo "---" >&2
