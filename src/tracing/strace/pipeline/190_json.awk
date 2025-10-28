@@ -1,19 +1,10 @@
 #!/usr/bin/gawk -f
 
+@include "json.awk"
+
 BEGIN {
     FS = "\037"
     OFS = ""
-}
-
-function json_escape(str) {
-    gsub(/\\/, "\\\\", str)
-    gsub(/"/, "\\\"", str)
-    gsub(/\n/, "\\n", str)
-    gsub(/\r/, "\\r", str)
-    gsub(/\t/, "\\t", str)
-    gsub(/\f/, "\\f", str)
-    gsub(/\b/, "\\b", str)
-    return str
 }
 
 {
@@ -32,4 +23,3 @@ function json_escape(str) {
         print $0
     }
 }
-

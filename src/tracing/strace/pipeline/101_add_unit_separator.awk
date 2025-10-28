@@ -1,5 +1,8 @@
 #!/usr/bin/gawk -f
 
+@include "execve.awk"
+@include "json.awk"
+
 BEGIN {
     OFS="\037"
     pid_re       = "([0-9]+)"
@@ -14,9 +17,6 @@ BEGIN {
 
     # Matches clone3(...) = 2744395<sh>
     clone3_re = "^" pid_re comm_re " +" timestamp_re " clone3\\(" args_re "\\) = " pid_re comm_re "$"
-
-    # Matches syscalls like execve(...) = 0
-    execve_re = "^" pid_re comm_re " +" timestamp_re " execve\\(" args_re "\\) = (0)$"
 
     # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
     esrch_error_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
@@ -53,8 +53,12 @@ BEGIN {
 }
 
 {
-    if (match($0, execve_re, fields)) {
-        print "execve", fields[1], fields[2], fields[3], fields[4], fields[5], $0
+    if (match_execve_re($0, fields)) {
+        delete json_data
+        process_execve(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            print_json(json_data)
+        }
     } else if (match($0, no_such_file_re, fields)) {
         #print "no_such_file", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
     } else if (match($0, clone_re, fields)) {

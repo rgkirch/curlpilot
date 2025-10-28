@@ -1,8 +1,13 @@
-#!/usr/bin/gawk -f
 
 BEGIN {
-    # Set the Input Field Separator to match the previous script's OFS.
-    OFS = FS = "\037"
+    # Define regex components here
+    pid_re  = "([0-9]+)"
+    comm_re = "<([^>]+)>"
+    ts_re   = "([0-9]+\\.[0-9]+)"
+    args_re = "(.*)"
+
+    # Matches syscalls like execve(...) = 0
+    execve_re = "^" pid_re comm_re " +" ts_re " execve\\(" args_re "\\) = (0)$"
 }
 
 # This helper function parses exactly one quoted argument from the start
@@ -130,35 +135,33 @@ function name_span(program_name,     # Local vars
     return span_name
 }
 
-{
-    if ($1 == "execve") {
-        pid = $2
-        timestamp = $4
-        args_string = $5 # This is the string with all the execve arguments.
-        strace_log = $NF
-        debug_text = ""
+function match_execve_re(line, fields) {
+    return match(line, execve_re, fields)
+}
 
-        # 1. Extract the program basename and the rest of the args string.
-        if (match(args_string, /^"[^"]*\/([^\/"]+)", (.*)/, path_match)) {
-            program_name = path_match[1]
-            rest_of_args = path_match[2] # e.g., ["arg1", "arg2"], 0xABC ...
+# Processes an execve event, populating the `data` array with key-value pairs for the JSON output.
+# @param f The `fields` array captured by the `match()` function.
+# @param data The output array to populate (passed by reference).
+# @param original_line The full, original strace log line.
+function process_execve(f, data, original_line,    # Local vars
+                        pid, timestamp, args_string, strace_log, debug_text,
+                        program_name, rest_of_args, span_name, start_us) {
+    pid = f[1]
+    timestamp = f[3]
+    args_string = f[4]
+    strace_log = original_line
 
-            # 2. Isolate and parse the argument array.
-            # This function call populates _parsed_args_global as a side-effect.
-            parse_args(rest_of_args)
+    if (match(args_string, /^"[^"]*\/([^\/"]+)", (.*)/, path_match)) {
+        program_name = path_match[1]
+        rest_of_args = path_match[2]
+        parse_args(rest_of_args)
+        span_name = name_span(program_name)
+        start_us = sprintf("%.0f", timestamp * 1000000)
 
-            # 3. Construct the span name from the parsed args.
-            span_name = name_span(program_name)
-
-            start_us = sprintf("%.0f", timestamp * 1000000)
-            print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", pid, "strace", strace_log, "debug_text", debug_text
-
-        } else {
-            print "unmatched", $0
-        }
-
-    } else {
-        # Pass through any other lines (like "clone", "exit_group", etc.) unmodified.
-        print $0
+        data[1] = "type";       data[2] = "execve"
+        data[3] = "name";       data[4] = span_name
+        data[5] = "start_us";   data[6] = start_us
+        data[7] = "pid";        data[8] = pid
+        data[9] = "strace";     data[10] = strace_log
     }
 }

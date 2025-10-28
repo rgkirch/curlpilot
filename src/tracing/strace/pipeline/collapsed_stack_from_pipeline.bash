@@ -4,6 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
+export AWKPATH="$SCRIPT_DIR/lib"
+
 bash "$SCRIPT_DIR/000_run_pipeline.bash" "$@" |
   jq -s -f "$SCRIPT_DIR/200_hierarchy.jq" |
   jq -f "$SCRIPT_DIR/201_link_spans.jq" |

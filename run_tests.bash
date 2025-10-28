@@ -126,7 +126,7 @@ echo "Applying memory limit (virtual memory): ${MEMORY_LIMIT_KB} KiB" >&2
   # Set the hard limit for virtual memory (-v) in KiB.
   # If the process exceeds this, it will be killed.
   ulimit -v "$MEMORY_LIMIT_KB"
-  ulimit -u 1024
+  #ulimit -u 1024
   "${FINAL_CMD[@]}"
 )
 
