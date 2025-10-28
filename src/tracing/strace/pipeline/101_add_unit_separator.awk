@@ -1,6 +1,7 @@
 #!/usr/bin/gawk -f
 
 @include "clone.awk"
+@include "esrch_error.awk"
 @include "execve.awk"
 @include "exit.awk"
 @include "json.awk"
@@ -18,9 +19,6 @@ BEGIN {
     args_re      = "(.*)"
 
     # --- Composed Regex Patterns ---
-
-    # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
-    esrch_error_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
 
     # Matches syscalls like open(...) = -1 ENOENT (No such file or directory)
     no_such_file_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
