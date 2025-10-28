@@ -4,6 +4,7 @@
 @include "execve.awk"
 @include "exit.awk"
 @include "json.awk"
+@include "wait.awk"
 @include "kill.awk"
 
 BEGIN {
@@ -28,11 +29,6 @@ BEGIN {
     # Matches signal notifications like --- SIGCHLD { ... } ---
     signal_re = "^" pid_re comm_re " +" timestamp_re " --- ([A-Z]+) (\\{.*\\}) ---$"
 
-    # Matches wait4(...) = 2732203
-    wait4_re = "^" pid_re comm_re " +" timestamp_re " wait4\\(" args_re "\\) = " pid_re "$"
-
-    # Matches wait4(...) = -1 ECHILD (No child processes)
-    wait4_error_re = "^" pid_re comm_re " +" timestamp_re " wait4\\(" args_re "\\) = (-1 ECHILD \\(No child processes\\))$"
 }
 
 {
@@ -88,10 +84,18 @@ BEGIN {
         if (length(json_data) > 0) {
             #print_json(json_data)
         }
-    } else if (match($0, wait4_re, fields)) {
-        #print "wait4", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
-    } else if (match($0, wait4_error_re, fields)) {
-        #print "wait4_error", fields[1], fields[2], fields[3], fields[4], fields[5], $0
+    } else if (match_wait4_re($0, fields)) {
+        delete json_data
+        process_wait4(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            #print_json(json_data)
+        }
+    } else if (match_wait4_error_re($0, fields)) {
+        delete json_data
+        process_wait4_error(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            #print_json(json_data)
+        }
     } else if (match($0, /[ \t]*/)) {
     } else {
         # Keep this to see any other lines that are not matched
