@@ -5,6 +5,7 @@
 @include "exit.awk"
 @include "json.awk"
 @include "wait.awk"
+@include "interrupted_call.awk"
 @include "kill.awk"
 @include "signal.awk"
 
@@ -20,9 +21,6 @@ BEGIN {
 
     # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
     esrch_error_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
-
-    # New regex for interrupted system calls like wait4(...) = ? ERESTARTSYS ...
-    interrupted_call_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = \\? (ERESTARTSYS.*)$"
 
     # Matches syscalls like open(...) = -1 ENOENT (No such file or directory)
     no_such_file_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
