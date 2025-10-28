@@ -3,3 +3,14 @@
 | real | 0m17.460s |
 | user | 0m22.067s |
 | sys  | 0m1.212s  |
+
+2025-10-28 after refactor awk script
+
+| real | 0m20.456s |
+| user | 0m22.855s |
+| sys  | 0m0.944s  |
+
+after refactor jq
+| real | 0m17.890s |
+| user | 0m18.144s |
+| sys  | 0m0.692s  |
