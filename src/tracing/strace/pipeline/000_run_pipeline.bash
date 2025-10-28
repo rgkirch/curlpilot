@@ -38,7 +38,6 @@ export AWKPATH="$SCRIPT_DIR/lib"
 # Execute the hard-coded pipeline
 cat $LOG_FILES_PATTERN |
     "$SCRIPT_DIR/101_add_unit_separator.awk" |
-    "$SCRIPT_DIR/130_signal.awk" |
     "$SCRIPT_DIR/135_interrupted_call.awk" |
     "$SCRIPT_DIR/145_esrch_error.awk" |
     "$SCRIPT_DIR/190_json.awk"

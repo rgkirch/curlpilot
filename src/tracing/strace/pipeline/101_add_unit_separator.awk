@@ -6,6 +6,7 @@
 @include "json.awk"
 @include "wait.awk"
 @include "kill.awk"
+@include "signal.awk"
 
 BEGIN {
     OFS="\037"
@@ -25,9 +26,6 @@ BEGIN {
 
     # Matches syscalls like open(...) = -1 ENOENT (No such file or directory)
     no_such_file_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ENOENT \\(No such file or directory\\))$"
-
-    # Matches signal notifications like --- SIGCHLD { ... } ---
-    signal_re = "^" pid_re comm_re " +" timestamp_re " --- ([A-Z]+) (\\{.*\\}) ---$"
 
 }
 
@@ -49,8 +47,12 @@ BEGIN {
     } else if (match($0, esrch_error_re, fields)) {
         # This will now catch ESRCH from kill, etc.
         #print "esrch_error", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
-    } else if (match($0, signal_re, fields)) {
-        #print "signal", fields[1], fields[2], fields[3], fields[4], fields[5], $0
+    } else if (match_signal_re($0, fields)) {
+        delete json_data
+        process_signal(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            #print_json(json_data)
+        }
     } else if (match($0, interrupted_call_re, fields)) {
         # This new block handles the interrupted call line
         #print "interrupted_call", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
