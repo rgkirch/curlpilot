@@ -1,56 +1,82 @@
 #!/usr/bin/gawk -f
 
 BEGIN {
-    # Set the Input Field Separator to match the previous script's OFS.
-    OFS = FS = "\037"
+    pid_re       = "([0-9]+)"
+    comm_re      = "<([^>]+)>"
+    timestamp_re = "([0-9]+\\.[0-9]+)"
+    args_re      = "(.*)"
+
+    # Matches clone(...) = 2732203<bash>
+    clone_re = "^" pid_re comm_re " +" timestamp_re " clone\\(" args_re "\\) = " pid_re comm_re "$"
+
+    # Matches clone3(...) = 2744395<sh>
+    clone3_re = "^" pid_re comm_re " +" timestamp_re " clone3\\(" args_re "\\) = " pid_re comm_re "$"
 }
 
-{
-    # We only want to process lines that the first script tagged as "clone".
-    if ($1 == "clone") {
-        # --- This is the logic for processing clone lines ---
+# --- Matcher Functions ---
 
-        # Assign the raw fields to named variables for clarity.
-        parent_pid  = $2
-        parent_comm = $3
-        timestamp   = $4
-        clone_args  = $5  # <-- Capture the clone() arguments
-        child_pid   = $6
-        child_comm  = $7
-        strace_log  = $9
+function match_clone_re(line, fields) {
+    return match(line, clone_re, fields)
+}
 
-        # 1. Convert timestamp to microseconds. This is the "start time" for the new child process.
-        start_us = sprintf("%.0f", timestamp * 1000000)
+function match_clone3_re(line, fields) {
+    return match(line, clone3_re, fields)
+}
 
-        # 2. Create a temporary span name for the new child. This name can be
-        #    updated later when this child process calls execve.
-        #    This is the new, more descriptive name:
-        span_name = child_comm " <" child_pid "> clone(" clone_args ") from " parent_comm " <" parent_pid ">"
+# --- Processor Functions ---
 
-        print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
+function process_clone(f, data, original_line,     # Local vars
+                       parent_pid, parent_comm, timestamp, clone_args,
+                       child_pid, child_comm, strace_log, start_us, span_name) {
 
-    } else if ($1 == "clone3") {
+    # Assign fields from the match array
+    parent_pid  = f[1]
+    parent_comm = f[2]
+    timestamp   = f[3]
+    clone_args  = f[4]
+    child_pid   = f[5]
+    child_comm  = f[6]
+    strace_log  = original_line
 
-        parent_pid  = $2
-        parent_comm = $3
-        timestamp   = $4
-        clone_args  = $5  # <-- Capture the clone3() arguments
-        child_pid   = $6
-        child_comm  = $7
-        strace_log  = $9
+    # 1. Convert timestamp to microseconds
+    start_us = sprintf("%.0f", timestamp * 1000000)
 
-        # 1. Convert timestamp to microseconds. This is the "start time" for the new child process.
-        start_us = sprintf("%.0f", timestamp * 1000000)
+    # 2. Create the span name
+    span_name = child_comm " <" child_pid "> clone(" clone_args ") from " parent_comm " <" parent_pid ">"
+    
+    # 3. Populate the data array
+    data[1] = "type";       data[2] = "clone"
+    data[3] = "name";       data[4] = span_name
+    data[5] = "start_us";   data[6] = start_us
+    data[7] = "pid";        data[8] = child_pid
+    data[9] = "parent_pid"; data[10] = parent_pid
+    data[11] = "strace";    data[12] = strace_log
+}
 
-        # 2. Create a temporary span name for the new child.
-        #    This is the new, more descriptive name:
-        span_name = child_comm " <" child_pid "> clone3(" clone_args ") from " parent_comm " <" parent_pid ">"
+function process_clone3(f, data, original_line,     # Local vars
+                        parent_pid, parent_comm, timestamp, clone_args,
+                        child_pid, child_comm, strace_log, start_us, span_name) {
 
-        # 3. Escape any quotes in the span name to ensure valid JSON.
-        print "json", "type", $1, "name", span_name, "start_us", start_us, "pid", child_pid, "parent_pid", parent_pid, "strace", strace_log
+    # Assign fields from the match array
+    parent_pid  = f[1]
+    parent_comm = f[2]
+    timestamp   = f[3]
+    clone_args  = f[4]
+    child_pid   = f[5]
+    child_comm  = f[6]
+    strace_log  = original_line
 
-    } else {
-        # Pass through any other lines (like the JSON from the execve script) unmodified.
-        print $0
-    }
+    # 1. Convert timestamp to microseconds
+    start_us = sprintf("%.0f", timestamp * 1000000)
+
+    # 2. Create the span name
+    span_name = child_comm " <" child_pid "> clone3(" clone_args ") from " parent_comm " <" parent_pid ">"
+
+    # 3. Populate the data array
+    data[1] = "type";       data[2] = "clone3"
+    data[3] = "name";       data[4] = span_name
+    data[5] = "start_us";   data[6] = start_us
+    data[7] = "pid";        data[8] = child_pid
+    data[9] = "parent_pid"; data[10] = parent_pid
+    data[11] = "strace";    data[12] = strace_log
 }

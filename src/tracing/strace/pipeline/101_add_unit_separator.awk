@@ -1,6 +1,7 @@
 #!/usr/bin/gawk -f
 
 @include "execve.awk"
+@include "clone.awk"
 @include "json.awk"
 
 BEGIN {
@@ -12,11 +13,6 @@ BEGIN {
     args_re      = "(.*)"
 
     # --- Composed Regex Patterns ---
-    # Matches clone(...) = 2732203<bash>
-    clone_re = "^" pid_re comm_re " +" timestamp_re " clone\\(" args_re "\\) = " pid_re comm_re "$"
-
-    # Matches clone3(...) = 2744395<sh>
-    clone3_re = "^" pid_re comm_re " +" timestamp_re " clone3\\(" args_re "\\) = " pid_re comm_re "$"
 
     # Matches ANY syscall that returns ESRCH (e.g., kill(PID, 0))
     esrch_error_re = "^" pid_re comm_re " +" timestamp_re " " syscall_re "\\(" args_re "\\) = (-1 ESRCH \\(No such process\\))$"
@@ -61,11 +57,12 @@ BEGIN {
         }
     } else if (match($0, no_such_file_re, fields)) {
         #print "no_such_file", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
-    } else if (match($0, clone_re, fields)) {
-        print "clone", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], $0
-    } else if (match($0, clone3_re, fields)) {
-        # This will now catch clone3(...) lines
-        print "clone3", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], $0
+    } else if (match_clone_re($0, fields)) {
+        delete json_data
+        process_clone(fields, json_data, $0)
+        if (length(json_data) > 0) {
+            print_json(json_data)
+        }
     } else if (match($0, esrch_error_re, fields)) {
         # This will now catch ESRCH from kill, etc.
         #print "esrch_error", fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], $0
