@@ -36,7 +36,9 @@ echo "---" >&2
 export AWKPATH="$SCRIPT_DIR/lib"
 
 # Execute the hard-coded pipeline
-cat $LOG_FILES_PATTERN |
+
+ls -v $LOG_FILES_PATTERN |
+    xargs cat |
     "$SCRIPT_DIR/101_add_unit_separator.awk"
 
 echo "---" >&2
