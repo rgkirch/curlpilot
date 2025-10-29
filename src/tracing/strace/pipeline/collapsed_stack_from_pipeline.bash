@@ -6,4 +6,4 @@ export AWKPATH="$SCRIPT_DIR/lib"
 
 bash "$SCRIPT_DIR/000_run_pipeline.bash" "$@" |
   jq -s -f "$SCRIPT_DIR/200_hierarchy.jq" |
-  jq -r -f "$SCRIPT_DIR/process_all.jq"
+  jq -r -L "$SCRIPT_DIR" -f "$SCRIPT_DIR/process_all.jq"
