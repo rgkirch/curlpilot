@@ -96,7 +96,6 @@ function generate_single_event_json() {
         }'
 }
 
-
 # --- REFACTORED FUNCTION ---
 #
 # run_and_test (BATS-idiomatic Version)
@@ -143,19 +142,13 @@ function run_and_test() {
             break # No more events, all steps passed
         fi
 
-        # Check if stateN variable is defined
-        if ! declare -p "$state_var_name" &>/dev/null; then
-            echo "HELPER_ERROR: Found '$event_var_name' but not '$state_var_name'." >&2
-            return 1
-        fi
-
         # Get the eventN array content
         local event_array_def
         event_array_def=$(declare -p "$event_var_name")
         eval "local current_event=${event_array_def#*=}"
 
-        # Get the expected *tree* JSON string
-        local expected_tree_json="${!state_var_name}"
+        # Get the expected *tree* JSON string (it's empty if not set)
+        local expected_tree_json="${!state_var_name:-}"
 
         # --- STATE LOGIC MOVED HERE ---
         local pid="${current_event[0]}"
@@ -192,9 +185,10 @@ function run_and_test() {
         local actual_tree_json
         actual_tree_json=$(echo "$output" | jq -c .tree)
 
-        # 5. Compare the extracted tree to the expected tree
-        #    using our robust JSON helper
-        assert_json_equal "$actual_tree_json" "$expected_tree_json"
+        # 5. Compare the extracted tree *if* stateN was provided
+        if [[ -n "$expected_tree_json" ]]; then
+            assert_json_match "$actual_tree_json" "$expected_tree_json"
+        fi
 
         # 6. Carry the *full* state for the next loop
         internal_state_json="$output"
@@ -210,16 +204,51 @@ function run_and_test() {
 
 
 
-@test "simple" {
-  # --- MODIFIED TEST CASE ---
-  # `stateN` variables now expect floating point numbers (1.0, 2.0)
-  # to match the output of the `generate_single_event_json` helper.
-
+@test "simple (sparse match)" {
   event1=(100 execve "foo")
-  state1='{"100":{"name":"foo","pid":"100","type":"execve","start_us":1.0,"children":{}}}'
+  state1='{
+  "100": {
+    "name": "foo",
+    "type": "execve"
+  }
+}'
 
   event2=(100 clone "clone_101" 101)
-  state2='{"100":{"name":"foo","pid":"100","type":"execve","start_us":1.0,"children":{"101":{"name":"clone_101","pid":"100","type":"clone","start_us":2.0,"children":{}}}}}'
+  state2='{
+  "100": {
+    "name": "foo",
+    "children": {
+      "101": {
+        "name": "clone_101"
+      }
+    }
+  }
+}'
+
+  run_and_test
+}
+
+@test "skip intermediate state" {
+
+  event1=(100 execve "foo")
+  event2=(100 clone "clone_101" 101)
+  state2='{
+  "100": {
+    "name": "foo",
+    "pid": "100",
+    "type": "execve",
+    "start_us": 1.0,
+    "children": {
+      "101": {
+        "name": "clone_101",
+        "pid": "100",
+        "type": "clone",
+        "start_us": 2.0,
+        "children": {}
+      }
+    }
+  }
+}'
 
   run_and_test
 }

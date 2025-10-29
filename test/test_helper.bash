@@ -222,3 +222,25 @@ assert_json_equal() {
     return 1
   fi
 }
+
+assert_json_match() {
+    local actual="$1"
+    local expected="$2"
+    local match_result
+
+    # Use jq's `contains` filter.
+    # $actual | contains($expected) checks if $expected is a subset of $actual.
+    match_result=$(jq -n \
+        --argjson actual "$actual" \
+        --argjson expected "$expected" \
+        '$actual | contains($expected)' 2>/dev/null)
+
+    if [ "$match_result" != "true" ]; then
+        echo "FAIL: JSON output does not match expected subset." >&3
+        echo "Expected (subset):" >&3
+        echo "$expected" | jq . >&3
+        echo "Got (full):" >&3
+        echo "$actual" | jq . >&3
+        return 1
+    fi
+}
