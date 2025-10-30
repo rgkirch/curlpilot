@@ -5,11 +5,6 @@ source test/test_helper.bash
 pipeline_dir="src/tracing/strace/pipeline/"
 STREAMING_SCRIPT=$pipeline_dir/300_streaming_hierarchy.jq
 
-#
-# generate_json_stream
-#
-# ... (existing helper code, no changes) ...
-#
 function generate_json_stream() {
     local -a events=("$@")
 
@@ -64,13 +59,6 @@ function generate_json_stream() {
     done
 }
 
-# --- MODIFIED HELPER FOR run_and_test ---
-#
-# generate_single_event_json
-#
-# This is now a "pure" function. It just takes values
-# and returns a JSON string. It no longer manages state.
-#
 function generate_single_event_json() {
     local pid="$1"
     local type="$2"
@@ -96,13 +84,6 @@ function generate_single_event_json() {
         }'
 }
 
-# --- REFACTORED FUNCTION ---
-#
-# run_and_test (BATS-idiomatic Version)
-#
-# This function now properly manages the ppid_map and timestamp
-# state *inside the loop*, fixing the subshell bug.
-#
 function run_and_test() {
     # $pipeline_dir is set at the top of the bats file
     if [[ -z "$pipeline_dir" ]]; then
@@ -123,10 +104,7 @@ function run_and_test() {
     # The initial *internal state* for the reducer
     local internal_state_json='{"tree":{},"paths":{}}'
 
-    # --- STATE MOVED HERE ---
-    # The state for ppid mapping
     declare -A ppid_map
-    # The state for the timestamp
     local timestamp=1.0
 
     while true; do
@@ -150,7 +128,6 @@ function run_and_test() {
         # Get the expected *tree* JSON string (it's empty if not set)
         local expected_tree_json="${!state_var_name:-}"
 
-        # --- STATE LOGIC MOVED HERE ---
         local pid="${current_event[0]}"
         local type="${current_event[1]}"
         local name="${current_event[2]}"
@@ -160,7 +137,6 @@ function run_and_test() {
 
         if [ "$type" == "clone" ]; then
             child_pid="${current_event[3]}"
-            # CRITICAL: Set the parent_pid for the *child*
             ppid_map[$child_pid]="$pid"
         fi
 
@@ -180,18 +156,21 @@ function run_and_test() {
         # 3. Assert the `jq` call succeeded
         assert_success
 
+        # 6. Carry the *full* state for the next loop
+        internal_state_json="$output"
+
         # 4. Get the *tree* part of the new state
         # `$output` now contains the *full* internal state from the `run` command
         local actual_tree_json
         actual_tree_json=$(echo "$output" | jq -c .tree)
 
-        # 5. Compare the extracted tree *if* stateN was provided
-        if [[ -n "$expected_tree_json" ]]; then
+        # 5. Compare the extracted tree *if* stateN was defined
+        #    (even if it was defined as an empty string)
+        if declare -p "$state_var_name" &>/dev/null; then
+
+            # We trust assert_json_match to handle all errors.
             assert_json_match "$actual_tree_json" "$expected_tree_json"
         fi
-
-        # 6. Carry the *full* state for the next loop
-        internal_state_json="$output"
 
         # 7. Increment timestamp *in this scope*
         timestamp=$(echo "$timestamp + 1.0" | bc)
@@ -206,24 +185,38 @@ function run_and_test() {
 
 @test "simple (sparse match)" {
   event1=(100 execve "foo")
-  state1='{
-  "100": {
-    "name": "foo",
-    "type": "execve"
-  }
-}'
+  state1='{"100":{"name":"foo","type":"execve"}}'
 
   event2=(100 clone "clone_101" 101)
-  state2='{
-  "100": {
-    "name": "foo",
-    "children": {
-      "101": {
-        "name": "clone_101"
-      }
-    }
-  }
-}'
+  state2='{"100":{"name":"foo","children":{"101":{"name":"clone_101"}}}}'
+
+  event3=(101 clone "clone_102" 102)
+  state3='     {
+       "100": {
+         "name": "foo",
+         "pid": "100",
+         "type": "execve",
+         "start_us": 1.0,
+         "children": {
+           "101": {
+             "name": "clone_101",
+             "pid": "100",
+             "type": "clone",
+             "start_us": 2.0,
+             "children": {
+               "102": {
+                 "name": "clone_102",
+                 "pid": "101",
+                 "type": "clone",
+                 "start_us": 3.0,
+                 "children": {}
+               }
+             }
+           }
+         }
+       }
+     }
+'
 
   run_and_test
 }
@@ -232,23 +225,7 @@ function run_and_test() {
 
   event1=(100 execve "foo")
   event2=(100 clone "clone_101" 101)
-  state2='{
-  "100": {
-    "name": "foo",
-    "pid": "100",
-    "type": "execve",
-    "start_us": 1.0,
-    "children": {
-      "101": {
-        "name": "clone_101",
-        "pid": "100",
-        "type": "clone",
-        "start_us": 2.0,
-        "children": {}
-      }
-    }
-  }
-}'
+  state2='{"100":{"name":"foo","pid":"100","type":"execve","start_us":1.0,"children":{"101":{"name":"clone_101","pid":"100","type":"clone","start_us":2.0,"children":{}}}}}'
 
   run_and_test
 }

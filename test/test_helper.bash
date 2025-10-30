@@ -223,24 +223,52 @@ assert_json_equal() {
   fi
 }
 
-assert_json_match() {
+function assert_json_match() {
     local actual="$1"
     local expected="$2"
-    local match_result
 
-    # Use jq's `contains` filter.
-    # $actual | contains($expected) checks if $expected is a subset of $actual.
-    match_result=$(jq -n \
+    local match_result
+    local jq_exit_code
+    local jq_stderr
+
+    # Use 'run' to execute the command.
+    # 'run' captures stdout into $output, stderr into $lines[@],
+    # and the exit code into $status.
+    # It PREVENTS set -e from killing the test.
+    run jq -n \
         --argjson actual "$actual" \
         --argjson expected "$expected" \
-        '$actual | contains($expected)' 2>/dev/null)
+        'try ($actual | contains($expected)) catch false'
 
-    if [ "$match_result" != "true" ]; then
-        echo "FAIL: JSON output does not match expected subset." >&3
-        echo "Expected (subset):" >&3
-        echo "$expected" | jq . >&3
-        echo "Got (full):" >&3
-        echo "$actual" | jq . >&3
+    # Now, save the results from the BATS variables
+    match_result="$output"
+    jq_exit_code=$status
+    # Re-assemble stderr from the 'lines' array
+    jq_stderr=$(IFS=$'\n'; echo "${lines[*]}")
+
+    # Now your original logic will work perfectly
+    if [[ $jq_exit_code -ne 0 ]] || [[ "$match_result" != "true" ]]; then
+
+        local pretty_actual
+        pretty_actual=$(echo "$actual" | jq . 2>/dev/null || echo "--- (Invalid JSON or empty string) --- $actual ---")
+
+        local pretty_expected
+        pretty_expected=$(echo "$expected" | jq . 2>/dev/null || echo "--- (Invalid JSON or empty string) --- $expected ---")
+
+        (
+            batslib_print_kv_single_or_multi 18 \
+                "expected (subset)" "$pretty_expected" \
+                "actual (full)" "$pretty_actual"
+
+            # Now we can *also* report the real error!
+            if [[ $jq_exit_code -ne 0 && -n "$jq_stderr" ]]; then
+                echo # add a newline
+                echo "$jq_stderr" | batslib_decorate "Raw JQ Error"
+            fi
+        ) | batslib_decorate "JSON sparse match failed" | fail
+
         return 1
     fi
+
+    return 0 # Success
 }
