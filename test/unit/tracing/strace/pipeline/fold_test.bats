@@ -183,49 +183,52 @@ function run_and_test() {
 
 
 
-@test "simple (sparse match)" {
+@test "one" {
   event1=(100 execve "foo")
-  state1='{"100":{"name":"foo","type":"execve"}}'
-
-  event2=(100 clone "clone_101" 101)
-  state2='{"100":{"name":"foo","children":{"101":{"name":"clone_101"}}}}'
-
-  event3=(101 clone "clone_102" 102)
-  state3='     {
-       "100": {
-         "name": "foo",
-         "pid": "100",
-         "type": "execve",
-         "start_us": 1.0,
-         "children": {
-           "101": {
-             "name": "clone_101",
-             "pid": "100",
-             "type": "clone",
-             "start_us": 2.0,
-             "children": {
-               "102": {
-                 "name": "clone_102",
-                 "pid": "101",
-                 "type": "clone",
-                 "start_us": 3.0,
-                 "children": {}
-               }
-             }
-           }
-         }
-       }
-     }
-'
-
-  run_and_test
+  event2=(100 clone "clone_200" 200)
+  event3=(100 clone "clone_300" 300)
+  event4=(200 clone "clone_201" 201)
+  event5=(200 clone "clone_202" 202)
+  state5='{
+  "100": {
+    "name": "foo",
+    "pid": "100",
+    "type": "execve",
+    "start_us": 1.0,
+    "children": {
+      "200": {
+        "name": "clone_200",
+        "pid": "100",
+        "type": "clone",
+        "start_us": 2.0,
+        "children": {
+          "201": {
+            "name": "clone_201",
+            "pid": "200",
+            "type": "clone",
+            "start_us": 4.0,
+            "children": {}
+          },
+          "202": {
+            "name": "clone_202",
+            "pid": "200",
+            "type": "clone",
+            "start_us": 5.0,
+            "children": {}
+          }
+        }
+      },
+      "300": {
+        "name": "clone_300",
+        "pid": "100",
+        "type": "clone",
+        "start_us": 3.0,
+        "children": {}
+      }
+    }
+  }
 }
-
-@test "skip intermediate state" {
-
-  event1=(100 execve "foo")
-  event2=(100 clone "clone_101" 101)
-  state2='{"100":{"name":"foo","pid":"100","type":"execve","start_us":1.0,"children":{"101":{"name":"clone_101","pid":"100","type":"clone","start_us":2.0,"children":{}}}}}'
+'
 
   run_and_test
 }
