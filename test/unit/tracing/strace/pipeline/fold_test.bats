@@ -140,12 +140,12 @@ function run_and_test() {
             ppid_map[$child_pid]="$pid"
         fi
 
-        # 1. Generate the single event JSON
+        # Generate the single event JSON
         local event_json
         event_json=$(generate_single_event_json \
             "$pid" "$type" "$name" "$child_pid" "$parent_pid" "$timestamp")
 
-        # 2. Run the `fold_event` function using the BATS `run` helper
+        # Run the `fold_event` function using the BATS `run` helper
         # We pass the full command string to `run`
         run jq -n \
             --argjson state "$internal_state_json" \
@@ -153,18 +153,18 @@ function run_and_test() {
             -L "$pipeline_dir" \
             "include \"$script_name\"; fold_event(\$state; \$event)"
 
-        # 3. Assert the `jq` call succeeded
+        # Assert the `jq` call succeeded
         assert_success
 
-        # 6. Carry the *full* state for the next loop
+        # Carry the *full* state for the next loop
         internal_state_json="$output"
 
-        # 4. Get the *tree* part of the new state
+        # Get the *tree* part of the new state
         # `$output` now contains the *full* internal state from the `run` command
         local actual_tree_json
         actual_tree_json=$(echo "$output" | jq -c .tree)
 
-        # 5. Compare the extracted tree *if* stateN was defined
+        # Compare the extracted tree *if* stateN was defined
         #    (even if it was defined as an empty string)
         if declare -p "$state_var_name" &>/dev/null; then
 
@@ -172,7 +172,7 @@ function run_and_test() {
             assert_json_match "$actual_tree_json" "$expected_tree_json"
         fi
 
-        # 7. Increment timestamp *in this scope*
+        # Increment timestamp *in this scope*
         timestamp=$(echo "$timestamp + 1.0" | bc)
 
         i=$((i + 1))
@@ -229,6 +229,41 @@ function run_and_test() {
   }
 }
 '
+
+  run_and_test
+}
+
+
+@test "two" {
+  event1=(100 execve "root")
+  event2=(100 clone "clone" 200)
+  event3=(200 execve "first")
+  event4=(200 execve "second")
+  state4='{
+  "100": {
+    "name": "root",
+    "pid": "100",
+    "type": "execve",
+    "start_us": 1.0,
+    "children": {
+      "200": {
+        "name": "clone",
+        "pid": "100",
+        "type": "clone",
+        "start_us": 2.0,
+        "children": {
+          "execve": {
+            "name": "first",
+            "pid": "200",
+            "type": "execve",
+            "start_us": 3.0,
+            "children": {
+              "execve": {
+                "name": "second",
+                "pid": "200",
+                "type": "execve",
+                "start_us": 4.0,
+                "children": {}}}}}}}}}'
 
   run_and_test
 }
