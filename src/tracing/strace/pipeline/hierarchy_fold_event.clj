@@ -47,7 +47,7 @@
     (->
       (z/insert-child event)
       (z/down)
-      #_(z/edit assoc :path (z/path loc)))
+      (z/edit assoc :path (z/path loc)))
 
     (#{:clone} (:type event))
     (z/insert-child (set/rename-keys
@@ -66,59 +66,44 @@
     #_true
     #_ (doto (as-> state (assert (= (:pid (z/node state)) (:pid event)))))))
 
-(defn run-fold
-  [root-pid]
-  ())
-
-#_(map z/root
-    (reductions
-      fold-event (zip {})
-      [{:type :clone :pid 100 :child-pid 101 :ts 0}
-       {:type :clone :pid 101 :child-pid 102 :ts 0}
-       {:type :exited :pid 102 :ts 0}
-       {:type :exited :pid 101 :ts 0}]))
-
 (defn fold-events
   ([events]
-   (fold-events (zip {}) events))
-  ([loc events]
-   (reduce fold-event loc events)))
-
-(defn reduce-events
-  [events]
-  (update (z/root (fold-events events))
-    :children (comp vec reverse)))
+   (last
+     (:children
+      (z/node
+        (reduce
+          fold-event
+          (z/down (z/insert-child (zip {}) {}))
+          events))))))
 
 (deftest fold-event-clone-execve-test
-  (is (match? {:children
-               [{:child-pid 101
-                 :pid       100
-                 :type      :clone
-                 :children [{:parent-pid 100
-                              :pid        101
-                              :type       :clone}
-                             {:child-pid 102
-                              :children  [{:parent-pid 101
-                                           :pid        102
-                                           :type       :clone}]
-                              :pid       101
-                              :type      :clone}]}]}
-        (reduce-events
+  (is (match? {:child-pid 101
+               :pid       100
+               :type      :clone
+               :children [{:parent-pid 100
+                           :pid        101
+                           :type       :clone}
+                          {:child-pid 102
+                           :children  [{:parent-pid 101
+                                        :pid        102
+                                        :type       :clone}]
+                           :pid       101
+                           :type      :clone}]}
+        (fold-events
           [{:type :clone :pid 100 :child-pid 101 :ts 0}
            {:type :clone :pid 101 :child-pid 102 :ts 0}
            {:type :exited :pid 102 :ts 0}
            {:type :exited :pid 101 :ts 0}])))
 
-  (is (match? {:children
-               [{:pid       100
-                 :child-pid 101
-                 :type      :clone
-                 :children [{:parent-pid 100
-                              :pid        101
-                              :type       :clone}
-                             {:pid  101
-                              :type :execve}]}]}
-        (reduce-events
+  (is (match? {:pid       100
+               :child-pid 101
+               :type      :clone
+               :children [{:parent-pid 100
+                           :pid        101
+                           :type       :clone}
+                          {:pid  101
+                           :type :execve}]}
+        (fold-events
           [{:type :clone :pid 100 :child-pid 101 :ts 0}
            {:type :execve :pid 101 :ts 0}
            {:type :exited :pid 101 :ts 0}])))
@@ -128,9 +113,9 @@
                            :pid       100
                            :type      :clone
                            :children [{:parent-pid 100
-                                        :pid        101
-                                        :type       :clone}]}]}
-        (reduce-events
+                                       :pid        101
+                                       :type       :clone}]}]}
+        (fold-events
           [{:type :execve :pid 100 :ts 0}
            {:type :clone :pid 100 :child-pid 101 :ts 0}
            {:type :exited :pid 101 :ts 0}])))
@@ -140,57 +125,53 @@
                           {:name "second"
                            :pid  100
                            :type :execve}]}
-        (reduce-events
+        (fold-events
           [{:name "first" :type :execve :pid 100 :ts 0}
            {:name "second" :type :execve :pid 100 :ts 0}]))))
 
-(z/up
-  (reduce
-    fold-event
-    (zip {})
-    [{:ts 1 :type :clone :name :clone :pid 100 :child-pid 101}
-     {:ts 2 :type :exited :name "exit clone" :pid 101}
-     #_{:ts 3 :type :exited :name "exit root" :pid 100}]))
-
 (deftest fold-event-duration-test
   (is (match? {:children
-               [{:child-pid 101
-                 :name      "root"
-                 :pid       100
+               [{:pid       100
                  :ts  1
+                 :child-pid 101
+                 :name      "root"
                  :type      :clone
-                 :children [{:duration-us 1
-                             :end-ts      2
-                             :name        "root"
+                 :duration-us 2
+                 :start-ts 1
+                 :end-ts 3
+                 :children [{:pid         101
                              :parent-pid  100
-                             :pid         101
+                             :ts 1
                              :start-ts    1
+                             :end-ts      2
+                             :duration-us 1
+                             :name        "root"
                              :type        :clone}]}]}
-        (reduce-events
-          [{:ts 1 :type :clone  :name :clone      :pid 100 :child-pid 101}
-           {:ts 2   :type :exited :name "exit clone" :pid 101}
-           {:ts 3   :type :exited :name "exit root" :pid 100}])))
+        (fold-events
+          [{:ts 1 :type :clone :name "root" :pid 100 :child-pid 101}
+           {:ts 2 :type :exited :name "exit child" :pid 101}
+           {:ts 3 :type :exited :name "exit root" :pid 100}])))
   (is (match? {:children
-               [{:name        "root"
-                 :type        :clone
-                 :start-us    1
-                 :end-us      2
-                 :duration-us 1}]}
-        (reduce-events
+               [{:name        "first exec"
+                 :type        :execve
+                 :start-ts    1
+                 :end-ts      2
+                 :ts 1
+                 :duration-us 1}
+                {:name        "second exec"
+                 :type        :execve
+                 :start-ts    2
+                 :end-ts      5
+                 :ts 2
+                 :duration-us 3}]}
+        (fold-events
           [{:ts 1 :type :execve :name "first exec"}
            {:ts 2 :type :execve :name "second exec"}
            {:ts 5 :type :exited :name "child exited"}]))))
 
-(reduce-events
-  [{:ts 1 :type :execve :name "root" :pid 100}])
-
-(reduce-events
-  [{:ts 1 :type :clone :name "root" :pid 100 :child-pid 101}
-   {:ts 2 :type :exited :name "exit root" :pid 100}])
-
 (run-tests)
 
-(reduce-events
+(fold-events
   (butlast
     (get-process-tree-events
       {:pid                "3012087"
