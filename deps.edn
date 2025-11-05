@@ -1,0 +1,2 @@
+{:deps {nubank/matcher-combinators {:mvn/version "3.9.2"}
+        philoskim/debux {:mvn/version "0.9.1"}}}
