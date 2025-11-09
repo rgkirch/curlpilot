@@ -47,132 +47,150 @@
     (->
       (z/insert-child event)
       (z/down)
-      (z/edit assoc :path (z/path loc)))
-
-    (#{:clone} (:type event))
-    (z/insert-child (set/rename-keys
-                      event
-                      {:pid       :parent-pid
-                       :child-pid :pid}))
+      #_(z/edit assoc :path (z/path loc))
+      (z/insert-child (set/rename-keys
+                        event
+                        {:pid       :parent-pid
+                         :child-pid :pid})))
 
     (#{:execve} (:type event))
     (z/insert-child event)
 
     (#{:exited} (:type event))
     (->
-      (z/edit update :children (comp vec reverse))
-      (z/up))
+      (z/edit update :children (comp vec reverse)))
+
+    (and
+      (#{:exited} (:type event))
+      (seq (z/path loc)))
+    (z/up)
 
     #_true
     #_ (doto (as-> state (assert (= (:pid (z/node state)) (:pid event)))))))
 
-(defn fold-events
-  ([events]
-   (last
-     (:children
-      (z/node
-        (reduce
-          fold-event
-          (z/down (z/insert-child (zip {}) {}))
-          events))))))
+(defn build-hierarchy
+  [events]
+  (loop [loc    (zip {})
+         events events
+         state  {:depth 1}]
+    (let [[head & tail] events]
+      (if head
+        (recur
+          (fold-event loc head)
+          tail
+          (cond-> state
+            (#{:clone} (:type (first events)))
+            (update :depth (fnil inc 0))
+
+            (#{:exited} (:type (first events)))
+            (update :depth (fnil dec 0))))
+        (do
+          (when-not (= 0 (:depth state))
+            (throw (ex-info "bad input" {:node (z/node loc)
+                                         :root (z/root loc)
+                                         :events events
+                                         :state state})))
+          (:children (z/node loc)))))))
 
 (deftest fold-event-clone-execve-test
-  (is (match? {:child-pid 101
-               :pid       100
-               :type      :clone
-               :children [{:parent-pid 100
-                           :pid        101
-                           :type       :clone}
-                          {:child-pid 102
-                           :children  [{:parent-pid 101
-                                        :pid        102
-                                        :type       :clone}]
-                           :pid       101
-                           :type      :clone}]}
-        (fold-events
+  (is (match? [{:pid       100
+                :child-pid 101
+                :type      :clone
+                :children  [{:pid        101
+                             :parent-pid 100
+                             :type       :clone}
+                            {:pid       101
+                             :child-pid 102
+                             :type      :clone
+                             :children  [{:parent-pid 101
+                                          :pid        102
+                                          :type       :clone}]
+                             }]}]
+        (build-hierarchy
           [{:type :clone :pid 100 :child-pid 101 :ts 0}
            {:type :clone :pid 101 :child-pid 102 :ts 0}
            {:type :exited :pid 102 :ts 0}
-           {:type :exited :pid 101 :ts 0}])))
+           {:type :exited :pid 101 :ts 0}
+           {:type :exited :pid 100 :ts 0}])))
 
-  (is (match? {:pid       100
-               :child-pid 101
-               :type      :clone
-               :children [{:parent-pid 100
-                           :pid        101
-                           :type       :clone}
-                          {:pid  101
-                           :type :execve}]}
-        (fold-events
+  (is (match? [{:pid       100
+                :child-pid 101
+                :type      :clone
+                :children  [{:parent-pid 100
+                             :pid        101
+                             :type       :clone}
+                            {:pid  101
+                             :type :execve}]}]
+        (build-hierarchy
           [{:type :clone :pid 100 :child-pid 101 :ts 0}
            {:type :execve :pid 101 :ts 0}
-           {:type :exited :pid 101 :ts 0}])))
-  (is (match? {:children [{:pid  100
-                           :type :execve}
-                          {:child-pid 101
-                           :pid       100
-                           :type      :clone
-                           :children [{:parent-pid 100
-                                       :pid        101
-                                       :type       :clone}]}]}
-        (fold-events
+           {:type :exited :pid 101 :ts 0}
+           {:type :exited :pid 100 :ts 0}])))
+  (is (match? [{:pid  100
+                :type :execve}
+               {:child-pid 101
+                :pid       100
+                :type      :clone
+                :children  [{:parent-pid 100
+                             :pid        101
+                             :type       :clone}]}]
+        (build-hierarchy
           [{:type :execve :pid 100 :ts 0}
            {:type :clone :pid 100 :child-pid 101 :ts 0}
-           {:type :exited :pid 101 :ts 0}])))
-  (is (match? {:children [{:name "first"
-                           :pid  100
-                           :type :execve}
-                          {:name "second"
-                           :pid  100
-                           :type :execve}]}
-        (fold-events
+           {:type :exited :pid 101 :ts 0}
+           {:type :exited :pid 100 :ts 0}])))
+  (is (match? [{:name "first"
+                :pid  100
+                :type :execve}
+               {:name "second"
+                :pid  100
+                :type :execve}]
+        (build-hierarchy
           [{:name "first" :type :execve :pid 100 :ts 0}
-           {:name "second" :type :execve :pid 100 :ts 0}]))))
+           {:name "second" :type :execve :pid 100 :ts 0}
+           {:name "exited" :type :exited :pid 100 :ts 0}]))))
 
 (deftest fold-event-duration-test
-  (is (match? {:children
-               [{:pid       100
-                 :ts  1
-                 :child-pid 101
-                 :name      "root"
-                 :type      :clone
-                 :duration-us 2
-                 :start-ts 1
-                 :end-ts 3
-                 :children [{:pid         101
-                             :parent-pid  100
-                             :ts 1
-                             :start-ts    1
-                             :end-ts      2
-                             :duration-us 1
-                             :name        "root"
-                             :type        :clone}]}]}
-        (fold-events
+  (is (match? [{:pid       100
+                :ts  1
+                :child-pid 101
+                :name      "root"
+                :type      :clone
+                :duration-us 2
+                :start-ts 1
+                :end-ts 3
+                :children [{:pid         101
+                            :parent-pid  100
+                            :ts 1
+                            :start-ts    1
+                            :end-ts      2
+                            :duration-us 1
+                            :name        "root"
+                            :type        :clone}]}]
+        (build-hierarchy
           [{:ts 1 :type :clone :name "root" :pid 100 :child-pid 101}
            {:ts 2 :type :exited :name "exit child" :pid 101}
-           {:ts 3 :type :exited :name "exit root" :pid 100}])))
-  (is (match? {:children
-               [{:name        "first exec"
-                 :type        :execve
-                 :start-ts    1
-                 :end-ts      2
-                 :ts 1
-                 :duration-us 1}
-                {:name        "second exec"
-                 :type        :execve
-                 :start-ts    2
-                 :end-ts      5
-                 :ts 2
-                 :duration-us 3}]}
-        (fold-events
+           {:ts 3 :type :exited :name "exit root" :pid 100}]) ))
+  (is (match? [{:name        "first exec"
+                :type        :execve
+                :start-ts    1
+                :end-ts      2
+                :ts 1
+                :duration-us 1}
+               {:name        "second exec"
+                :type        :execve
+                :start-ts    2
+                :end-ts      5
+                :ts 2
+                :duration-us 3}]
+        (build-hierarchy
           [{:ts 1 :type :execve :name "first exec"}
            {:ts 2 :type :execve :name "second exec"}
            {:ts 5 :type :exited :name "child exited"}]))))
 
 (run-tests)
 
-(fold-events
-  (butlast
-    (get-process-tree-events
-      {:pid                "3012087"
-       :file-format-string "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/src/tracing/strace/pipeline/trace-output/trace-output.%s"})))
+(build-hierarchy
+  (get-process-tree-events
+    {:pid                "3012087"
+     :file-format-string "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/src/tracing/strace/pipeline/trace-output/trace-output.%s"}))
