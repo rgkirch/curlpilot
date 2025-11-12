@@ -2,8 +2,11 @@
 
 (ns tracing.strace.pipeline.hierarchy-fold-event
   (:require [clojure.set :as set]
+            [clojure.string :as string]
             [clojure.zip :as z]
-            [tracing.strace.pipeline.read-depth-first :refer [get-process-tree-events]]))
+            [tracing.strace.pipeline.read-depth-first
+             :refer
+             [get-process-tree-events]]))
 
 (require '[clojure.zip :as z])
 (require '[clojure.test :refer [run-tests deftest is]])
@@ -33,7 +36,8 @@
     state))
 
 (defn fold-event
-  [loc event]
+  [loc event & {:keys [cata-children]
+                :or   {cata-children (fn [children _loc] (vec (reverse children)))}}]
   (cond-> loc
     (and
       (#{:clone :execve :exited} (:type event))
@@ -47,7 +51,7 @@
     (->
       (z/insert-child event)
       (z/down)
-      #_(z/edit assoc :path (z/path loc))
+      #_ (z/edit assoc :path (z/path loc))
       (z/insert-child (set/rename-keys
                         event
                         {:pid       :parent-pid
@@ -58,7 +62,7 @@
 
     (#{:exited} (:type event))
     (->
-      (z/edit update :children (comp vec reverse)))
+      (z/edit update :children cata-children loc))
 
     (and
       (#{:exited} (:type event))
@@ -194,3 +198,65 @@
   (get-process-tree-events
     {:pid                "3012087"
      :file-format-string "/home/me/org/.attach/f6/67fc06-5c41-4525-ae0b-e24b1dd67503/scripts/curlpilot/src/tracing/strace/pipeline/trace-output/trace-output.%s"}))
+
+(into [] [["hi"]
+          ["hi"]])
+
+(do
+  (defn build-collapsed-stack
+    [events]
+    (loop [loc    (zip {})
+           events events
+           state  {:depth 1}]
+      (let [[head & tail] events
+            cata-children
+            (fn [children loc]
+              (reverse
+                (for [child children]
+                  (if (:children child)
+                    (assoc child
+                      :collapsed-stack
+                      (concat (map :collapsed-stack (:children child))))
+                    (assoc child
+                      :collapsed-stack
+                      [(str
+                         (string/join
+                           ";"
+                           (map :name
+                             (rest
+                               (concat (z/path loc) [(z/node loc) child]))))
+                         " "
+                         (:duration-us child))])))))]
+        (if head
+          (recur
+            (fold-event loc head :cata-children cata-children)
+            tail
+            (cond-> state
+              (#{:clone} (:type (first events)))
+              (update :depth (fnil inc 0))
+
+              (#{:exited} (:type (first events)))
+              (update :depth (fnil dec 0))))
+          (do
+            (when-not (= 0 (:depth state))
+              (throw (ex-info "bad input" {:node   (z/node loc)
+                                           :root   (z/root loc)
+                                           :events events
+                                           :state  state})))
+            (map :collapsed-stack (:children (z/node loc))))))))
+  (build-collapsed-stack
+    [{:ts 1 :type :execve :name "root first" :pid 100}
+     {:ts 2 :type :execve :name "root second" :pid 100}
+     {:ts 3 :type :exited :name "exit 100" :pid 100}])
+  (build-collapsed-stack
+    [{:ts 1 :type :clone :name "first" :pid 100 :child-pid 101}
+     {:ts 2 :type :clone :name "second" :pid 100 :child-pid 102}
+     {:ts 3 :type :exited :name "exit 102" :pid 102}
+     {:ts 3 :type :exited :name "exit 101" :pid 101}
+     {:ts 4 :type :exited :name "exit 100" :pid 100}])
+  (build-collapsed-stack
+    [{:ts 1 :type :clone :name "first" :pid 100 :child-pid 101}
+     {:ts 2 :type :clone :name "second" :pid 101 :child-pid 102}
+     {:ts 3 :type :exited :name "exit 102" :pid 102}
+     {:ts 3 :type :exited :name "exit 101" :pid 101}
+     {:ts 4 :type :exited :name "exit 100" :pid 100}]))
