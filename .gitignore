@@ -1,3 +1,4 @@
 .aider*
 /ajv/node_modules/
 /.vagrant/
+/.clj-kondo
