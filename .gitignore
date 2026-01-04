@@ -1,4 +1,10 @@
 .aider*
 /ajv/node_modules/
 /.vagrant/
-/.clj-kondo
+.clj-kondo
+.lsp
+.vscode
+.cpcache
+.nrepl-port
+/src/tracing/strace/pipeline/trace-output/
+/trace.txt

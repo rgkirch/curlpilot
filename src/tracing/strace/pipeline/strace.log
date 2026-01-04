@@ -1,0 +1,8 @@
+200<parent> 1000.0 execve("/usr/bin/parent", ["parent"]) = 0
+200<parent> 1001.0 clone() = 201<parent>
+200<parent> 1002.0 clone() = 202<parent>
+201<parent> 1001.5 execve("/bin/cat", ["cat"]) = 0
+201<cat> 1003.5 exit_group() = ?
+202<parent> 1002.5 execve("/bin/cat", ["cat"]) = 0
+202<cat> 1005.5 exit_group() = ?
+200<parent> 1006.0 exit_group() = ?
